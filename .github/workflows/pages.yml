@@ -1,0 +1,64 @@
+# Publishes the playable web build to GitHub Pages.
+#
+# Local play — pass & play and vs the computer — works entirely in the browser,
+# so the Pages build is a real way to try the game with nothing installed.
+# Online play needs the game server, which Pages cannot host; the app says so
+# plainly when it cannot reach one rather than looking broken.
+name: Pages
+
+on:
+  push:
+    branches: ['claude/ludo-board-game-design-qd5nm3']
+    paths:
+      - 'app/**'
+      - 'packages/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# One deploy at a time, and let a newer commit overtake an in-flight one.
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+
+      - name: Build the web app
+        working-directory: app
+        # The base href has to match the path Pages serves from, or every asset
+        # 404s. --no-web-resources-cdn keeps CanvasKit in the deployment
+        # instead of fetching it from gstatic, so the game still loads on a
+        # network that blocks Google's CDN.
+        run: |
+          flutter pub get
+          flutter build web --release \
+            --no-web-resources-cdn \
+            --base-href "/${GITHUB_REPOSITORY#*/}/"
+
+      - name: Serve the same page for deep links
+        run: cp app/build/web/index.html app/build/web/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: app/build/web
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
