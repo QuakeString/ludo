@@ -1,0 +1,195 @@
+import 'package:ludo_engine/ludo_engine.dart';
+import 'package:ludo_geometry/ludo_geometry.dart';
+import 'package:test/test.dart';
+
+/// Largest gap between the centres of consecutive track squares, in cell
+/// widths. Orthogonal neighbours are 1 apart; a diagonal corner turn is 1.42.
+double worstStep(BoardGeometry g) {
+  final n = g.spec.trackLength;
+  var worst = 0.0;
+  for (var i = 0; i < n; i++) {
+    final a = g.ringCell(i).centre;
+    final b = g.ringCell((i + 1) % n).centre;
+    final gap = (b - a).length / g.cellSize;
+    if (gap > worst) worst = gap;
+  }
+  return worst;
+}
+
+void main() {
+  group('cross board', () {
+    final g = CrossGeometry(BoardSpec.cross);
+
+    test('the track is a closed loop of touching squares', () {
+      expect(worstStep(g), lessThan(1.45),
+          reason: 'consecutive squares must touch, edge-on or corner-on');
+    });
+
+    test('every ring square is distinct', () {
+      final seen = <String>{};
+      for (var i = 0; i < BoardSpec.cross.trackLength; i++) {
+        final c = g.ringCell(i).centre;
+        expect(seen.add('${c.x},${c.y}'), isTrue, reason: 'square $i repeats');
+      }
+    });
+
+    test('each seat starts beside its own yard', () {
+      for (var arm = 0; arm < 4; arm++) {
+        final start = g.ringCell(BoardSpec.cross.startRing(arm)).centre;
+        final slots = g.yardSlots(arm);
+        final nearest = slots
+            .map((s) => (s - start).length / g.cellSize)
+            .reduce((a, b) => a < b ? a : b);
+        expect(nearest, lessThan(4.0),
+            reason: 'arm $arm starts far from its own yard');
+      }
+    });
+
+    test('a seat turns into its home column from the square before its start',
+        () {
+      const b = BoardSpec.cross;
+      for (var arm = 0; arm < 4; arm++) {
+        final turnIn = g.turnInCell(arm).centre;
+        final firstHome = g.homeCell(arm, 0).centre;
+        expect((firstHome - turnIn).length / g.cellSize, lessThan(1.45),
+            reason: 'arm $arm cannot reach its home column');
+        // And that turn-in square is where progress trackLength-2 lands.
+        final lastRing =
+            g.ringCell(b.ringIndex(arm, b.trackLength - 2)!).centre;
+        expect(lastRing, turnIn);
+      }
+    });
+
+    test('home columns are five squares marching inward to the centre', () {
+      for (var arm = 0; arm < 4; arm++) {
+        var previous = g.turnInCell(arm).centre;
+        for (var i = 0; i < BoardSpec.cross.homeColumn; i++) {
+          final cell = g.homeCell(arm, i).centre;
+          expect((cell - previous).length / g.cellSize, closeTo(1.0, 0.01),
+              reason: 'arm $arm home square $i is not adjacent to the last');
+          previous = cell;
+        }
+        // The last home square sits right against the centre triangle, which
+        // is three squares wide — so its centre is two squares out.
+        expect((previous - const Pt(0.5, 0.5)).length / g.cellSize,
+            closeTo(2.0, 0.05),
+            reason: 'arm $arm home column does not end at the centre');
+      }
+    });
+
+    test('home columns never touch the shared ring', () {
+      final ring = {
+        for (var i = 0; i < BoardSpec.cross.trackLength; i++)
+          '${g.ringCell(i).centre.x},${g.ringCell(i).centre.y}'
+      };
+      for (var arm = 0; arm < 4; arm++) {
+        for (var i = 0; i < BoardSpec.cross.homeColumn; i++) {
+          final c = g.homeCell(arm, i).centre;
+          expect(ring.contains('${c.x},${c.y}'), isFalse,
+              reason: 'arm $arm home square $i sits on the ring');
+        }
+      }
+    });
+
+    test('everything stays inside the board', () {
+      void inside(Pt p, String what) {
+        expect(p.x, inInclusiveRange(0, 1), reason: what);
+        expect(p.y, inInclusiveRange(0, 1), reason: what);
+      }
+
+      for (var i = 0; i < BoardSpec.cross.trackLength; i++) {
+        inside(g.ringCell(i).centre, 'ring $i');
+      }
+      for (var arm = 0; arm < 4; arm++) {
+        inside(g.dicePlace(arm), 'die $arm');
+        for (final s in g.yardSlots(arm)) {
+          inside(s, 'yard slot $arm');
+        }
+      }
+    });
+
+    test('a token in the yard, on the track and home all resolve', () {
+      const b = BoardSpec.cross;
+      expect(g.tokenAt(0, -1), g.yardSlots(0).first);
+      expect(g.tokenAt(0, 0), g.ringCell(b.startRing(0)).centre);
+      expect(g.tokenAt(0, b.finalProgress), const Pt(0.5, 0.5));
+    });
+
+    test('stars sit on the ring, one per arm', () {
+      final stars = g.starRingIndices();
+      expect(stars, hasLength(4));
+      expect(stars.toSet(), hasLength(4));
+    });
+  });
+
+  group('hexagon board', () {
+    final g = HexGeometry(BoardSpec.hexagon);
+
+    test('the track is a closed loop of touching squares', () {
+      expect(worstStep(g), lessThan(1.45),
+          reason: 'consecutive squares must touch, edge-on or corner-on');
+    });
+
+    test('every ring square is distinct', () {
+      final seen = <String>{};
+      for (var i = 0; i < BoardSpec.hexagon.trackLength; i++) {
+        final c = g.ringCell(i).centre;
+        final key = '${c.x.toStringAsFixed(4)},${c.y.toStringAsFixed(4)}';
+        expect(seen.add(key), isTrue, reason: 'square $i repeats');
+      }
+    });
+
+    test('each seat starts beside its own yard', () {
+      for (var arm = 0; arm < 6; arm++) {
+        final start = g.ringCell(BoardSpec.hexagon.startRing(arm)).centre;
+        final nearest = g
+            .yardSlots(arm)
+            .map((s) => (s - start).length / g.cellSize)
+            .reduce((a, b) => a < b ? a : b);
+        expect(nearest, lessThan(4.0),
+            reason: 'arm $arm starts far from its own yard');
+      }
+    });
+
+    test('home columns march inward and end at the centre', () {
+      for (var arm = 0; arm < 6; arm++) {
+        var previous = g.turnInCell(arm).centre;
+        for (var i = 0; i < BoardSpec.hexagon.homeColumn; i++) {
+          final cell = g.homeCell(arm, i).centre;
+          expect((cell - previous).length / g.cellSize, closeTo(1.0, 0.02),
+              reason: 'arm $arm home square $i is not adjacent to the last');
+          previous = cell;
+        }
+      }
+    });
+
+    test('each home base apex meets a corner of the centre', () {
+      final corners = g.centreOutline();
+      for (var arm = 0; arm < 6; arm++) {
+        final apex = g.yardShape(arm).a;
+        final nearest = corners
+            .map((c) => (c - apex).length / g.cellSize)
+            .reduce((a, b) => a < b ? a : b);
+        expect(nearest, lessThan(0.05),
+            reason: 'arm $arm apex does not land on a corner of the centre');
+      }
+    });
+
+    test('the plate has twelve sides', () {
+      expect(g.plateOutline(), hasLength(12));
+    });
+
+    test('everything stays inside the board', () {
+      for (var i = 0; i < BoardSpec.hexagon.trackLength; i++) {
+        final p = g.ringCell(i).centre;
+        expect(p.x, inInclusiveRange(0, 1));
+        expect(p.y, inInclusiveRange(0, 1));
+      }
+      for (var arm = 0; arm < 6; arm++) {
+        final d = g.dicePlace(arm);
+        expect(d.x, inInclusiveRange(0, 1));
+        expect(d.y, inInclusiveRange(0, 1));
+      }
+    });
+  });
+}

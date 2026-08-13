@@ -34,3 +34,39 @@ jobs:
         run: |
           dart run example/play_a_game.dart --rules=classic --seed=1
           dart run example/play_a_game.dart --rules=teams --seed=42
+
+  geometry:
+    name: Board geometry
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/ludo_geometry
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze --fatal-infos
+      - run: dart test
+
+  app:
+    name: Flutter app
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - run: flutter pub get
+      - run: flutter analyze
+      - run: flutter test
+      - name: Keep the rendered boards for review
+        uses: actions/upload-artifact@v4
+        with:
+          name: board-previews
+          path: app/build/board-previews/

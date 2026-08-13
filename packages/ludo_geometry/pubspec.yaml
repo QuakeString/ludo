@@ -1,0 +1,17 @@
+name: ludo_geometry
+description: >-
+  Maps engine positions onto a unit square, for both boards. Pure Dart, so the
+  layout can be tested without a rendering framework.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  ludo_engine:
+    path: ../ludo_engine
+
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^4.0.0
