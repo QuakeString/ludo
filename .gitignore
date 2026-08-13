@@ -1,0 +1,19 @@
+# Dart / Flutter
+.dart_tool/
+.packages
+build/
+pubspec.lock
+*.iml
+
+# Flutter app artifacts (added in the app phase)
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+app/ios/Pods/
+app/android/.gradle/
+app/android/local.properties
+
+# Editors
+.idea/
+.vscode/
+*.swp
+.DS_Store

@@ -1,0 +1,13 @@
+name: ludo_engine
+description: >-
+  Deterministic, UI-free rules engine for Ludo. Runs unchanged on the client for
+  offline play and on the server as the authority for online play.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^4.0.0
