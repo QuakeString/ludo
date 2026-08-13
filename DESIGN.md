@@ -208,8 +208,8 @@ Two tokens sharing a square may be **linked into a pair**:
   capture it.
 - Linking is manual (tap to link) so pairing never steals a move you wanted.
 
-*Open:* what an odd roll does while locked. Proposal — the pair cannot move at all and you
-must move another token; it may only split once standing on a safe square.
+- **Odd roll:** a locked pair **cannot move at all**. Move another token instead; if there is
+  no other legal move the turn passes. The pair may only split once standing on a safe square.
 
 ---
 
@@ -228,7 +228,7 @@ must move another token; it may only split once standing on a safe square.
 | Shape | Classic 15×15 cross | **12-sided plate**, 6 arms at 60° |
 | Track squares | 52 (4 × 13) | 78 (6 × 13) |
 | Home column | 5 squares | 5 squares |
-| Centre | 4 triangles | **12-sided**, 6 wedges |
+| Centre | 4 triangles | **Hexagon**, 6 wedges (flat edge meets each arm) |
 | Yard shape | Square, 4 slots | **Triangle** (apex toward centre), 4 slots |
 | Tokens per player | **2, 3 or 4 — player's choice** | **2, 3 or 4 — player's choice** |
 | Token size | 78% of a square | 66% of a square |
@@ -247,7 +247,7 @@ count and radius change.
 |---|---|---|
 | Track rows | radius 252, 222, 192, 162, 132, **102** | 3 lanes per arm at lateral −c, 0, +c |
 | Arm clearance | inner edge 87 → half-angle `atan(45/87)` = 27.4° | Under 30°, so **adjacent arms cannot collide** |
-| Centre | 12-gon, circumradius **90** (apothem 86.9) | Large enough that the six home columns land cleanly |
+| Centre | **Hexagon**, circumradius **100** (apothem 86.6) | Flat edge meets each arm; large enough that the paths no longer collide |
 | Plate | 12-gon, circumradius **282** | Vertices at ±15° off each arm, so **6 edges face the arms and 6 face the homes** |
 | Yard | triangle, apex r=140 → base r=247, half-width 70 | Fits the wedge between two arms with clearance at every radius |
 | Yard slots | (185, 0) (213, ±24) (226, 0) | Four resting places, always drawn |

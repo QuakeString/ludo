@@ -973,7 +973,7 @@
   // Geometry notes (viewBox 660x660, centre 330,330, cell C=30):
   //   arms      rows j=0..5 at radius 252,222,192,162,132,102  (3 lanes: -C, 0, +C)
   //   no collision: innermost inner edge 87 → arm half-angle atan(45/87)=27.4° < 30°
-  //   hub       12-gon circumradius 90  (apothem 86.9, clears the arms)
+  //   hub       hexagon circumradius 100 (apothem 86.6, flat edge meets each arm)
   //   plate     12-gon circumradius 282, 6 edges facing the arms, 6 facing the yards
   //   yards     triangle apex r=140 → base r=247, half-width 70
   //   dice      one slot per seat on its own yard axis at r=305
@@ -990,7 +990,7 @@
     if(!svg) return; opt=opt||{};
     var TH=opt.dark?TH_D:TH_L;
     var C=30, CX=330, CY=330;
-    var R_OUT=252, HUB=90, PLATE=282;
+    var R_OUT=252, HUB=100, PLATE=282;
     var Y_IN=140, Y_OUT=247, Y_W=70;
     var SLOTS=[[185,0],[213,-24],[213,24],[226,0]];
     var DIE_R=297;
@@ -1066,16 +1066,15 @@
       st.setAttribute('height',5.5); st.setAttribute('fill',col);
       g.appendChild(st);
     }
-    // --- centre: 12-sided, split into six wedges ---
-    var ap=HUB*Math.cos(15*rad);
+    // --- centre: a hexagon, six wedges, one per seat (flat edge facing each arm) ---
+    var hubPts=[];
+    for(var i=0;i<6;i++){var hp=pt(-120+60*i,HUB); hubPts.push(hp[0].toFixed(1)+','+hp[1].toFixed(1))}
     for(var k=0;k<6;k++){
-      var a0=-120+60*k, a1=-60+60*k;
-      var p0=pt(a0,ap), v1=pt(-105+60*k,HUB), v2=pt(-75+60*k,HUB), p1=pt(a1,ap);
-      el('polygon',{points:CX+','+CY+' '+p0[0].toFixed(1)+','+p0[1].toFixed(1)+' '
-        +v1[0].toFixed(1)+','+v1[1].toFixed(1)+' '+v2[0].toFixed(1)+','+v2[1].toFixed(1)+' '
-        +p1[0].toFixed(1)+','+p1[1].toFixed(1), fill:cols[k]});
+      var v1=pt(-120+60*k,HUB), v2=pt(-60+60*k,HUB);
+      el('polygon',{points:CX+','+CY+' '+v1[0].toFixed(1)+','+v1[1].toFixed(1)+' '
+        +v2[0].toFixed(1)+','+v2[1].toFixed(1), fill:cols[k]});
     }
-    el('polygon',{points:dodeca(HUB),fill:'none',stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
+    el('polygon',{points:hubPts.join(' '),fill:'none',stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
     // --- yards: a triangle per seat, apex at the centre ---
     var per=opt.perYard||[2,3,1,3,2,3];
     for(var k=0;k<6;k++){

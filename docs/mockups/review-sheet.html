@@ -133,12 +133,11 @@
 </defs></svg>
 
 <div class="wrap">
-  <div class="eyebrow">Ludo · design review sheet · round 3</div>
+  <div class="eyebrow">Ludo · design review sheet · signed off</div>
   <h1>Mark it up</h1>
-  <p class="lede">Round-2 notes applied. The board was rebuilt to your sketch — twelve-sided plate,
-     bigger twelve-sided centre, no colliding paths, entry arrows. Cards that changed are marked
-     <b>UPDATED</b>; only <b>one</b> question is still open at the bottom. Same drill, then
-     <b>Copy all notes</b>.</p>
+  <p class="lede"><b>Every card is settled.</b> The last change is in — the centre went back to six
+     sides while the outer plate keeps its twelve. Nothing here is blocking any more; the sheet
+     stays live so you can still mark anything up as building starts.</p>
 
   <div class="how">
     <b>Two things worth knowing.</b>
@@ -174,8 +173,8 @@
     <div class="said" id="said"></div>
   </div>
 
-  <div class="foot">Nothing on this page is final. Anything you mark <b>Change</b> gets reworked before
-    a line of app code is written.</div>
+  <div class="foot">All thirty cards are settled — this is the spec the build follows. If anything
+    here turns out wrong once you can hold the real thing, mark it and it gets reworked.</div>
 </div>
 
 <script>
@@ -215,7 +214,7 @@
   // Geometry notes (viewBox 660x660, centre 330,330, cell C=30):
   //   arms      rows j=0..5 at radius 252,222,192,162,132,102  (3 lanes: -C, 0, +C)
   //   no collision: innermost inner edge 87 → arm half-angle atan(45/87)=27.4° < 30°
-  //   hub       12-gon circumradius 90  (apothem 86.9, clears the arms)
+  //   hub       hexagon circumradius 100 (apothem 86.6, flat edge meets each arm)
   //   plate     12-gon circumradius 282, 6 edges facing the arms, 6 facing the yards
   //   yards     triangle apex r=140 → base r=247, half-width 70
   //   dice      one slot per seat on its own yard axis at r=305
@@ -232,7 +231,7 @@
     if(!svg) return; opt=opt||{};
     var TH=opt.dark?TH_D:TH_L;
     var C=30, CX=330, CY=330;
-    var R_OUT=252, HUB=90, PLATE=282;
+    var R_OUT=252, HUB=100, PLATE=282;
     var Y_IN=140, Y_OUT=247, Y_W=70;
     var SLOTS=[[185,0],[213,-24],[213,24],[226,0]];
     var DIE_R=297;
@@ -308,16 +307,15 @@
       st.setAttribute('height',5.5); st.setAttribute('fill',col);
       g.appendChild(st);
     }
-    // --- centre: 12-sided, split into six wedges ---
-    var ap=HUB*Math.cos(15*rad);
+    // --- centre: a hexagon, six wedges, one per seat (flat edge facing each arm) ---
+    var hubPts=[];
+    for(var i=0;i<6;i++){var hp=pt(-120+60*i,HUB); hubPts.push(hp[0].toFixed(1)+','+hp[1].toFixed(1))}
     for(var k=0;k<6;k++){
-      var a0=-120+60*k, a1=-60+60*k;
-      var p0=pt(a0,ap), v1=pt(-105+60*k,HUB), v2=pt(-75+60*k,HUB), p1=pt(a1,ap);
-      el('polygon',{points:CX+','+CY+' '+p0[0].toFixed(1)+','+p0[1].toFixed(1)+' '
-        +v1[0].toFixed(1)+','+v1[1].toFixed(1)+' '+v2[0].toFixed(1)+','+v2[1].toFixed(1)+' '
-        +p1[0].toFixed(1)+','+p1[1].toFixed(1), fill:cols[k]});
+      var v1=pt(-120+60*k,HUB), v2=pt(-60+60*k,HUB);
+      el('polygon',{points:CX+','+CY+' '+v1[0].toFixed(1)+','+v1[1].toFixed(1)+' '
+        +v2[0].toFixed(1)+','+v2[1].toFixed(1), fill:cols[k]});
     }
-    el('polygon',{points:dodeca(HUB),fill:'none',stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
+    el('polygon',{points:hubPts.join(' '),fill:'none',stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
     // --- yards: a triangle per seat, apex at the centre ---
     var per=opt.perYard||[2,3,1,3,2,3];
     for(var k=0;k<6;k++){
@@ -485,8 +483,8 @@
     {g:'Players and modes', items:[
       {id:'sixseats', t:'Up to 6 players',
        d:'Seat counts 2 through 6, in every mode — solo with AI, pass and play, private rooms and quick match. Humans and AI can be mixed in any combination.'},
-      {id:'hexboard', t:'The six-seat board, rebuilt to your sketch', tag:'UPDATED',
-       d:'<b>All four of your marks are in.</b> The plate is now <b>12-sided</b> — six edges facing the arms, six facing the homes. The centre is <b>12-sided and more than twice as big</b>, which is what stopped the paths colliding: the arms now end at radius 102 instead of running into each other near the middle. Home bases stay <b>triangles with 4 slots</b>. And every home column now has a <b>coloured arrow</b> on its turn-in square, pointing the way in.',
+      {id:'hexboard', t:'The six-seat board — final', tag:'UPDATED',
+       d:'<b>Centre is back to six sides</b>, as you decided, and slightly larger so each arm still meets it on a flat edge. The <b>outer plate keeps its twelve sides</b> — six facing the arms, six facing the homes. Paths no longer collide (arms stop at radius 102, giving 27.4° of half-width against a 30° budget), home bases are <b>triangles with 4 slots</b>, and every home column carries a <b>coloured arrow</b> on its turn-in square.',
        v:VIS.hex},
       {id:'chipcount', t:'3 or 4 chips — the player chooses', tag:'UPDATED',
        d:'<b>Changed per your note:</b> chips per player is now a selector on the rules screen at every seat count — 2, 3 or 4. Three keeps a six-seat round short, four is the traditional game. The yard is always drawn with four slots, so switching never changes the board.'},
@@ -548,9 +546,9 @@
        d:'<b>Changed per your note:</b> theming is no longer "planned later". The app follows the system theme and can be overridden by hand (System / Light / Dark) in settings from the first release. Dark is its own palette — surface, grid and yard interiors are all redrawn, not filtered. The chip is unchanged: its white rim is what lets one design work on both grounds.',
        v:VIS.themes}
     ]},
-    {g:'Three decisions I need from you', items:[
-      {id:'q_pairodd', t:'What happens on an odd roll while you are locked in a pair?', tag:'NEW',
-       d:'This is the one thing still open — you marked it Change but did not say what to. Since a pair is now <b>locked until it reaches a star or its home column</b>, my proposal is: on an odd roll the pair <b>cannot move at all</b>, and you must move one of your other chips; if you have no other legal move, the turn passes. The pair may only split once it is standing on a safe square. <b>Tell me if you would rather</b> the odd roll break the lock and let one chip move, or the pair move anyway rounding the odd roll down (a 5 moves the pair 2).'}
+    {g:'Decisions — now settled', items:[
+      {id:'q_pairodd', t:'Odd roll while locked in a pair — settled', tag:'UPDATED',
+       d:'<b>Confirmed:</b> on an odd roll a locked pair <b>cannot move at all</b>. You move one of your other chips instead; if you have no other legal move, the turn passes. The pair may only split once it is standing on a safe square — a star or its own home column.'}
     ]},
     {g:'Build order', items:[
       {id:'firstbuild', t:'What gets built first',
@@ -560,7 +558,7 @@
     ]}
   ];
 
-  var KEY='ludo-review-v4';
+  var KEY='ludo-review-v5';
   var state = {};
   try{ state = JSON.parse(localStorage.getItem(KEY)||'{}') }catch(e){ state={} }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
