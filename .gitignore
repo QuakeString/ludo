@@ -4,6 +4,11 @@
 build/
 !app/build/board-previews/
 pubspec.lock
+# ...except the server's. The packages are libraries, where a lock file would
+# hide version incompatibilities from consumers; the server is an application that gets
+# built into an image and deployed, and it must resolve the same dependency
+# versions today and in six months.
+!server/pubspec.lock
 *.iml
 
 # Flutter app artifacts (added in the app phase)

@@ -60,27 +60,47 @@ Flutter dependencies** containing all the rules:
   the server** (the server runs the same package compiled with `dart compile`).
 - Fully unit-tested; no rendering, no networking, no I/O.
 
-### Server: Dart (or Nakama) — authoritative online play
+### Server: a small Dart server — authoritative online play
 
-Two viable paths; recommendation first:
+**Decision (changed from the original recommendation).** This document first recommended
+**Nakama**, the open-source game server, for matchmaking, friends and match relay. That
+recommendation is withdrawn, and it is worth writing down why rather than quietly editing
+it away.
 
-- **Recommended: Nakama** (open-source game server, self-hostable, free):
-  gives matchmaking, friends, parties, auth (email/device/social), realtime match relay,
-  and leaderboards out of the box. Game logic runs as a server-side match handler that
-  calls into our rules (ported logic or via the authoritative-input model below).
-- *Alternative:* a small custom **Dart server** (shelf + web_sockets) reusing
-  `ludo_engine` directly — less to learn, more to build (matchmaking, presence, scaling).
+Nakama's authoritative match handlers run in **Go, Lua or TypeScript** — not Dart. The
+rules could not have been *called*; they would have had to be **reimplemented** in a second
+language. That would have thrown away the single most valuable property of this codebase:
+client and server run the *same* `ludo_engine`, so an offline game and an online game
+cannot disagree about the rules. That parity is currently held up by 121 engine tests. A
+second implementation would mean two rule sets to keep in step, two places for a pair-move
+or a home-column edge case to drift, and a whole class of "the server says that move is
+illegal but the app let me make it" bugs that simply cannot occur today.
 
-Either way the model is **server-authoritative**: clients send *intents* ("roll dice",
-"move token 2"), the server validates against the rule config and broadcasts the resulting
-state. Dice are rolled server-side (online) or from a local RNG (offline).
+What is actually built is the *alternative*: a small **Dart server** (`shelf` +
+`shelf_web_socket`) that imports `ludo_engine` directly. The features Nakama would have
+given for free — room codes, presence, reconnect, matchmaking — turned out to be a few
+hundred lines each, because a Ludo room is a small thing: a handful of seats, one
+`GameState`, and a turn clock.
+
+The model is **server-authoritative**: clients send *intents* (`roll`, `move token 2`,
+`pass`, `breakPair`), never state. The server matches each intent against what the engine
+actually offers — a move is looked up in `engine.legalMoves()` rather than trusted — applies
+it, and broadcasts the result. Dice are rolled server-side (online) or from the game's own
+seeded RNG (offline), so there is nothing for a modified client to lie about.
+
+The turn clock lives on the server too, for the same reason: a phone must not be able to
+grant itself more thinking time by lying about its own stopwatch. When the 30 seconds run
+out the server plays the turn itself and moves on. A dropped player's seat is **held for
+five minutes** and covered by the computer meanwhile, so a disconnection never stops the
+table; past that window the seat is given up for good.
 
 ### Storage
 
 - **Client:** local save via `drift`/`sqlite` or `shared_preferences` — in-progress games,
   settings, custom rule sets, guest profile. Nothing requires a network.
-- **Server:** Postgres (Nakama's default) — accounts, friends, match history, shared rule
-  sets.
+- **Server:** Postgres — accounts, friends, match history, shared rule sets. Rooms are
+  *not* stored: a room only matters while it is being played, and a match that outlived a
+  restart would be a match everybody had already left.
 
 ---
 
@@ -110,9 +130,9 @@ state. Dice are rolled server-side (online) or from a local RNG (offline).
 └────────────────────────────────────────────────┼───────────────┘
                                                  │ WSS
                                    ┌─────────────▼─────────────┐
-                                   │   Game Server (Nakama)     │
-                                   │  auth · matchmaking ·      │
-                                   │  friends · match relay     │
+                                   │   Game Server (Dart)       │
+                                   │  guest auth · room codes · │
+                                   │  turn clock · reconnect    │
                                    │  ┌──────────────────────┐  │
                                    │  │ ludo_engine (same    │  │
                                    │  │ rules, authoritative)│  │
@@ -133,7 +153,7 @@ ludo/
 ├── packages/
 │   ├── ludo_engine/        # Pure Dart rules engine (no Flutter)
 │   └── ludo_protocol/      # Shared client<->server message & rule-config models
-├── server/                 # Nakama modules / match handler (or Dart server)
+├── server/                 # Dart WebSocket game server (imports ludo_engine)
 ├── docs/                   # Design docs, mockups
 └── DESIGN.md
 ```
@@ -157,7 +177,7 @@ Online details:
 - **Matchmaking (random):** queue keyed by `(playerCount, rulePresetHash)` so everyone in
   a match has agreed to the same rules. Fill empty seats with AI after a timeout (optional
   setting).
-- **Friends:** friend list + invites via Nakama; a room can also be joined by anyone with
+- **Friends:** friend list + invites; a room can also be joined by anyone with
   the room code, no friendship required (great for "share link on WhatsApp" flows).
 - **Disconnects:** **5 minutes** to reconnect (state is server-side, so rejoin is trivial).
   The game does not freeze while waiting: AI plays the absent player's turns from the moment
@@ -317,7 +337,8 @@ first launch ──► play immediately (guest, no login)
 
 - **Offline-first:** the app fully works with no network. Games autosave locally and
   resume after app restart.
-- **Anonymous online play:** an account is **never required**. Nakama device-ID auth creates
+- **Anonymous online play:** an account is **never required**. A guest id minted on first
+  connect creates
   a guest ID silently; guests are matched with other guests, can use room codes, and can hold
   a friends list. Signing in is offered exactly once, as an optional way to copy the profile
   to a second device.
@@ -453,12 +474,73 @@ nudges 4 px, the blocker flashes, and the turn is still yours.
 | **2b. Six seats & teams** | Hexagon board generator (triangular yards), team rules, pair move, seat/team setup screens |
 | **3. AI** | Heuristic AI (capture > progress > safety), 3 difficulty levels |
 | **4. Custom rules** | `RuleConfig` in engine, presets, Rule Builder UI, rule codes |
-| **5. Online core** | Nakama setup, guest auth, room codes, server-authoritative matches |
+| **5. Online core** | Dart server, guest auth, room codes, server-authoritative matches |
 | **6. Online social** | Random matchmaking, profiles &amp; levels, friend requests &amp; nicknames, invites, 5-minute reconnect |
 | **7. Polish & ship** | Sounds, i18n, store listings (Play/App Store), web deploy, Windows/Linux packages |
 
 Each phase is releasable on its own — after Phase 2 you already have a playable offline
 game to put in people's hands.
+
+---
+
+## 8a. Deploying the server
+
+Yes — Docker, and deliberately a very boring one.
+
+### The image
+
+`server/Dockerfile` is two stages:
+
+1. **Build** on `dart:3.13`. Manifests are copied first so `dart pub get` is cached and
+   does not re-run on every source edit, then `dart compile exe` turns the server into a
+   single native binary.
+2. **Ship** `FROM scratch` — the Dart runtime's few shared objects (`/runtime/`) plus that
+   one binary. No SDK, **no shell**, no package manager. Tens of megabytes rather than the
+   ~700 MB of a full SDK image, less to patch, and nothing for anyone who does get in to
+   run.
+
+Because there is no shell, the container cannot health-check itself with `curl`. Instead
+the binary checks itself: `ludo-server --health` asks the running server on `127.0.0.1:$PORT`
+and reports through its exit code. That is what `docker-compose.yml` and any orchestrator's
+liveness probe call.
+
+`.dockerignore` keeps the Flutter app, git history and every local `.dart_tool` out of the
+build context — the last of those matters for correctness, not just speed, since a
+`package_config.json` written with host paths would point the container's package
+resolution at directories that do not exist inside it.
+
+### Running it
+
+```bash
+docker compose up --build     # server on :8080, WebSocket at ws://localhost:8080/ws
+```
+
+Postgres is in the compose file for what comes next (accounts, friends, match history).
+The game server does not touch it yet — rooms live in memory on purpose.
+
+### Where it goes
+
+One process holds every live room, so the first deployment is **one container**: any VPS,
+Fly.io, Railway, Render, or a small Cloud Run/ECS service. A 6-player Ludo room is a few
+kilobytes and a couple of messages per turn; a single small instance holds thousands of
+concurrent rooms long before CPU matters.
+
+Scaling out is the one thing the current design does *not* do for free. Rooms are in
+process memory, so two replicas behind a round-robin load balancer would put a room's
+players on different servers. When that day comes there are two honest options, in
+increasing order of effort:
+
+- **Sticky routing by room code** — hash the code to a replica at the edge. Cheap, works,
+  loses a room's live matches if that replica restarts.
+- **Move room state to Redis** and make servers stateless. More machinery; only worth it
+  when a single box is genuinely the limit.
+
+Neither is needed to launch, and neither changes the protocol, so this is a decision that
+can wait for evidence rather than be guessed at now.
+
+TLS terminates at the proxy in front of the container (Caddy, nginx, or the platform's own
+router). The client connects over `wss://` in production; the server itself speaks plain
+HTTP inside the network.
 
 ---
 

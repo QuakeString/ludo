@@ -1,0 +1,22 @@
+name: ludo_server
+description: >-
+  The authority for online matches. Runs the very same rules package the app
+  runs, so the server and the client can never disagree about what is legal.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  ludo_engine:
+    path: ../packages/ludo_engine
+  ludo_protocol:
+    path: ../packages/ludo_protocol
+  shelf: ^1.4.0
+  shelf_web_socket: ^3.0.0
+  web_socket_channel: ^3.0.0
+
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^4.0.0

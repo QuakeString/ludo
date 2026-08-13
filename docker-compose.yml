@@ -1,0 +1,51 @@
+# Run the whole online stack locally:
+#
+#   docker compose up --build
+#   → server on http://localhost:8080, WebSocket at ws://localhost:8080/ws
+#
+# Postgres is here for what comes next — accounts, friends, match history. The
+# game server does not need it yet: rooms live in memory because a room only
+# matters while it is being played, and a match that outlived a restart would
+# be a match everybody had already left.
+
+services:
+  server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: 8080
+      DATABASE_URL: postgres://ludo:ludo@db:5432/ludo
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    healthcheck:
+      # The image has no shell and no curl, so the binary checks itself: run
+      # with --health it queries the running server and reports through its
+      # exit code.
+      test: ["CMD", "/app/ludo-server", "--health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+      start_period: 5s
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ludo
+      POSTGRES_PASSWORD: ludo
+      POSTGRES_DB: ludo
+    volumes:
+      - ludo-db:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ludo"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+volumes:
+  ludo-db:

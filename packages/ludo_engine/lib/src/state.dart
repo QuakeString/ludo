@@ -30,6 +30,20 @@ class Token {
         pairId: pairId ?? this.pairId,
       );
 
+  Map<String, Object?> toJson() => {
+        'i': id,
+        'o': owner,
+        'p': progress,
+        if (isPaired) 'g': pairId,
+      };
+
+  factory Token.fromJson(Map<String, Object?> j) => Token(
+        id: (j['i'] as num).toInt(),
+        owner: (j['o'] as num).toInt(),
+        progress: (j['p'] as num).toInt(),
+        pairId: j['g'] == null ? -1 : (j['g'] as num).toInt(),
+      );
+
   @override
   String toString() =>
       'Token($id, p$owner, ${inYard ? 'yard' : progress}${isPaired ? ', pair$pairId' : ''})';
@@ -200,6 +214,45 @@ class GameState {
       b.write('${t.progress}${t.isPaired ? '*${t.pairId}' : ''};');
     }
     return b.toString();
+  }
+
+  /// The whole game as JSON.
+  ///
+  /// One shape serves three jobs: the save file that survives closing the app,
+  /// the message the server broadcasts after every move, and the record a
+  /// finished match is stored as. Keys are short because this crosses the wire
+  /// on every turn.
+  Map<String, Object?> toJson() => {
+        'rules': rules.toJson(),
+        'arms': seatArms,
+        'tokens': [for (final t in tokens) t.toJson()],
+        'turn': turn,
+        if (dice != null) 'dice': dice,
+        'sixes': consecutiveSixes,
+        'caps': captures,
+        'pair': nextPairId,
+        'done': finishOrder,
+        'rng': rngState,
+      };
+
+  factory GameState.fromJson(Map<String, Object?> j) {
+    List<int> ints(Object? v) =>
+        [for (final x in (v as List? ?? const [])) (x as num).toInt()];
+    return GameState(
+      rules: RuleConfig.fromJson(j['rules'] as Map<String, Object?>),
+      seatArms: List.unmodifiable(ints(j['arms'])),
+      tokens: List.unmodifiable([
+        for (final t in (j['tokens'] as List))
+          Token.fromJson(t as Map<String, Object?>)
+      ]),
+      turn: (j['turn'] as num).toInt(),
+      dice: j['dice'] == null ? null : (j['dice'] as num).toInt(),
+      consecutiveSixes: (j['sixes'] as num?)?.toInt() ?? 0,
+      captures: List.unmodifiable(ints(j['caps'])),
+      nextPairId: (j['pair'] as num?)?.toInt() ?? 0,
+      finishOrder: List.unmodifiable(ints(j['done'])),
+      rngState: (j['rng'] as num?)?.toInt() ?? 1,
+    );
   }
 
   @override

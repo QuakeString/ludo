@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:ludo_engine/ludo_engine.dart';
 import 'package:test/test.dart';
 
@@ -198,6 +200,8 @@ void main() {
     });
   });
 
+  serialisationTests();
+
   group('auto-play', () {
     test('prefers a capture over a plain advance', () {
       var s = GameState.newGame(const RuleConfig());
@@ -229,6 +233,70 @@ void main() {
     test('returns null when there is nothing to do', () {
       final s = GameState.newGame(const RuleConfig()).copyWith(dice: 3);
       expect(engine.bestMove(s), isNull);
+    });
+  });
+}
+
+void serialisationTests() {
+  group('a game survives the round trip', () {
+    test('a fresh game, a game in progress and a finished game all restore',
+        () {
+      for (final rules in [
+        const RuleConfig(),
+        RuleConfig.sixSeat,
+        const RuleConfig(
+          players: 6,
+          tokensPerPlayer: 3,
+          pairMove: true,
+          teams: [
+            [0, 2, 4],
+            [1, 3, 5],
+          ],
+        ),
+      ]) {
+        for (final turns in [0, 40, 100000]) {
+          var s = GameState.newGame(rules, seed: 12345);
+          for (var i = 0; i < turns && !s.isOver; i++) {
+            s = engine.autoPlayTurn(s);
+          }
+          final back = GameState.fromJson(
+              jsonDecode(jsonEncode(s.toJson())) as Map<String, Object?>);
+          expect(back.fingerprint(), s.fingerprint(),
+              reason: '$rules after $turns turns');
+          expect(back.rules.toJson(), s.rules.toJson());
+          expect(back.seatArms, s.seatArms);
+          expect(back.rngState, s.rngState);
+        }
+      }
+    });
+
+    test('a restored game carries on identically', () {
+      var live = GameState.newGame(RuleConfig.sixSeat, seed: 909);
+      for (var i = 0; i < 50; i++) {
+        live = engine.autoPlayTurn(live);
+      }
+      var restored = GameState.fromJson(
+          jsonDecode(jsonEncode(live.toJson())) as Map<String, Object?>);
+
+      for (var i = 0; i < 60 && !live.isOver; i++) {
+        live = engine.autoPlayTurn(live);
+        restored = engine.autoPlayTurn(restored);
+        expect(restored.fingerprint(), live.fingerprint(),
+            reason: 'diverged $i turns after restoring');
+      }
+    });
+
+    test('pairs survive the trip', () {
+      var s = GameState.newGame(const RuleConfig(pairMove: true));
+      final tokens = [...s.tokens];
+      tokens[0] = tokens[0].copyWith(progress: 5, pairId: 3);
+      tokens[1] = tokens[1].copyWith(progress: 5, pairId: 3);
+      s = s.copyWith(tokens: tokens, nextPairId: 4);
+      final back = GameState.fromJson(
+          jsonDecode(jsonEncode(s.toJson())) as Map<String, Object?>);
+      expect(back.tokens[0].pairId, 3);
+      expect(back.tokens[1].pairId, 3);
+      expect(back.pairMembers(3), hasLength(2));
     });
   });
 }

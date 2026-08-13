@@ -1,0 +1,17 @@
+name: ludo_protocol
+description: >-
+  Messages exchanged between the app and the game server. Shared by both, so a
+  change to the wire format cannot be made on one side only.
+version: 0.1.0
+publish_to: none
+
+environment:
+  sdk: ^3.5.0
+
+dependencies:
+  ludo_engine:
+    path: ../ludo_engine
+
+dev_dependencies:
+  test: ^1.25.0
+  lints: ^4.0.0

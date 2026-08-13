@@ -54,6 +54,71 @@ jobs:
       - run: dart analyze --fatal-infos
       - run: dart test
 
+  protocol:
+    name: Wire protocol
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: packages/ludo_protocol
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze --fatal-infos
+      - run: dart test
+
+  server:
+    name: Game server
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: server
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dart-lang/setup-dart@v1
+        with:
+          sdk: stable
+      - run: dart pub get
+      - run: dart format --output=none --set-exit-if-changed .
+      - run: dart analyze --fatal-infos
+      - run: dart test
+
+      - name: The binary starts and answers its own health check
+        run: |
+          dart compile exe bin/serve.dart -o /tmp/ludo-server
+          PORT=8123 /tmp/ludo-server &
+          for i in $(seq 1 20); do
+            PORT=8123 /tmp/ludo-server --health && break
+            sleep 1
+          done
+          PORT=8123 /tmp/ludo-server --health
+
+  image:
+    name: Container image
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Built here rather than trusted: a Dockerfile that has never been run is
+      # a guess. This is also where the image is proven to actually serve —
+      # a distroless image with a broken entrypoint still builds fine.
+      - name: Build the server image
+        run: docker build -f server/Dockerfile -t ludo-server:ci .
+
+      - name: The container serves and passes its own health check
+        run: |
+          docker run -d --name ludo -p 8080:8080 ludo-server:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://127.0.0.1:8080/health && break
+            sleep 1
+          done
+          test "$(curl -fsS http://127.0.0.1:8080/health)" = "ok"
+          docker exec ludo /app/ludo-server --health
+          docker rm -f ludo
+
   app:
     name: Flutter app
     runs-on: ubuntu-latest

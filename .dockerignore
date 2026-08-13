@@ -1,0 +1,20 @@
+# The build context is the repository root, because the server depends on
+# packages/ that sit beside it. Without this file Docker would ship the whole
+# repo — the Flutter app, the git history, every build output — into the
+# builder just to compile one binary.
+#
+# The `.dart_tool` exclusions matter for more than speed: those directories
+# hold a package_config.json written with absolute host paths, and copying one
+# into the image points the container's package resolution at directories that
+# do not exist there.
+.git
+.github
+.dart_tool/
+**/.dart_tool/
+**/build/
+app/
+docs/
+*.md
+docker-compose.yml
+**/.packages
+**/.flutter-plugins*
