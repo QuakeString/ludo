@@ -154,6 +154,18 @@
   .turnbar .td{width:11px; height:11px; border-radius:50%}
   .turnbar b{font-size:13px}
   .turnbar .timer{margin-left:auto; font-size:11px; color:#6E675C; font-variant-numeric:tabular-nums}
+  .dots{margin-left:auto; display:flex; gap:3.5px; align-items:center}
+  .dots i{width:8px; height:8px; border-radius:50%; background:#3FA35C}
+  .dots i.spent{background:#DCD5C6}
+  .dots i.last{background:#E14B4B; animation:blink 1s steps(2) infinite}
+  .screen.dk .dots i.spent{background:#333A46}
+  @keyframes blink{0%,100%{opacity:1}50%{opacity:.35}}
+  .seatmap{display:grid; grid-template-columns:1fr 1fr; gap:9px}
+  .seatfig{background:#fff; border:1px solid #E3DCCF; border-radius:11px; padding:9px 6px; text-align:center}
+  .screen.dk .seatfig{background:#1E222A; border-color:#2F343E}
+  .seatfig svg{width:100%; height:auto; display:block}
+  .seatfig b{display:block; font-size:10.5px; margin-top:5px}
+  .seatfig span{font-size:9.5px; color:#6E675C}
   .boardhold{padding:2px 8px; flex:1; display:flex; align-items:center; min-height:0}
   .boardhold svg{width:100%; height:auto; display:block; border-radius:9px}
   .dicebar{margin-top:auto; display:flex; align-items:center; gap:11px; padding:9px 13px 15px}
@@ -167,6 +179,7 @@
     grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr); padding:9px}
   .bigdie i{border-radius:50%; background:#2A2622}
   .rollhint{flex:1; font-size:10.5px; color:#6E675C}
+  .rollhint.wide{flex:1.6; text-align:right}
   .rollhint b{display:block; color:#2A2622; font-size:12px}
 
   /* room code */
@@ -489,14 +502,16 @@
             <div class="card">
               <div class="prow"><span class="nm">Pair move</span><span class="tagpill you">On</span></div>
               <div class="prow"><span class="nm">Pair with a partner's chip <small style="color:#6E675C">team games</small></span><span class="tagpill you">On</span></div>
-              <div class="prow"><span class="nm">A pair can be captured</span><span class="tagpill">Off</span></div>
-              <div class="prow"><span class="nm">Odd rolls split the pair</span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">Locked until a safe square</span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">Only an opposing <b>pair</b> can capture it</span><span class="tagpill you">On</span></div>
             </div>
-            <div class="banner">A pair travels as one until you break it. Because it takes an even
-              roll and moves <b>half</b> the pips, pairing trades speed for safety — two chips that
-              can't be picked off one at a time.</div>
-            <div class="banner" style="background:#F6EAC8; color:#6b551a">⚠︎ Three details still need
-              your call — they're questions 26–28 on the review sheet.</div>
+            <div class="banner"><b>Locked until safe.</b> Once linked, a pair cannot be broken until
+              it reaches a <b>star square or its home column</b> — so pairing is a commitment, not a
+              free option you toggle each turn.</div>
+            <div class="banner">Because a linked pair can only be taken by another <b>pair</b>, and
+              only moves on an even roll at half speed, pairing trades speed for near-safety.</div>
+            <div class="banner" style="background:#F6EAC8; color:#6b551a">⚠︎ One thing left: what an
+              <b>odd roll</b> does while you're locked in a pair — question 27 on the review sheet.</div>
           </div>
         </div></div>
         <div class="steplab">6 · Pair move rule<span>your new opt-in rule, spelled out</span></div>
@@ -514,7 +529,7 @@
       <div class="step">
         <div class="phone"><div class="screen gamescreen">
           <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
-          <div class="turnbar"><span class="td" style="background:var(--p2)"></span><b>Ammu — roll the dice</b><span class="timer">0:24</span></div>
+          <div class="turnbar"><span class="td" style="background:var(--p2)"></span><b>Ammu — roll the dice</b><span class="dots"><i></i><i></i><i></i><i class="spent"></i><i class="spent"></i><i class="spent"></i></span></div>
           <div class="boardhold"><svg id="b4" viewBox="0 0 600 600" role="img" aria-label="Four-player Ludo board in play"></svg></div>
           <div class="dicebar">
             <div class="pstat">
@@ -523,8 +538,7 @@
               <div class="r"><i style="background:var(--p4)"></i>Mitu<b>2/4</b></div>
               <div class="r"><i style="background:var(--p3)"></i>AI<b>0/4</b></div>
             </div>
-            <div class="bigdie"><i style="grid-area:1/1"></i><i style="grid-area:1/3"></i><i style="grid-area:2/2"></i><i style="grid-area:3/1"></i><i style="grid-area:3/3"></i></div>
-            <div class="rollhint"><b>Tap to roll</b>6 = extra turn</div>
+            <div class="rollhint wide"><b>Tap your die to roll</b>it sits in your own yard · 6 = extra turn</div>
           </div>
         </div></div>
         <div class="steplab">7 · Game — 4 seats<span>classic cross, chips you chose</span></div>
@@ -533,8 +547,8 @@
       <div class="step">
         <div class="phone"><div class="screen gamescreen">
           <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
-          <div class="turnbar"><span class="td" style="background:var(--p3)"></span><b>Your turn — Team Blue</b><span class="timer">0:29</span></div>
-          <div class="boardhold"><svg id="b6" viewBox="0 0 600 600" role="img" aria-label="Six-player hexagonal Ludo board in play"></svg></div>
+          <div class="turnbar"><span class="td" style="background:var(--p3)"></span><b>Your turn · Team Blue</b><span class="dots"><i></i><i></i><i></i><i></i><i></i><i></i></span></div>
+          <div class="boardhold"><svg id="b6" viewBox="0 0 660 660" role="img" aria-label="Six-player hexagonal Ludo board in play"></svg></div>
           <div class="dicebar">
             <div class="pstat">
               <div class="r tm"><i style="background:var(--p3)"></i>You<b>1/3</b></div>
@@ -542,11 +556,47 @@
               <div class="r tm"><i style="background:var(--p5)"></i>AI<b>2/3</b></div>
               <div class="r"><i style="background:var(--p1)"></i>Sagor<b>1/3</b></div>
             </div>
-            <div class="bigdie"><i style="grid-area:1/1"></i><i style="grid-area:2/2"></i><i style="grid-area:3/3"></i></div>
-            <div class="rollhint"><b>Move a chip</b>2 legal moves</div>
+            <div class="rollhint wide"><b>Move a chip</b>2 legal moves · 4 dots left</div>
           </div>
         </div></div>
         <div class="steplab">8 · Game — 6 seats, teams<span>hexagon, triangular yards, team rail on the left</span></div>
+      </div>
+
+      <div class="step">
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
+          <div class="appbar"><div class="back">‹</div><b>Seats &amp; the dice</b></div>
+          <div class="body">
+            <div class="card">
+              <h4>Every seat has its own dice place</h4>
+              <div class="note" style="margin-bottom:9px">The die is never parked in the middle. It
+                <b>travels to whoever is on turn</b> and sits beside their own home, so you always
+                roll from your own corner.</div>
+              <svg id="dicemap" viewBox="0 0 260 150" role="img" aria-label="The die moving between seats around the board"></svg>
+            </div>
+            <div class="card">
+              <h4>Pass &amp; play — sit facing each other</h4>
+              <div class="seatmap">
+                <div class="seatfig"><svg viewBox="0 0 100 100" data-seatfig="2"></svg>
+                  <b>2 players</b><span>opposite ends</span></div>
+                <div class="seatfig"><svg viewBox="0 0 100 100" data-seatfig="4"></svg>
+                  <b>4 players</b><span>two opposite pairs</span></div>
+              </div>
+              <div class="note" style="margin-top:7px">Each player's name and die face their own edge
+                of the phone, so nobody plays upside down.</div>
+            </div>
+            <div class="card">
+              <h4>Online — you are always bottom-left</h4>
+              <div class="seatmap" style="grid-template-columns:1fr">
+                <div class="seatfig"><svg viewBox="0 0 100 100" data-seatfig="you"></svg>
+                  <b>Your seat is fixed</b><span>the board rotates, not you</span></div>
+              </div>
+              <div class="note" style="margin-top:7px">Everyone sees themselves in the same place;
+                opponents fill the remaining seats in turn order.</div>
+            </div>
+          </div>
+        </div></div>
+        <div class="steplab">9 · Seats &amp; dice<span>the die moves to the player on turn</span></div>
       </div>
 
       <div class="keynote"><b>Reading a six-seat board.</b> With six colors in play, the seat list is
@@ -584,7 +634,7 @@
             </div>
           </div>
         </div></div>
-        <div class="steplab">9 · Online menu<span>anonymous by default</span></div>
+        <div class="steplab">10 · Online menu<span>anonymous by default</span></div>
       </div>
 
       <div class="step">
@@ -619,7 +669,7 @@
             <div class="primary mt" style="background:var(--p3)">Create room</div>
           </div>
         </div></div>
-        <div class="steplab">10 · Room options<span>seats, teams, and who fills empty seats</span></div>
+        <div class="steplab">11 · Room options<span>seats, teams, and who fills empty seats</span></div>
       </div>
 
       <div class="step">
@@ -649,7 +699,7 @@
             <div class="primary mt" style="background:var(--p3)">Start match</div>
           </div>
         </div></div>
-        <div class="steplab">11 · Pair play — online<span>same team model as local</span></div>
+        <div class="steplab">12 · Pair play — online<span>same team model as local</span></div>
       </div>
 
       <div class="step">
@@ -674,7 +724,7 @@
             </div>
           </div>
         </div></div>
-        <div class="steplab">12 · Result<span>team result, then per-player</span></div>
+        <div class="steplab">13 · Result<span>team result, then per-player</span></div>
       </div>
     </div>
   </div>
@@ -717,7 +767,7 @@
               the <b>only</b> reason to sign in — it copies them to your next phone.</div>
           </div>
         </div></div>
-        <div class="steplab">13 · Profile<span>photo, level, record — no account</span></div>
+        <div class="steplab">14 · Profile<span>photo, level, record — no account</span></div>
       </div>
 
       <div class="step">
@@ -747,7 +797,7 @@
               <b>Rename anyone</b> in your list — nobody remembers a number.</div>
           </div>
         </div></div>
-        <div class="steplab">14 · Friends<span>requests, accept, and your own nicknames</span></div>
+        <div class="steplab">15 · Friends<span>requests, accept, and your own nicknames</span></div>
       </div>
 
       <div class="step">
@@ -778,14 +828,14 @@
               not a filter over the light board.</div>
           </div>
         </div></div>
-        <div class="steplab">15 · Settings<span>system / light / dark, your choice</span></div>
+        <div class="steplab">16 · Settings<span>system / light / dark, your choice</span></div>
       </div>
 
       <div class="step">
         <div class="phone"><div class="screen dk gamescreen">
           <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
-          <div class="turnbar"><span class="td" style="background:var(--p3)"></span><b>Your turn — Team Blue</b><span class="timer">0:29</span></div>
-          <div class="boardhold"><svg id="b6d" viewBox="0 0 600 600" role="img" aria-label="Six-player hexagonal Ludo board, dark theme"></svg></div>
+          <div class="turnbar"><span class="td" style="background:var(--p3)"></span><b>Your turn · Team Blue</b><span class="dots"><i class="last"></i><i class="spent"></i><i class="spent"></i><i class="spent"></i><i class="spent"></i><i class="spent"></i></span></div>
+          <div class="boardhold"><svg id="b6d" viewBox="0 0 660 660" role="img" aria-label="Six-player hexagonal Ludo board, dark theme"></svg></div>
           <div class="dicebar">
             <div class="pstat">
               <div class="r tm"><i style="background:var(--p3)"></i>You<b>1/4</b></div>
@@ -793,11 +843,10 @@
               <div class="r tm"><i style="background:var(--p5)"></i>AI<b>2/4</b></div>
               <div class="r"><i style="background:var(--p1)"></i>Sagor<b>1/4</b></div>
             </div>
-            <div class="bigdie"><i style="grid-area:1/1"></i><i style="grid-area:1/3"></i><i style="grid-area:3/1"></i><i style="grid-area:3/3"></i></div>
-            <div class="rollhint"><b>Even roll</b>pair can move 2</div>
+            <div class="rollhint wide"><b>Even roll — the pair can move 2</b>last dot: auto-play in 5 s</div>
           </div>
         </div></div>
-        <div class="steplab">16 · Dark board<span>same chips, own palette</span></div>
+        <div class="steplab">17 · Dark board<span>same chips, own palette</span></div>
       </div>
 
       <div class="step">
@@ -822,7 +871,7 @@
             <div class="homefoot"><button>🎛 Custom rules</button><button>❓ How to play</button></div>
           </div>
         </div></div>
-        <div class="steplab">17 · Dark home<span>every screen has both themes</span></div>
+        <div class="steplab">18 · Dark home<span>every screen has both themes</span></div>
       </div>
 
       <div class="keynote"><b>Disconnects, now 5 minutes.</b> Your seat is held for five minutes, not
@@ -893,6 +942,23 @@
     svgEl(svg,'polygon',{points:'360,240 360,360 300,300',fill:col.y});
     svgEl(svg,'polygon',{points:'240,360 360,360 300,300',fill:col.b});
     star(6,2); star(12,6); star(8,12); star(2,8);
+    // one dice place per seat, in the middle of that seat's own yard
+    (function(){
+      var seats=[[3,3,col.r,3,false],[12,3,col.g,5,true],[12,12,col.y,2,false],[3,12,col.b,6,false]];
+      var PIP={2:[[-1,-1],[1,1]],3:[[-1,-1],[0,0],[1,1]],5:[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],
+               6:[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]};
+      seats.forEach(function(q){
+        var cx=q[0]*C, cy=q[1]*C, sz=q[4]?46:34, h=sz/2;
+        if(q[4]) svgEl(svg,'rect',{x:cx-h-5,y:cy-h-5,width:sz+10,height:sz+10,rx:13,
+          fill:'none',stroke:q[2],'stroke-width':4});
+        svgEl(svg,'rect',{x:cx-h,y:cy-h,width:sz,height:sz,rx:9,
+          fill:q[4]?'#fff':'#F1ECE1',stroke:q[4]?q[2]:'#C9C1B2','stroke-width':q[4]?2.5:1.5});
+        PIP[q[3]].forEach(function(o){
+          svgEl(svg,'circle',{cx:cx+o[0]*sz*0.26,cy:cy+o[1]*sz*0.26,r:sz*0.1,
+            fill:'#2A2622',opacity:q[4]?'1':'.3'});
+        });
+      });
+    })();
     boardChip(svg,1.9*C,1.9*C,34,col.r); boardChip(svg,4.1*C,1.9*C,34,col.r);
     boardChip(svg,(9+1.9)*C,1.9*C,34,col.g); boardChip(svg,(9+4.1)*C,1.9*C,34,col.g);
     boardChip(svg,4.5*C,6.5*C,36,col.r);
@@ -903,72 +969,200 @@
     boardChip(svg,7*C+C/2,3*C+C/2,36,col.g);
   })();
 
-  // ---- 6-player hexagon (triangular yards, 4 slots) ----
-  var TH_L={plate:'#FDFBF7',cell:'#FFFFFF',line:'#C9C1B2',star:'#8a8478',yardIn:'#FFFFFF',slot:'rgba(0,0,0,.09)'};
-  var TH_D={plate:'#232830',cell:'#2E343F',line:'#4A5260',star:'#8E96A4',yardIn:'#1B1F26',slot:'rgba(255,255,255,.10)'};
-  function hexBoard(svg,opt){
+  // ===== 6-seat board: 12-sided plate, 12-sided centre, triangular yards =====
+  // Geometry notes (viewBox 660x660, centre 330,330, cell C=30):
+  //   arms      rows j=0..5 at radius 252,222,192,162,132,102  (3 lanes: -C, 0, +C)
+  //   no collision: innermost inner edge 87 → arm half-angle atan(45/87)=27.4° < 30°
+  //   hub       12-gon circumradius 90  (apothem 86.9, clears the arms)
+  //   plate     12-gon circumradius 282, 6 edges facing the arms, 6 facing the yards
+  //   yards     triangle apex r=140 → base r=247, half-width 70
+  //   dice      one slot per seat on its own yard axis at r=305
+  var TH_L={plate:'#FDFBF7',cell:'#FFFFFF',line:'#C9C1B2',star:'#8a8478',
+            yardIn:'#FFFFFF',slot:'rgba(0,0,0,.09)',hub:'#F1ECE1',
+            die:'#FFFFFF',dieEdge:'#C9C1B2',pip:'#2A2622',dieOff:'#EFE9DD'};
+  var TH_D={plate:'#232830',cell:'#2E343F',line:'#4A5260',star:'#8E96A4',
+            yardIn:'#1B1F26',slot:'rgba(255,255,255,.10)',hub:'#1B1F26',
+            die:'#EAE6DE',dieEdge:'#4A5260',pip:'#171A21',dieOff:'#2A303A'};
+  var PIPS={1:[[0,0]],2:[[-1,-1],[1,1]],3:[[-1,-1],[0,0],[1,1]],
+            4:[[-1,-1],[1,-1],[-1,1],[1,1]],5:[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],
+            6:[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]};
+  function hexBoard(svg, opt){
     if(!svg) return; opt=opt||{};
     var TH=opt.dark?TH_D:TH_L;
-    var C=30, CX=300, CY=300, cols=[P.p1,P.p2,P.p3,P.p4,P.p5,P.p6];
-    var R_OUT=6.9*C, PLATE=268, Y_IN=110, Y_OUT=226, Y_W=68;
-    var SLOTS=[[163,0],[192,-24],[192,24],[206,0]];
-    function pt(ang,rad,lat){var a=Math.PI/180*ang,ux=Math.cos(a),uy=Math.sin(a);
-      return [CX+ux*rad+(-uy)*lat, CY+uy*rad+ux*lat]}
-    function hexPts(r,rot){var o=[];for(var i=0;i<6;i++){var a=Math.PI/180*(60*i-90+(rot||0));
-      o.push((CX+r*Math.cos(a)).toFixed(1)+','+(CY+r*Math.sin(a)).toFixed(1))}return o.join(' ')}
-    function cellAt(ang,rad,lat,fill){
-      var p=pt(ang,rad,lat);
-      var g=svgEl(svg,'g',{transform:'translate('+p[0].toFixed(2)+','+p[1].toFixed(2)+') rotate('+(ang+90)+')'});
-      var r=document.createElementNS(NS,'rect');
-      r.setAttribute('x',-C/2);r.setAttribute('y',-C/2);r.setAttribute('width',C);r.setAttribute('height',C);
-      r.setAttribute('fill',fill);r.setAttribute('stroke',TH.line);r.setAttribute('stroke-width',1);
-      g.appendChild(r); return p;
+    var C=30, CX=330, CY=330;
+    var R_OUT=252, HUB=90, PLATE=282;
+    var Y_IN=140, Y_OUT=247, Y_W=70;
+    var SLOTS=[[185,0],[213,-24],[213,24],[226,0]];
+    var DIE_R=297;
+    var cols=['#E14B4B','#3FA35C','#3B72D9','#E3B23C','#7E57C2','#EF8022'];
+    var rad=Math.PI/180;
+    function pt(ang,r,lat){
+      var a=ang*rad, ux=Math.cos(a), uy=Math.sin(a);
+      return [CX+ux*r+(-uy)*(lat||0), CY+uy*r+ux*(lat||0)];
     }
-    function starAt(p){var R=10,r=4.4,q=[];
-      for(var i=0;i<10;i++){var a=Math.PI/5*i-Math.PI/2,rr=i%2?r:R;
+    function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
+    // 12-gon: vertices at -105+30i so edges centre on the arm axes AND the yard axes
+    function dodeca(r){
+      var o=[];
+      for(var i=0;i<12;i++){var a=(-105+30*i)*rad;
+        o.push((CX+r*Math.cos(a)).toFixed(1)+','+(CY+r*Math.sin(a)).toFixed(1))}
+      return o.join(' ');
+    }
+    function cellAt(ang,r,lat,fill){
+      var p=pt(ang,r,lat);
+      var g=el('g',{transform:'translate('+p[0].toFixed(2)+','+p[1].toFixed(2)+') rotate('+(ang+90)+')'});
+      var q=document.createElementNS(NS,'rect');
+      q.setAttribute('x',-C/2);q.setAttribute('y',-C/2);q.setAttribute('width',C);q.setAttribute('height',C);
+      q.setAttribute('fill',fill);q.setAttribute('stroke',TH.line);q.setAttribute('stroke-width',1);
+      g.appendChild(q); return g;
+    }
+    function starAt(p){
+      var R=10,r2=4.4,q=[];
+      for(var i=0;i<10;i++){var a=Math.PI/5*i-Math.PI/2,rr=i%2?r2:R;
         q.push((p[0]+rr*Math.cos(a)).toFixed(1)+','+(p[1]+rr*Math.sin(a)).toFixed(1))}
-      svgEl(svg,'polygon',{points:q.join(' '),fill:'none',stroke:TH.star,'stroke-width':1.4,'stroke-linejoin':'round'})}
-    function shrink(t,f){var gx=(t[0][0]+t[1][0]+t[2][0])/3, gy=(t[0][1]+t[1][1]+t[2][1])/3;
-      return t.map(function(p){return [gx+(p[0]-gx)*f, gy+(p[1]-gy)*f]})}
-    function poly(t,a){a.points=t.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ');
-      return svgEl(svg,'polygon',a)}
-    svgEl(svg,'polygon',{points:hexPts(PLATE,-30),fill:TH.plate,stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
+      el('polygon',{points:q.join(' '),fill:'none',stroke:TH.star,'stroke-width':1.5,'stroke-linejoin':'round'});
+    }
+    function shrink(t,f){
+      var gx=(t[0][0]+t[1][0]+t[2][0])/3, gy=(t[0][1]+t[1][1]+t[2][1])/3;
+      return t.map(function(p){return [gx+(p[0]-gx)*f, gy+(p[1]-gy)*f]});
+    }
+    function poly(t,a){a.points=t.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ');return el('polygon',a)}
+    function die(cx,cy,size,val,color,on){
+      var h=size/2;
+      if(on) el('rect',{x:cx-h-4,y:cy-h-4,width:size+8,height:size+8,rx:11,
+        fill:'none',stroke:color,'stroke-width':3,opacity:'.95'});
+      el('rect',{x:cx-h,y:cy-h,width:size,height:size,rx:7,
+        fill:on?TH.die:TH.dieOff,stroke:on?color:TH.dieEdge,'stroke-width':on?2:1.5});
+      var step=size*0.26;
+      (PIPS[val]||PIPS[1]).forEach(function(o){
+        el('circle',{cx:cx+o[0]*step,cy:cy+o[1]*step,r:size*0.095,
+          fill:TH.pip,opacity:on?'1':'.30'});
+      });
+    }
+    // --- plate ---
+    el('polygon',{points:dodeca(PLATE),fill:TH.plate,stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
+    // --- six arms ---
     for(var k=0;k<6;k++){
       var ang=-90+60*k, col=cols[k];
       for(var j=0;j<6;j++){
-        var rad=R_OUT-j*C;
-        cellAt(ang,rad,-C,TH.cell); cellAt(ang,rad,C,TH.cell);
-        cellAt(ang,rad,0, j===0?TH.cell:col);
+        var r=R_OUT-j*C;
+        cellAt(ang,r,-C,TH.cell);
+        cellAt(ang,r, C,TH.cell);
+        cellAt(ang,r, 0, j===0?TH.cell:col);      // j=0 is the turn-in square
       }
-      cellAt(ang,R_OUT,-C,col);
-      starAt(pt(ang,R_OUT-3*C,C));
+      cellAt(ang,R_OUT,-C,col);                    // start square, beside its own yard
+      starAt(pt(ang,R_OUT-3*C,C));                 // safe star on the returning lane
+      // arrow marking the way into the home column — points at the centre
+      var g=cellAt(ang,R_OUT,0,TH.cell);
+      var ar=document.createElementNS(NS,'polygon');
+      ar.setAttribute('points','-8.5,-6 8.5,-6 0,7.5');
+      ar.setAttribute('fill',col);
+      ar.setAttribute('stroke',TH.cell);
+      ar.setAttribute('stroke-width','1.5');
+      ar.setAttribute('stroke-linejoin','round');
+      g.appendChild(ar);
+      var st=document.createElementNS(NS,'rect');
+      st.setAttribute('x',-2.5); st.setAttribute('y',-11); st.setAttribute('width',5);
+      st.setAttribute('height',5.5); st.setAttribute('fill',col);
+      g.appendChild(st);
     }
+    // --- centre: 12-sided, split into six wedges ---
+    var ap=HUB*Math.cos(15*rad);
     for(var k=0;k<6;k++){
-      var a0=Math.PI/180*(60*k-120), a1=Math.PI/180*(60*(k+1)-120), R=1.45*C;
-      svgEl(svg,'polygon',{points:CX+','+CY+' '+(CX+R*Math.cos(a0)).toFixed(1)+','+(CY+R*Math.sin(a0)).toFixed(1)
-        +' '+(CX+R*Math.cos(a1)).toFixed(1)+','+(CY+R*Math.sin(a1)).toFixed(1), fill:cols[k]});
+      var a0=-120+60*k, a1=-60+60*k;
+      var p0=pt(a0,ap), v1=pt(-105+60*k,HUB), v2=pt(-75+60*k,HUB), p1=pt(a1,ap);
+      el('polygon',{points:CX+','+CY+' '+p0[0].toFixed(1)+','+p0[1].toFixed(1)+' '
+        +v1[0].toFixed(1)+','+v1[1].toFixed(1)+' '+v2[0].toFixed(1)+','+v2[1].toFixed(1)+' '
+        +p1[0].toFixed(1)+','+p1[1].toFixed(1), fill:cols[k]});
     }
-    svgEl(svg,'polygon',{points:hexPts(1.45*C,-30),fill:'none',stroke:TH.line,'stroke-width':1.5});
-    var perYard=opt.perYard||[2,3,1,3,2,3];
+    el('polygon',{points:dodeca(HUB),fill:'none',stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
+    // --- yards: a triangle per seat, apex at the centre ---
+    var per=opt.perYard||[2,3,1,3,2,3];
     for(var k=0;k<6;k++){
       var ya=-90+60*k-30, yc=cols[k];
       var tri=[pt(ya,Y_IN,0), pt(ya,Y_OUT,-Y_W), pt(ya,Y_OUT,Y_W)];
       poly(tri,{fill:yc,stroke:'rgba(0,0,0,.14)','stroke-width':2,'stroke-linejoin':'round'});
       poly(shrink(tri,.80),{fill:TH.yardIn,'stroke-linejoin':'round'});
       var pts=SLOTS.map(function(s){return pt(ya,s[0],s[1])});
-      pts.forEach(function(p){svgEl(svg,'circle',{cx:p[0],cy:p[1],r:11.5,fill:TH.slot})});
-      for(var s=0;s<Math.min(perYard[k],4);s++) boardChip(svg,pts[s][0],pts[s][1],24,yc);
+      pts.forEach(function(p){el('circle',{cx:p[0],cy:p[1],r:11.5,fill:TH.slot})});
+      for(var s=0;s<Math.min(per[k],4);s++) boardChip(svg,pts[s][0],pts[s][1],25,yc);
     }
+    // --- one dice place per seat; the live die sits at whoever is on turn ---
+    if(opt.dice!==false){
+      var turn = opt.turn==null ? 2 : opt.turn;
+      var vals = opt.diceValues||[3,5,4,2,6,1];
+      for(var k=0;k<6;k++){
+        var d=pt(-90+60*k-30, DIE_R);
+        die(d[0],d[1], k===turn?36:24, vals[k], cols[k], k===turn);
+      }
+    }
+    if(opt.chips===false) return;
+    // --- chips out on the track ---
     var q;
-    q=pt(-90,R_OUT,-C);      boardChip(svg,q[0],q[1],25,cols[0]);
-    q=pt(-30,R_OUT-2*C,-C);  boardChip(svg,q[0],q[1],25,cols[1]);
-    q=pt(30,R_OUT-3*C,C);    boardChip(svg,q[0]-7,q[1]-2,22,cols[2]); boardChip(svg,q[0]+7,q[1]+3,22,cols[4]);
-    q=pt(90,R_OUT-2*C,0);    boardChip(svg,q[0],q[1],25,cols[3]);
-    q=pt(150,R_OUT-1*C,C);   boardChip(svg,q[0],q[1],25,cols[4],'2');
-    q=pt(-150,R_OUT-4*C,-C); boardChip(svg,q[0],q[1],25,cols[5]);
-    q=pt(-90,R_OUT-4*C,C);   boardChip(svg,q[0],q[1],25,cols[2]);
+    q=pt(-90, R_OUT, -C);      boardChip(svg,q[0],q[1],26,cols[0]);
+    q=pt(-30, R_OUT-2*C, -C);  boardChip(svg,q[0],q[1],26,cols[1]);
+    q=pt(30,  R_OUT-3*C,  C);  boardChip(svg,q[0]-7,q[1]-2,23,cols[2]);
+                               boardChip(svg,q[0]+7,q[1]+3,23,cols[4]);
+    q=pt(90,  R_OUT-2*C,  0);  boardChip(svg,q[0],q[1],26,cols[3]);
+    q=pt(150, R_OUT-1*C,  C);  boardChip(svg,q[0],q[1],26,cols[4],'2');
+    q=pt(-150,R_OUT-4*C, -C);  boardChip(svg,q[0],q[1],26,cols[5]);
+    q=pt(-90, R_OUT-4*C,  C);  boardChip(svg,q[0],q[1],26,cols[2]);
   }
-  hexBoard(document.getElementById('b6'));
-  hexBoard(document.getElementById('b6d'),{dark:true});
+  // ---- seating & dice diagrams ----
+  (function(){
+    var CL=[P.p1,P.p2,P.p3,P.p4,P.p5,P.p6];
+    function mk(svg,fn){ if(svg) fn(svg) }
+    function e(svg,t,a){var x=document.createElementNS(NS,t);for(var k in a)x.setAttribute(k,a[k]);svg.appendChild(x);return x}
+    function pips(svg,cx,cy,sz,val,on,color){
+      var h=sz/2, P6={1:[[0,0]],2:[[-1,-1],[1,1]],3:[[-1,-1],[0,0],[1,1]],
+        4:[[-1,-1],[1,-1],[-1,1],[1,1]],5:[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],
+        6:[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]};
+      e(svg,'rect',{x:cx-h,y:cy-h,width:sz,height:sz,rx:sz*0.2,
+        fill:on?'#fff':'#EFE9DD',stroke:on?color:'#C9C1B2','stroke-width':on?2:1.2});
+      (P6[val]||P6[1]).forEach(function(o){
+        e(svg,'circle',{cx:cx+o[0]*sz*0.26,cy:cy+o[1]*sz*0.26,r:sz*0.095,
+          fill:'#2A2622',opacity:on?'1':'.3'});
+      });
+    }
+    // dice travelling between three seats
+    mk(document.getElementById('dicemap'),function(svg){
+      var seats=[[38,96,CL[4],'Purple'],[130,34,CL[2],'You'],[222,96,CL[3],'Yellow']];
+      seats.forEach(function(s,i){
+        e(svg,'circle',{cx:s[0],cy:s[1],r:15,fill:s[2],opacity:i===1?'1':'.28'});
+        e(svg,'text',{x:s[0],y:s[1]+31,'text-anchor':'middle','font-size':'9',
+          fill:'#6E675C','font-family':'system-ui'}).textContent=s[3];
+      });
+      // path arrows between seats
+      e(svg,'path',{d:'M56 90 Q90 52 112 40',fill:'none',stroke:'#C9C1B2','stroke-width':2,
+        'stroke-dasharray':'4 4'});
+      e(svg,'path',{d:'M148 40 Q172 52 204 90',fill:'none',stroke:'#C9C1B2','stroke-width':2,
+        'stroke-dasharray':'4 4'});
+      e(svg,'polygon',{points:'204,90 197,84 199,93',fill:'#C9C1B2'});
+      pips(svg,38,96,20,2,false,CL[4]);
+      pips(svg,130,34,26,5,true,CL[2]);
+      pips(svg,222,96,20,3,false,CL[3]);
+      e(svg,'text',{x:130,y:140,'text-anchor':'middle','font-size':'9.5',
+        fill:'#6E675C','font-family':'system-ui'}).textContent='the die slides to the next seat';
+    });
+    // seating figures
+    document.querySelectorAll('[data-seatfig]').forEach(function(svg){
+      var kind=svg.dataset.seatfig;
+      e(svg,'rect',{x:22,y:22,width:56,height:56,rx:7,fill:'#F2EDE3',stroke:'#D6CDBC','stroke-width':1.5});
+      function seat(x,y,c,label){
+        e(svg,'circle',{cx:x,cy:y,r:9,fill:c});
+        if(label) e(svg,'circle',{cx:x,cy:y,r:13,fill:'none',stroke:c,'stroke-width':2});
+      }
+      if(kind==='2'){ seat(50,8,CL[0]); seat(50,92,CL[2]) }
+      if(kind==='4'){ seat(50,8,CL[0]); seat(50,92,CL[2]); seat(8,50,CL[5]); seat(92,50,CL[1]) }
+      if(kind==='you'){
+        seat(50,8,CL[0]); seat(92,28,CL[1]); seat(92,72,CL[3]);
+        seat(50,92,CL[4]); seat(8,28,CL[5]); seat(8,72,CL[2],true);
+        e(svg,'text',{x:8,y:94,'text-anchor':'middle','font-size':'9','font-weight':'700',
+          fill:CL[2],'font-family':'system-ui'}).textContent='YOU';
+      }
+    });
+  })();
+  hexBoard(document.getElementById('b6'), {turn:2, perYard:[2,3,1,3,2,3]});
+  hexBoard(document.getElementById('b6d'), {dark:true, turn:2, perYard:[2,3,1,3,2,3]});
 })();
 </script>

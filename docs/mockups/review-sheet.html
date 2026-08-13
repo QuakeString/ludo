@@ -105,7 +105,7 @@
   @keyframes flip{0%,8%{transform:rotateY(0)} 58%,100%{transform:rotateY(1080deg)}}
   @keyframes toss{0%,8%{transform:translateY(0) scale(1)} 30%{transform:translateY(-13px) scale(1.07)}
     58%,100%{transform:translateY(0) scale(1)}}
-  .boardmini{width:100%; max-width:260px}
+  .boardmini{width:100%; max-width:300px}
   .boardmini svg{width:100%; height:auto; display:block}
   .facts{display:flex; flex-wrap:wrap; gap:6px}
   .facts i{font-style:normal; font-size:11.5px; font-weight:600; background:var(--chip);
@@ -133,11 +133,12 @@
 </defs></svg>
 
 <div class="wrap">
-  <div class="eyebrow">Ludo · design review sheet · round 2</div>
+  <div class="eyebrow">Ludo · design review sheet · round 3</div>
   <h1>Mark it up</h1>
-  <p class="lede">Your round-1 notes are all applied — the cards that changed are marked
-     <b>UPDATED</b>, and the three things you raised that need a decision are at the bottom as
-     questions <b>26–28</b>. Same drill: yes, change, or discuss, then <b>Copy all notes</b>.</p>
+  <p class="lede">Round-2 notes applied. The board was rebuilt to your sketch — twelve-sided plate,
+     bigger twelve-sided centre, no colliding paths, entry arrows. Cards that changed are marked
+     <b>UPDATED</b>; only <b>one</b> question is still open at the bottom. Same drill, then
+     <b>Copy all notes</b>.</p>
 
   <div class="how">
     <b>Two things worth knowing.</b>
@@ -203,6 +204,151 @@
     d.innerHTML=chip(color,opt);
     d.style.transform='translate('+(-w/2+dx)+'px,'+(-w*0.72+dy)+'px)';
     host.appendChild(d); return d;
+  }
+
+  function svgEl(svg,t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
+  function boardChip(svg,cx,cy,w,color,badge){
+    var g=svgEl(svg,'g',{transform:'translate('+(cx-w/2)+','+(cy-w*0.86)+') scale('+(w/100)+')'});
+    g.innerHTML=chip(color,badge?{badge:badge}:null).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'');
+  }
+  // ===== 6-seat board: 12-sided plate, 12-sided centre, triangular yards =====
+  // Geometry notes (viewBox 660x660, centre 330,330, cell C=30):
+  //   arms      rows j=0..5 at radius 252,222,192,162,132,102  (3 lanes: -C, 0, +C)
+  //   no collision: innermost inner edge 87 → arm half-angle atan(45/87)=27.4° < 30°
+  //   hub       12-gon circumradius 90  (apothem 86.9, clears the arms)
+  //   plate     12-gon circumradius 282, 6 edges facing the arms, 6 facing the yards
+  //   yards     triangle apex r=140 → base r=247, half-width 70
+  //   dice      one slot per seat on its own yard axis at r=305
+  var TH_L={plate:'#FDFBF7',cell:'#FFFFFF',line:'#C9C1B2',star:'#8a8478',
+            yardIn:'#FFFFFF',slot:'rgba(0,0,0,.09)',hub:'#F1ECE1',
+            die:'#FFFFFF',dieEdge:'#C9C1B2',pip:'#2A2622',dieOff:'#EFE9DD'};
+  var TH_D={plate:'#232830',cell:'#2E343F',line:'#4A5260',star:'#8E96A4',
+            yardIn:'#1B1F26',slot:'rgba(255,255,255,.10)',hub:'#1B1F26',
+            die:'#EAE6DE',dieEdge:'#4A5260',pip:'#171A21',dieOff:'#2A303A'};
+  var PIPS={1:[[0,0]],2:[[-1,-1],[1,1]],3:[[-1,-1],[0,0],[1,1]],
+            4:[[-1,-1],[1,-1],[-1,1],[1,1]],5:[[-1,-1],[1,-1],[0,0],[-1,1],[1,1]],
+            6:[[-1,-1],[1,-1],[-1,0],[1,0],[-1,1],[1,1]]};
+  function hexBoard(svg, opt){
+    if(!svg) return; opt=opt||{};
+    var TH=opt.dark?TH_D:TH_L;
+    var C=30, CX=330, CY=330;
+    var R_OUT=252, HUB=90, PLATE=282;
+    var Y_IN=140, Y_OUT=247, Y_W=70;
+    var SLOTS=[[185,0],[213,-24],[213,24],[226,0]];
+    var DIE_R=297;
+    var cols=['#E14B4B','#3FA35C','#3B72D9','#E3B23C','#7E57C2','#EF8022'];
+    var rad=Math.PI/180;
+    function pt(ang,r,lat){
+      var a=ang*rad, ux=Math.cos(a), uy=Math.sin(a);
+      return [CX+ux*r+(-uy)*(lat||0), CY+uy*r+ux*(lat||0)];
+    }
+    function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
+    // 12-gon: vertices at -105+30i so edges centre on the arm axes AND the yard axes
+    function dodeca(r){
+      var o=[];
+      for(var i=0;i<12;i++){var a=(-105+30*i)*rad;
+        o.push((CX+r*Math.cos(a)).toFixed(1)+','+(CY+r*Math.sin(a)).toFixed(1))}
+      return o.join(' ');
+    }
+    function cellAt(ang,r,lat,fill){
+      var p=pt(ang,r,lat);
+      var g=el('g',{transform:'translate('+p[0].toFixed(2)+','+p[1].toFixed(2)+') rotate('+(ang+90)+')'});
+      var q=document.createElementNS(NS,'rect');
+      q.setAttribute('x',-C/2);q.setAttribute('y',-C/2);q.setAttribute('width',C);q.setAttribute('height',C);
+      q.setAttribute('fill',fill);q.setAttribute('stroke',TH.line);q.setAttribute('stroke-width',1);
+      g.appendChild(q); return g;
+    }
+    function starAt(p){
+      var R=10,r2=4.4,q=[];
+      for(var i=0;i<10;i++){var a=Math.PI/5*i-Math.PI/2,rr=i%2?r2:R;
+        q.push((p[0]+rr*Math.cos(a)).toFixed(1)+','+(p[1]+rr*Math.sin(a)).toFixed(1))}
+      el('polygon',{points:q.join(' '),fill:'none',stroke:TH.star,'stroke-width':1.5,'stroke-linejoin':'round'});
+    }
+    function shrink(t,f){
+      var gx=(t[0][0]+t[1][0]+t[2][0])/3, gy=(t[0][1]+t[1][1]+t[2][1])/3;
+      return t.map(function(p){return [gx+(p[0]-gx)*f, gy+(p[1]-gy)*f]});
+    }
+    function poly(t,a){a.points=t.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ');return el('polygon',a)}
+    function die(cx,cy,size,val,color,on){
+      var h=size/2;
+      if(on) el('rect',{x:cx-h-4,y:cy-h-4,width:size+8,height:size+8,rx:11,
+        fill:'none',stroke:color,'stroke-width':3,opacity:'.95'});
+      el('rect',{x:cx-h,y:cy-h,width:size,height:size,rx:7,
+        fill:on?TH.die:TH.dieOff,stroke:on?color:TH.dieEdge,'stroke-width':on?2:1.5});
+      var step=size*0.26;
+      (PIPS[val]||PIPS[1]).forEach(function(o){
+        el('circle',{cx:cx+o[0]*step,cy:cy+o[1]*step,r:size*0.095,
+          fill:TH.pip,opacity:on?'1':'.30'});
+      });
+    }
+    // --- plate ---
+    el('polygon',{points:dodeca(PLATE),fill:TH.plate,stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
+    // --- six arms ---
+    for(var k=0;k<6;k++){
+      var ang=-90+60*k, col=cols[k];
+      for(var j=0;j<6;j++){
+        var r=R_OUT-j*C;
+        cellAt(ang,r,-C,TH.cell);
+        cellAt(ang,r, C,TH.cell);
+        cellAt(ang,r, 0, j===0?TH.cell:col);      // j=0 is the turn-in square
+      }
+      cellAt(ang,R_OUT,-C,col);                    // start square, beside its own yard
+      starAt(pt(ang,R_OUT-3*C,C));                 // safe star on the returning lane
+      // arrow marking the way into the home column — points at the centre
+      var g=cellAt(ang,R_OUT,0,TH.cell);
+      var ar=document.createElementNS(NS,'polygon');
+      ar.setAttribute('points','-8.5,-6 8.5,-6 0,7.5');
+      ar.setAttribute('fill',col);
+      ar.setAttribute('stroke',TH.cell);
+      ar.setAttribute('stroke-width','1.5');
+      ar.setAttribute('stroke-linejoin','round');
+      g.appendChild(ar);
+      var st=document.createElementNS(NS,'rect');
+      st.setAttribute('x',-2.5); st.setAttribute('y',-11); st.setAttribute('width',5);
+      st.setAttribute('height',5.5); st.setAttribute('fill',col);
+      g.appendChild(st);
+    }
+    // --- centre: 12-sided, split into six wedges ---
+    var ap=HUB*Math.cos(15*rad);
+    for(var k=0;k<6;k++){
+      var a0=-120+60*k, a1=-60+60*k;
+      var p0=pt(a0,ap), v1=pt(-105+60*k,HUB), v2=pt(-75+60*k,HUB), p1=pt(a1,ap);
+      el('polygon',{points:CX+','+CY+' '+p0[0].toFixed(1)+','+p0[1].toFixed(1)+' '
+        +v1[0].toFixed(1)+','+v1[1].toFixed(1)+' '+v2[0].toFixed(1)+','+v2[1].toFixed(1)+' '
+        +p1[0].toFixed(1)+','+p1[1].toFixed(1), fill:cols[k]});
+    }
+    el('polygon',{points:dodeca(HUB),fill:'none',stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
+    // --- yards: a triangle per seat, apex at the centre ---
+    var per=opt.perYard||[2,3,1,3,2,3];
+    for(var k=0;k<6;k++){
+      var ya=-90+60*k-30, yc=cols[k];
+      var tri=[pt(ya,Y_IN,0), pt(ya,Y_OUT,-Y_W), pt(ya,Y_OUT,Y_W)];
+      poly(tri,{fill:yc,stroke:'rgba(0,0,0,.14)','stroke-width':2,'stroke-linejoin':'round'});
+      poly(shrink(tri,.80),{fill:TH.yardIn,'stroke-linejoin':'round'});
+      var pts=SLOTS.map(function(s){return pt(ya,s[0],s[1])});
+      pts.forEach(function(p){el('circle',{cx:p[0],cy:p[1],r:11.5,fill:TH.slot})});
+      for(var s=0;s<Math.min(per[k],4);s++) boardChip(svg,pts[s][0],pts[s][1],25,yc);
+    }
+    // --- one dice place per seat; the live die sits at whoever is on turn ---
+    if(opt.dice!==false){
+      var turn = opt.turn==null ? 2 : opt.turn;
+      var vals = opt.diceValues||[3,5,4,2,6,1];
+      for(var k=0;k<6;k++){
+        var d=pt(-90+60*k-30, DIE_R);
+        die(d[0],d[1], k===turn?36:24, vals[k], cols[k], k===turn);
+      }
+    }
+    if(opt.chips===false) return;
+    // --- chips out on the track ---
+    var q;
+    q=pt(-90, R_OUT, -C);      boardChip(svg,q[0],q[1],26,cols[0]);
+    q=pt(-30, R_OUT-2*C, -C);  boardChip(svg,q[0],q[1],26,cols[1]);
+    q=pt(30,  R_OUT-3*C,  C);  boardChip(svg,q[0]-7,q[1]-2,23,cols[2]);
+                               boardChip(svg,q[0]+7,q[1]+3,23,cols[4]);
+    q=pt(90,  R_OUT-2*C,  0);  boardChip(svg,q[0],q[1],26,cols[3]);
+    q=pt(150, R_OUT-1*C,  C);  boardChip(svg,q[0],q[1],26,cols[4],'2');
+    q=pt(-150,R_OUT-4*C, -C);  boardChip(svg,q[0],q[1],26,cols[5]);
+    q=pt(-90, R_OUT-4*C,  C);  boardChip(svg,q[0],q[1],26,cols[2]);
   }
 
   // ---------- visual builders ----------
@@ -271,6 +417,28 @@
       });
       h.appendChild(r);
     },
+    dots:function(h){
+      var w=document.createElement('div');
+      w.style.cssText='display:flex;flex-direction:column;gap:9px';
+      [['6 dots · 30 s left',6],['3 dots · 15 s left',3],['last dot · auto-play next',1]]
+      .forEach(function(r){
+        var row=document.createElement('div');
+        row.style.cssText='display:flex;align-items:center;gap:9px;font-size:12.5px;color:var(--muted)';
+        var d=document.createElement('div'); d.style.cssText='display:flex;gap:5px';
+        for(var i=0;i<6;i++){
+          var s2=document.createElement('i');
+          var live=i<r[1];
+          s2.style.cssText='width:12px;height:12px;border-radius:50%;background:'
+            +(live?(r[1]===1?'#E14B4B':'#3FA35C'):'var(--chip)')
+            +(live?'':';border:1px solid var(--line)');
+          d.appendChild(s2);
+        }
+        row.appendChild(d);
+        var t=document.createElement('span'); t.textContent=r[0]; row.appendChild(t);
+        w.appendChild(row);
+      });
+      h.appendChild(w);
+    },
     themes:function(h){
       var r=document.createElement('div'); r.className='chiprow';
       [['Light','#F7F3EC','#FFFFFF','#C9C1B2','#2A2622'],
@@ -291,56 +459,11 @@
     hex:function(h){
       var d=document.createElement('div'); d.className='boardmini';
       var svg=document.createElementNS(NS,'svg');
-      svg.setAttribute('viewBox','0 0 600 600');
+      svg.setAttribute('viewBox','0 0 660 660');
       svg.setAttribute('role','img');
-      svg.setAttribute('aria-label','Six-player hexagonal Ludo board');
+      svg.setAttribute('aria-label','Six-player board: twelve-sided plate, triangular home bases, entry arrows and one dice place per seat');
       d.appendChild(svg); h.appendChild(d);
-      var C=30,CX=300,CY=300,LINE='#C9C1B2',cols=[P.p1,P.p2,P.p3,P.p4,P.p5,P.p6];
-      var R_OUT=6.9*C, YARD_R=200, YARD_S=1.5*C;
-      function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
-      function pt(an,rad,lat){var a=Math.PI/180*an,ux=Math.cos(a),uy=Math.sin(a);
-        return [CX+ux*rad+(-uy)*lat, CY+uy*rad+ux*lat]}
-      function hexPts(r,rot){var o=[];for(var i=0;i<6;i++){var a=Math.PI/180*(60*i-90+(rot||0));
-        o.push((CX+r*Math.cos(a)).toFixed(1)+','+(CY+r*Math.sin(a)).toFixed(1))}return o.join(' ')}
-      function cellAt(an,rad,lat,fill){
-        var p=pt(an,rad,lat);
-        var g=el('g',{transform:'translate('+p[0].toFixed(2)+','+p[1].toFixed(2)+') rotate('+(an+90)+')'});
-        var r=document.createElementNS(NS,'rect');
-        r.setAttribute('x',-C/2);r.setAttribute('y',-C/2);r.setAttribute('width',C);r.setAttribute('height',C);
-        r.setAttribute('fill',fill);r.setAttribute('stroke',LINE);r.setAttribute('stroke-width',1);
-        g.appendChild(r); return p;
-      }
-      function bchip(cx,cy,w,color){
-        var g=el('g',{transform:'translate('+(cx-w/2)+','+(cy-w*0.86)+') scale('+(w/100)+')'});
-        g.innerHTML=chip(color).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'');
-      }
-      el('polygon',{points:hexPts(268,-30),fill:'#FDFBF7',stroke:LINE,'stroke-width':1.5,'stroke-linejoin':'round'});
-      for(var k=0;k<6;k++){
-        var an=-90+60*k;
-        for(var j=0;j<6;j++){var rad=R_OUT-j*C;
-          cellAt(an,rad,-C,'#fff'); cellAt(an,rad,C,'#fff'); cellAt(an,rad,0, j===0?'#fff':cols[k]);}
-        cellAt(an,R_OUT,-C,cols[k]);
-      }
-      for(var k=0;k<6;k++){
-        var a0=Math.PI/180*(60*k-120),a1=Math.PI/180*(60*(k+1)-120),R=1.45*C;
-        el('polygon',{points:CX+','+CY+' '+(CX+R*Math.cos(a0)).toFixed(1)+','+(CY+R*Math.sin(a0)).toFixed(1)
-          +' '+(CX+R*Math.cos(a1)).toFixed(1)+','+(CY+R*Math.sin(a1)).toFixed(1),fill:cols[k]});
-      }
-      function shrink(t,f){var gx=(t[0][0]+t[1][0]+t[2][0])/3, gy=(t[0][1]+t[1][1]+t[2][1])/3;
-        return t.map(function(q){return [gx+(q[0]-gx)*f, gy+(q[1]-gy)*f]})}
-      function poly(t,a){a.points=t.map(function(q){return q[0].toFixed(1)+','+q[1].toFixed(1)}).join(' ');
-        return el('polygon',a)}
-      var Y_IN=110, Y_OUT=226, Y_W=68, SLOTS=[[163,0],[192,-24],[192,24],[206,0]];
-      var perYard=[4,3,4,2,4,3];
-      for(var k=0;k<6;k++){
-        var ya=-90+60*k-30;
-        var tri=[pt(ya,Y_IN,0), pt(ya,Y_OUT,-Y_W), pt(ya,Y_OUT,Y_W)];
-        poly(tri,{fill:cols[k],stroke:'rgba(0,0,0,.14)','stroke-width':2,'stroke-linejoin':'round'});
-        poly(shrink(tri,.80),{fill:'#fff','stroke-linejoin':'round'});
-        var pts=SLOTS.map(function(s){return pt(ya,s[0],s[1])});
-        pts.forEach(function(q){el('circle',{cx:q[0],cy:q[1],r:11.5,fill:'rgba(0,0,0,.09)'})});
-        for(var s=0;s<perYard[k];s++) bchip(pts[s][0],pts[s][1],24,cols[k]);
-      }
+      hexBoard(svg,{perYard:[3,4,2,4,1,3], turn:2});
     },
     facts:function(list){ return function(h){
       var d=document.createElement('div'); d.className='facts';
@@ -362,8 +485,8 @@
     {g:'Players and modes', items:[
       {id:'sixseats', t:'Up to 6 players',
        d:'Seat counts 2 through 6, in every mode — solo with AI, pass and play, private rooms and quick match. Humans and AI can be mixed in any combination.'},
-      {id:'hexboard', t:'Six seats use a hexagon board', tag:'UPDATED',
-       d:'<b>Fixed per your note:</b> the round home bases are gone — each yard is now a <b>triangle</b> with its apex pointing at the centre, and every yard holds <b>4 chip slots</b>, not 3. Six arms, 78 track squares, same chips as the four-seat board.',
+      {id:'hexboard', t:'The six-seat board, rebuilt to your sketch', tag:'UPDATED',
+       d:'<b>All four of your marks are in.</b> The plate is now <b>12-sided</b> — six edges facing the arms, six facing the homes. The centre is <b>12-sided and more than twice as big</b>, which is what stopped the paths colliding: the arms now end at radius 102 instead of running into each other near the middle. Home bases stay <b>triangles with 4 slots</b>. And every home column now has a <b>coloured arrow</b> on its turn-in square, pointing the way in.',
        v:VIS.hex},
       {id:'chipcount', t:'3 or 4 chips — the player chooses', tag:'UPDATED',
        d:'<b>Changed per your note:</b> chips per player is now a selector on the rules screen at every seat count — 2, 3 or 4. Three keeps a six-seat round short, four is the traditional game. The yard is always drawn with four slots, so switching never changes the board.'},
@@ -373,8 +496,8 @@
        d:'Same model online. The host sets seats and format when creating the room; teammates are arranged in the lobby, where players can be dragged between sides before the match starts.'},
       {id:'teamrules', t:'What being partners actually means',
        d:'Partners never capture each other · partners do not block each other · a player whose chips are all home keeps rolling for the team · <b>the team wins when every partner is home</b>. Each of these is a switch if you want it different.'},
-      {id:'pairmove', t:'Pair move — your new opt-in rule', tag:'NEW',
-       d:'<b>Added per your note:</b> two chips sharing a square may be linked into a <b>pair</b>. On an <b>even roll</b> the pair moves together, advancing <b>half the roll</b> (a 6 moves the pair 3). In team games a pair may be formed from your chip and a <b>partner\'s</b> chip. Off by default, switched on in the rules. Three details still need your call — questions 26–28 below.',
+      {id:'pairmove', t:'Pair move — now with the lock rule', tag:'UPDATED',
+       d:'Two chips sharing a square link into a <b>pair</b>; on an <b>even roll</b> it moves as one, advancing <b>half the roll</b>. In team games it may pair your chip with a <b>partner\'s</b>. <b>Added per your note:</b> once linked, a pair <b>cannot be broken until it reaches a safe square</b> — a star square or its own home column. <b>Also per your note:</b> a pair can only be captured by an opposing <b>pair</b>, never by a single chip.',
        v:VIS.pair},
       {id:'modes', t:'Four ways to play on the home screen',
        d:'Play vs AI and Pass &amp; Play are marked offline; Friends Room and Quick Match are marked online. A Resume card sits above them when a saved game exists.'}
@@ -390,8 +513,13 @@
        d:'A private room gets a six-character code and a share link, so a group can start a game from a WhatsApp message. No friendship needed to join by code.'},
       {id:'quickmatch', t:'Quick match — you decide about empty seats', tag:'UPDATED',
        d:'<b>Changed per your note:</b> filling an empty seat with AI is now a choice, not automatic. The room setting is <b>Fill with AI</b> or <b>Leave empty</b> — pick the second and you simply start a player short.'},
-      {id:'discon', t:'5 minutes to reconnect', tag:'UPDATED',
-       d:'<b>Changed per your note:</b> 60 seconds is now <b>5 minutes</b>. So the others aren\'t stuck waiting, AI plays your turns from the moment you drop and you take the seat back the instant you return — the moves made in your absence are listed in the turn log.'}
+      {id:'discon', t:'Turn timer: six dots, then auto-play', tag:'UPDATED',
+       d:'<b>Built per your note:</b> every online turn gets <b>30 seconds shown as six dots, one per five seconds</b>, ticking away beside the player\'s name. It covers both halves of a turn — not rolling, and rolling but not moving. When the last dot goes out, <b>auto-play makes the move and the turn passes on</b>. Separately, a dropped player\'s seat is held for <b>5 minutes</b> while auto-play covers their turns, so they can rejoin mid-game.',
+       v:VIS.dots},
+      {id:'diceseats', t:'Every seat has its own dice place', tag:'NEW',
+       d:'<b>Added per your note:</b> the die is never parked in the centre. Each seat has its own dice place — inside its home yard on the four-seat board, just outside its own corner on the six-seat board — and the die <b>travels to whoever is on turn</b>. You always roll from your own corner.'},
+      {id:'seating', t:'Where each player sits', tag:'NEW',
+       d:'<b>Added per your note.</b> Pass &amp; play seats people <b>facing each other</b> — 2 players at opposite ends, 4 as two opposite pairs, 6 spread evenly round the hexagon, with each player\'s name and die turned to face their own edge of the phone. Online, <b>you are always at the bottom-left</b> and the board rotates around you, so every player sees themselves in the same place.'}
     ]},
     {g:'Rules', items:[
       {id:'customrules', t:'Custom rules are data, not code',
@@ -421,12 +549,8 @@
        v:VIS.themes}
     ]},
     {g:'Three decisions I need from you', items:[
-      {id:'q_paircapture', t:'Can a pair be captured?',
-       d:'My default is <b>no</b> — a pair is safe from capture, which is the whole reason to form one. The alternatives: an opponent landing on it captures <b>both</b> (brutal, high drama), or only an opposing <b>pair</b> can capture a pair (a pair-versus-pair duel). Which do you want?'},
-      {id:'q_pairodd', t:'What happens on an odd roll while paired?',
-       d:'My default: the pair <b>splits</b> and you move one chip the full amount, as normal. The alternative is that the pair simply cannot move on an odd roll and you must move a different chip. Second one is stricter and can waste turns.'},
-      {id:'q_pairform', t:'How is a pair formed and broken?',
-       d:'My default: any two of your chips that land on the same square can be linked by tapping them, and tapping again breaks the link — it is never automatic, because forcing a pair would take away a move you wanted. Should linking instead be automatic whenever two chips share a square?'}
+      {id:'q_pairodd', t:'What happens on an odd roll while you are locked in a pair?', tag:'NEW',
+       d:'This is the one thing still open — you marked it Change but did not say what to. Since a pair is now <b>locked until it reaches a star or its home column</b>, my proposal is: on an odd roll the pair <b>cannot move at all</b>, and you must move one of your other chips; if you have no other legal move, the turn passes. The pair may only split once it is standing on a safe square. <b>Tell me if you would rather</b> the odd roll break the lock and let one chip move, or the pair move anyway rounding the odd roll down (a 5 moves the pair 2).'}
     ]},
     {g:'Build order', items:[
       {id:'firstbuild', t:'What gets built first',
@@ -436,7 +560,7 @@
     ]}
   ];
 
-  var KEY='ludo-review-v3';
+  var KEY='ludo-review-v4';
   var state = {};
   try{ state = JSON.parse(localStorage.getItem(KEY)||'{}') }catch(e){ state={} }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }

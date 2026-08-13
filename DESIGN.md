@@ -15,7 +15,7 @@ required unless playing online).
 | 3 | Custom rules | Data-driven **Rule Config** (JSON) interpreted by the engine; rule presets + rule builder UI + shareable rule codes |
 | 4 | Online or offline; login only for online play | Offline-first; **an account is never required** — an anonymous guest ID plays everything, online included |
 | 5 | Design sketch | This document + `docs/mockups/` |
-| 6 | Up to 6 players | Hexagonal board with **triangular yards** for 5–6 seats; 2–4 seats keep the classic cross |
+| 6 | Up to 6 players | **12-sided** board with triangular yards for 5–6 seats; 2–4 seats keep the classic cross |
 | 7 | Team ("pair") play | 2v2 at four seats; 3v3 or 2v2v2 at six — available in pass-and-play *and* online rooms |
 | 8 | Pair move (opt-in) | Two tokens on one square link into a **pair** and move together on an even roll, advancing half the pips; may pair across partners |
 | 9 | Profile &amp; friends | Photo, display name and level for guests; friend **requests**, and your own **nicknames** for friends |
@@ -27,7 +27,7 @@ Open these in a browser — every chip is drawn by the same vector routine the a
 
 | File | What it covers |
 |------|----------------|
-| `docs/mockups/screen-flow.html` | 17 phone screens, splash → home → seats/teams → gameplay → online → profile → result, light **and** dark |
+| `docs/mockups/screen-flow.html` | 18 phone screens, splash → home → seats/teams → gameplay → online → profile → result, light **and** dark |
 | `docs/mockups/chip-and-motion.html` | Chip anatomy, states, stacking, pairs, **live movement demos**, both boards, both themes |
 | `docs/mockups/review-sheet.html` | Commentable checklist of every decision (notes saved on-device) |
 | `docs/mockups/overview.html` | One-page summary of stack, modes and roadmap |
@@ -165,6 +165,10 @@ Online details:
   in their absence shown in the turn log.
 - **Empty seats:** filling them with AI is a **room setting, not automatic** — `Fill with AI`
   or `Leave empty`. Choosing the latter simply starts the match a player short.
+- **Turn timer:** every online turn runs **30 seconds, shown as six dots, one per five
+  seconds**, beside the player's name. It covers both halves of a turn — not rolling, and
+  rolling but not moving. When the last dot goes out, **auto-play makes the move and the turn
+  passes on**.
 - **Anti-cheat:** server-authoritative state + server-side dice → clients can't lie.
 
 ### Team ("pair") play
@@ -197,9 +201,15 @@ Two tokens sharing a square may be **linked into a pair**:
   keeps its dashed-wall treatment. Both are two tokens on one square, so they must not look
   alike.
 
-Defaults, all switchable, **pending confirmation**: a pair cannot be captured; an odd roll
-splits the pair (move one token normally); linking is manual (tap to link, tap to break)
-rather than automatic, so pairing never steals a move you wanted.
+- **Locked until safe:** once linked, a pair **cannot be broken until it reaches a safe
+  square** — a star square or its own home column. Pairing is a commitment, not a per-turn
+  toggle.
+- **Capture:** a pair can only be taken by an **opposing pair**; a single token cannot
+  capture it.
+- Linking is manual (tap to link) so pairing never steals a move you wanted.
+
+*Open:* what an odd roll does while locked. Proposal — the pair cannot move at all and you
+must move another token; it may only split once standing on a safe square.
 
 ---
 
@@ -215,9 +225,10 @@ rather than automatic, so pairing never steals a move you wanted.
 
 | | 2–4 seats | 5–6 seats |
 |---|---|---|
-| Shape | Classic 15×15 cross | Hexagon, 6 arms at 60° |
+| Shape | Classic 15×15 cross | **12-sided plate**, 6 arms at 60° |
 | Track squares | 52 (4 × 13) | 78 (6 × 13) |
 | Home column | 5 squares | 5 squares |
+| Centre | 4 triangles | **12-sided**, 6 wedges |
 | Yard shape | Square, 4 slots | **Triangle** (apex toward centre), 4 slots |
 | Tokens per player | **2, 3 or 4 — player's choice** | **2, 3 or 4 — player's choice** |
 | Token size | 78% of a square | 66% of a square |
@@ -228,9 +239,22 @@ The yard is always drawn with **four slots** regardless, so changing the count n
 the board.
 
 Both boards use the same geometry generator and the same token renderer; only the sector
-count and radius change. Hexagon geometry: outermost track row at radius `6.9c`, yard
-triangle spanning radius `110 → 226` with half-width `68`, plate a hexagon of radius `268`
-whose vertices point at the yards.
+count and radius change.
+
+**Six-seat geometry** (viewBox 660×660, centre 330,330, cell `c` = 30):
+
+| Element | Value | Why |
+|---|---|---|
+| Track rows | radius 252, 222, 192, 162, 132, **102** | 3 lanes per arm at lateral −c, 0, +c |
+| Arm clearance | inner edge 87 → half-angle `atan(45/87)` = 27.4° | Under 30°, so **adjacent arms cannot collide** |
+| Centre | 12-gon, circumradius **90** (apothem 86.9) | Large enough that the six home columns land cleanly |
+| Plate | 12-gon, circumradius **282** | Vertices at ±15° off each arm, so **6 edges face the arms and 6 face the homes** |
+| Yard | triangle, apex r=140 → base r=247, half-width 70 | Fits the wedge between two arms with clearance at every radius |
+| Yard slots | (185, 0) (213, ±24) (226, 0) | Four resting places, always drawn |
+| Dice place | radius **297** on each yard axis | One per seat, just outside that seat's own corner |
+
+Each home column carries a **coloured arrow on its turn-in square**, pointing at the centre,
+so the way into home is never ambiguous.
 
 ### Custom rules = a data object, not code
 
@@ -253,7 +277,10 @@ Every variant is expressed as a `RuleConfig` the engine interprets:
   "pairMove": true,               // two tokens on one square may link into a pair
   "pairMoveEvenOnly": true,       // pair advances only on an even roll, by roll / 2
   "pairAcrossPartners": true,     // in team games, pair with a partner's token
-  "pairCapturable": false,        // a linked pair is safe from capture
+  "pairLockedUntilSafe": true,    // cannot unpair until a star square or the home column
+  "pairCapturableBy": "pair",     // only an opposing pair may capture a pair
+  "turnTimerDots": 6,             // 6 dots x 5s = 30s, then auto-play
+  "fillEmptySeatsWithAI": true,   // host's choice, never automatic
   "safeSquares": "stars",        // "stars" | "none" | "starts+stars"
   "blockades": true,              // two own tokens block a square
   "exactHomeEntry": true,
@@ -327,6 +354,17 @@ Splash ─► Home ──┬─► Play vs AI ────► seats ─┬─►
 Seat count is chosen **before** anything else, because it determines the board shape, the
 default token count, and whether teams are possible at all. The teams step appears only for
 4 and 6 seats. See `docs/mockups/screen-flow.html` for all 11 screens.
+
+### Dice placement and seating
+
+- **One dice place per seat.** The die is never parked in the centre; it **travels to whoever
+  is on turn** and rests at that seat's own place — inside the home yard on the four-seat
+  board, just outside the seat's corner on the six-seat board.
+- **Pass & play** seats players *facing each other*: 2 at opposite ends, 4 as two opposite
+  pairs, 6 spread evenly around the hexagon. Each player's name and die face their own edge
+  of the device, so nobody plays upside down.
+- **Online**, you are always at the **bottom-left** and the board rotates around you; every
+  player sees themselves in the same place, with opponents filling the rest in turn order.
 
 Board screen essentials:
 
