@@ -101,7 +101,6 @@ void main() {
         inside(g.ringCell(i).centre, 'ring $i');
       }
       for (var arm = 0; arm < 4; arm++) {
-        inside(g.dicePlace(arm), 'die $arm');
         for (final s in g.yardSlots(arm)) {
           inside(s, 'yard slot $arm');
         }
@@ -186,9 +185,10 @@ void main() {
         expect(p.y, inInclusiveRange(0, 1));
       }
       for (var arm = 0; arm < 6; arm++) {
-        final d = g.dicePlace(arm);
-        expect(d.x, inInclusiveRange(0, 1));
-        expect(d.y, inInclusiveRange(0, 1));
+        for (final s in g.yardSlots(arm)) {
+          expect(s.x, inInclusiveRange(0, 1));
+          expect(s.y, inInclusiveRange(0, 1));
+        }
       }
     });
   });

@@ -95,9 +95,6 @@ abstract class BoardGeometry {
   /// The centre, split one wedge per arm.
   List<Tri> centreWedges();
 
-  /// Where a seat's die rests.
-  Pt dicePlace(int arm);
-
   /// Ring indices carrying a safe star.
   List<int> starRingIndices();
 }
@@ -233,13 +230,6 @@ class CrossGeometry implements BoardGeometry {
     ];
   }
 
-  /// On the cross board the die rests in the middle of its own yard.
-  @override
-  Pt dicePlace(int arm) {
-    final o = yardOrigins[arm];
-    return Pt((o[0] + 3) / grid, (o[1] + 3) / grid);
-  }
-
   @override
   List<int> starRingIndices() =>
       [for (var a = 0; a < spec.arms; a++) spec.starRing(a)];
@@ -256,9 +246,17 @@ class HexGeometry implements BoardGeometry {
   @override
   final BoardSpec spec;
 
-  static const _u = 660.0; // design space, normalised away on output
+  // Design space, normalised away on output. Every radius below is measured in
+  // it, so shrinking the unit scales the whole board up about its centre —
+  // cells, track and plate together, leaving the spacing between neighbouring
+  // squares untouched.
+  //
+  // It was 660, which left a ring of empty space outside the plate for the
+  // seats' dice to sit in. The dice moved off the board into the seat panels,
+  // so that ring is now just margin, and the board takes it back.
+  static const _u = 600.0;
   static const _c = 30.0; // cell edge
-  static const _centre = 330.0;
+  static const _centre = _u / 2;
 
   /// Outermost track row. The innermost then lands at 94, which is what makes
   /// the track continuous — see the note on [_armSlotFor].
@@ -268,7 +266,6 @@ class HexGeometry implements BoardGeometry {
   static const _yardIn = 90.0; // apex — sits exactly on a hub corner
   static const _yardOut = 247.0;
   static const _yardHalfWidth = 70.0;
-  static const _dieR = 297.0;
 
   /// (radius, lateral offset) of the four resting places in a home base.
   static const _slots = [
@@ -393,9 +390,6 @@ class HexGeometry implements BoardGeometry {
           Tri(const Pt(0.5, 0.5), _pt(-120 + 60.0 * k, _hub),
               _pt(-60 + 60.0 * k, _hub))
       ];
-
-  @override
-  Pt dicePlace(int arm) => _pt(_yardAngle(arm), _dieR);
 
   @override
   List<int> starRingIndices() =>

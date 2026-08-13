@@ -53,7 +53,6 @@ class BoardPainter extends CustomPainter {
     _paintTurnInArrows(canvas, px, cell);
     _paintCentre(canvas, px);
     _paintYards(canvas, px, cell);
-    _paintDice(canvas, px, cell);
     _paintChips(canvas, px, cell);
     _paintMotions(canvas, px, cell);
   }
@@ -265,94 +264,6 @@ class BoardPainter extends CustomPainter {
       }
     }
   }
-
-  void _paintDice(Canvas canvas, Offset Function(Pt) px, double cell) {
-    for (var p = 0; p < state.rules.players; p++) {
-      final live = p == state.turn;
-      final value = live ? (state.dice ?? 0) : 0;
-      final centre = px(geometry.dicePlace(state.armOf(p)));
-      final size = cell * (live ? 1.5 : 1.05);
-      final rect = Rect.fromCenter(center: centre, width: size, height: size);
-      final rr = RRect.fromRectAndRadius(rect, Radius.circular(size * 0.2));
-
-      if (live) {
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            rect.inflate(size * 0.12),
-            Radius.circular(size * 0.3),
-          ),
-          Paint()
-            ..color = seatColors[p]
-            ..style = PaintingStyle.stroke
-            ..strokeWidth = size * 0.09,
-        );
-      }
-      canvas.drawRRect(
-        rr,
-        Paint()..color = live ? palette.die : palette.dieIdle,
-      );
-      canvas.drawRRect(
-        rr,
-        Paint()
-          ..color = live ? seatColors[p] : palette.dieEdge
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = size * 0.05,
-      );
-
-      if (value >= 1) {
-        for (final o in _pips[value]!) {
-          canvas.drawCircle(
-            centre + Offset(o[0] * size * 0.26, o[1] * size * 0.26),
-            size * 0.095,
-            Paint()..color = palette.pip,
-          );
-        }
-      } else if (!live) {
-        // An idle place, waiting for its turn.
-        canvas.drawCircle(
-          centre,
-          size * 0.09,
-          Paint()..color = palette.pip.withValues(alpha: 0.25),
-        );
-      }
-    }
-  }
-
-  static const _pips = <int, List<List<double>>>{
-    1: [
-      [0, 0],
-    ],
-    2: [
-      [-1, -1],
-      [1, 1],
-    ],
-    3: [
-      [-1, -1],
-      [0, 0],
-      [1, 1],
-    ],
-    4: [
-      [-1, -1],
-      [1, -1],
-      [-1, 1],
-      [1, 1],
-    ],
-    5: [
-      [-1, -1],
-      [1, -1],
-      [0, 0],
-      [-1, 1],
-      [1, 1],
-    ],
-    6: [
-      [-1, -1],
-      [1, -1],
-      [-1, 0],
-      [1, 0],
-      [-1, 1],
-      [1, 1],
-    ],
-  };
 
   // --- chips ---------------------------------------------------------------
 

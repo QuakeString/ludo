@@ -7,6 +7,7 @@ import 'package:ludo_protocol/ludo_protocol.dart';
 
 import '../board/board_painter.dart';
 import '../board/move_animation.dart';
+import '../board/seat_panel.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
@@ -329,6 +330,110 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     };
   }
 
+  /// Which seats sit above the board and which below.
+  ///
+  /// You are always on the bottom row, because the die is a thing you reach
+  /// for — it belongs under your thumb, not across the table. Everyone else is
+  /// dealt out from the seat after yours so the order round the screen matches
+  /// the order of play.
+  (List<int>, List<int>) _seatRows() {
+    final n = _state.rules.players;
+    final me = _session?.yourSeat ?? 0;
+    final order = [for (var i = 0; i < n; i++) (me + i) % n];
+
+    // Two players face each other; otherwise split the table in half, with the
+    // seats that play soonest after you nearest to you.
+    final belowCount = switch (n) {
+      2 => 1,
+      3 => 1,
+      4 => 2,
+      5 => 2,
+      _ => 3,
+    };
+    final below = order.take(belowCount).toList();
+    final above = order.skip(belowCount).toList().reversed.toList();
+    return (above, below);
+  }
+
+  String _nameOf(int seat) {
+    final seats = _session?.room?.seats;
+    if (seats != null && seat < seats.length) {
+      if (seat == _session?.yourSeat) return 'You';
+      final name = seats[seat].displayName;
+      if (name != null && name.isNotEmpty) return name;
+    }
+    // A local computer seat is called by its colour, because that is what
+    // people say out loud — "green is winning", never "the normal computer is
+    // winning". The robot on its avatar is what marks it as not a person, and
+    // it costs no width, which matters when six panels share a phone.
+    return seatNames[seat];
+  }
+
+  Widget _seatRow({required bool top}) {
+    final (above, below) = _seatRows();
+    final seats = top ? above : below;
+    if (seats.isEmpty) return const SizedBox.shrink();
+
+    final rules = _state.rules;
+    final session = _session;
+    final limit = rules.turnSeconds;
+    final left = session?.secondsLeft;
+
+    // A row, not a wrap: panels share the width so they always fit on one
+    // line. Wrapping cost the board a chunk of height at four seats and more
+    // at six, which is the wrong thing to spend space on.
+    Widget fit(Widget panel) =>
+        seats.length == 1 ? panel : Expanded(child: panel);
+
+    return Padding(
+      padding: EdgeInsets.fromLTRB(10, top ? 4 : 8, 10, top ? 8 : 4),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          for (final seat in seats) ...[
+            if (seat != seats.first) const SizedBox(width: 7),
+            fit(
+              SeatPanel(
+                seat: seat,
+                name: _nameOf(seat),
+                isComputer:
+                    widget.aiSeats.containsKey(seat) ||
+                    (_session?.room?.seats.length ?? 0) > seat &&
+                        (_session?.room?.seats[seat].isComputer ?? false),
+                home: _state
+                    .tokensOf(seat)
+                    .where((t) => _state.board.isFinished(t.progress))
+                    .length,
+                total: rules.tokensPerPlayer,
+                onTurn: seat == _state.turn && !_state.isOver,
+                // Only the seat on turn holds the die, and only once it has been
+                // rolled — an unrolled die shows an empty face, not a stale one.
+                dice: seat == _state.turn ? _state.dice : null,
+                timerDots: rules.turnTimerDots,
+                dotsLit: (left == null || limit <= 0)
+                    ? rules.turnTimerDots
+                    : (left * rules.turnTimerDots / limit).ceil().clamp(
+                        0,
+                        rules.turnTimerDots,
+                      ),
+                connected: session == null
+                    ? true
+                    : (session.room?.seats.length ?? 0) > seat
+                    ? session.room!.seats[seat].connected
+                    : true,
+                // The die is the roll button for whoever may roll.
+                onRoll: (seat == _state.turn && _myMove && _state.awaitingRoll)
+                    ? _roll
+                    : null,
+                compact: rules.players > 4,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
@@ -379,6 +484,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     'Lost the connection. Your seat is held for five '
                     'minutes — the table plays on meanwhile.',
               ),
+            _seatRow(top: true),
             Expanded(
               child: Center(
                 child: AspectRatio(
@@ -408,6 +514,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
+            _seatRow(top: false),
             _Controls(
               state: _state,
               moves: moves,
@@ -488,42 +595,8 @@ class _TurnBar extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
-          if (state.rules.turnTimerDots > 0 && !over) _dots(),
         ],
       ),
-    );
-  }
-
-  /// The turn clock, as dots rather than a number: six of them, one per five
-  /// seconds, going out one at a time. A row of dots emptying is read at a
-  /// glance; a number has to be interpreted.
-  Widget _dots() {
-    final total = state.rules.turnTimerDots;
-    final left = session?.secondsLeft;
-    final limit = state.rules.turnSeconds;
-
-    // Offline nobody is being timed out, so the dots are shown full rather
-    // than pretending to count down against a clock that is not running.
-    final lit = (left == null || limit <= 0)
-        ? total
-        : (left * total / limit).ceil().clamp(0, total);
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        for (var i = 0; i < total; i++)
-          Container(
-            margin: const EdgeInsets.only(left: 4),
-            width: 8,
-            height: 8,
-            decoration: BoxDecoration(
-              color: i < lit
-                  ? seatColors[state.turn]
-                  : seatColors[state.turn].withValues(alpha: 0.18),
-              shape: BoxShape.circle,
-            ),
-          ),
-      ],
     );
   }
 }
@@ -579,54 +652,14 @@ class _Controls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rules = state.rules;
-    final home = [
-      for (var p = 0; p < rules.players; p++)
-        state
-            .tokensOf(p)
-            .where((t) => state.board.isFinished(t.progress))
-            .length,
-    ];
-
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
-          Expanded(
-            child: Wrap(
-              spacing: 14,
-              runSpacing: 2,
-              children: [
-                for (var p = 0; p < rules.players; p++)
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 9,
-                        height: 9,
-                        decoration: BoxDecoration(
-                          color: seatColors[p],
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(
-                        '${home[p]}/${rules.tokensPerPlayer}',
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: p == state.turn
-                              ? FontWeight.w700
-                              : FontWeight.w400,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                    ],
-                  ),
-              ],
-            ),
-          ),
-          const SizedBox(width: 12),
+          // The seat panels carry who is who and how many chips are home, so
+          // this bar is only ever about what to do next.
+          const Spacer(),
           if (state.isOver)
             const Text(
               'Game over',

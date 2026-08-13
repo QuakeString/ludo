@@ -41,6 +41,9 @@ class BoardPalette {
     required this.dieEdge,
     required this.pip,
     required this.felt,
+    required this.panel,
+    required this.panelEdge,
+    required this.faint,
   });
 
   final Color plate;
@@ -57,6 +60,11 @@ class BoardPalette {
   /// Behind the board itself.
   final Color felt;
 
+  /// A seat's panel beside the board, its border, and the quieter text on it.
+  final Color panel;
+  final Color panelEdge;
+  final Color faint;
+
   static const light = BoardPalette(
     plate: Color(0xFFFDFBF7),
     cell: Color(0xFFFFFFFF),
@@ -69,6 +77,9 @@ class BoardPalette {
     dieEdge: Color(0xFFC9C1B2),
     pip: Color(0xFF2A2622),
     felt: Color(0xFFF2EDE3),
+    panel: Color(0xFFFAF6EE),
+    panelEdge: Color(0xFFDED6C6),
+    faint: Color(0xFF7A736A),
   );
 
   static const dark = BoardPalette(
@@ -83,6 +94,9 @@ class BoardPalette {
     dieEdge: Color(0xFF4A5260),
     pip: Color(0xFF171A21),
     felt: Color(0xFF12151B),
+    panel: Color(0xFF1B2028),
+    panelEdge: Color(0xFF39414E),
+    faint: Color(0xFF98A0AE),
   );
 
   static BoardPalette of(BuildContext context) =>
