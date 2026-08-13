@@ -6,6 +6,8 @@
 /// game exactly.
 library;
 
+export 'src/ai.dart';
+export 'src/arena.dart';
 export 'src/board.dart';
 export 'src/engine.dart';
 export 'src/moves.dart';

@@ -6,6 +6,7 @@ import 'package:ludo_geometry/ludo_geometry.dart';
 
 import '../theme/seat_colors.dart';
 import 'chip_painter.dart';
+import 'move_animation.dart';
 
 /// Draws a whole board from engine state plus geometry.
 ///
@@ -20,10 +21,7 @@ class BoardPainter extends CustomPainter {
     required this.palette,
     required this.legalMoves,
     this.pulse = 0,
-    this.animatingTokenIds = const {},
-    this.animatedGround,
-    this.animatedLift = 0,
-    this.animatedSquash = 1,
+    this.motions = const {},
   });
 
   final GameState state;
@@ -34,11 +32,10 @@ class BoardPainter extends CustomPainter {
   /// 0..1, drives the ring's outward pulse.
   final double pulse;
 
-  /// Tokens currently mid-hop; drawn at [animatedGround] instead of at rest.
-  final Set<int> animatingTokenIds;
-  final Pt? animatedGround;
-  final double animatedLift;
-  final double animatedSquash;
+  /// Tokens in flight, keyed by token id. These are lifted out of the static
+  /// layout and drawn last, so a hopping chip passes over the board rather
+  /// than under whatever it is hopping towards.
+  final Map<int, ChipMotion> motions;
 
   BoardSpec get spec => state.board;
 
@@ -58,6 +55,28 @@ class BoardPainter extends CustomPainter {
     _paintYards(canvas, px, cell);
     _paintDice(canvas, px, cell);
     _paintChips(canvas, px, cell);
+    _paintMotions(canvas, px, cell);
+  }
+
+  /// Chips mid-move, drawn above everything else.
+  void _paintMotions(Canvas canvas, Offset Function(Pt) px, double cell) {
+    if (motions.isEmpty) return;
+    final chipWidth = cell * (spec.arms == 4 ? 0.78 : 0.66);
+    for (final entry in motions.entries) {
+      final token = state.tokens[entry.key];
+      final m = entry.value;
+      ChipArt.paint(
+        canvas,
+        px(m.ground),
+        chipWidth,
+        seatColors[token.owner],
+        lift: m.lift * chipWidth * 0.7,
+        squash: m.squash,
+        scale: m.scale,
+        spin: m.spin,
+        fade: m.fade,
+      );
+    }
   }
 
   // --- board furniture -----------------------------------------------------
@@ -351,6 +370,7 @@ class BoardPainter extends CustomPainter {
           : spec.isFinished(token.progress)
           ? 'home-${token.owner}'
           : 'p-$arm-${token.progress}';
+      if (motions.containsKey(token.id)) continue; // in flight
       groups.putIfAbsent(key, () => []).add(token);
     }
 
@@ -475,9 +495,6 @@ class BoardPainter extends CustomPainter {
     bool ghost = false,
   }) {
     final colour = seatColors[token.owner];
-    final isAnimating = animatingTokenIds.contains(token.id);
-    if (isAnimating && animatedGround != null) return; // drawn separately
-
     if (movable.contains(token.id) && !ghost) {
       ChipArt.paintLegalRing(canvas, ground, width, colour, pulse: pulse);
     }
@@ -504,6 +521,6 @@ class BoardPainter extends CustomPainter {
       old.palette != palette ||
       old.pulse != pulse ||
       old.legalMoves.length != legalMoves.length ||
-      old.animatedGround != animatedGround ||
-      old.animatedLift != animatedLift;
+      !identical(old.motions, motions) ||
+      old.motions.length != motions.length;
 }

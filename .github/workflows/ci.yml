@@ -35,6 +35,9 @@ jobs:
           dart run example/play_a_game.dart --rules=classic --seed=1
           dart run example/play_a_game.dart --rules=teams --seed=42
 
+      - name: Check the computer players are still ordered
+        run: dart run example/ai_arena.dart --games=60
+
   geometry:
     name: Board geometry
     runs-on: ubuntu-latest

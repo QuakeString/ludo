@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ludo_app/board/board_painter.dart';
+import 'package:ludo_app/board/move_animation.dart';
 import 'package:ludo_app/main.dart';
 import 'package:ludo_app/screens/game_screen.dart';
 import 'package:ludo_app/theme/seat_colors.dart';
@@ -109,6 +110,8 @@ void main() {
     expect(find.byType(CustomPaint), findsWidgets);
   });
 
+  animationTests();
+
   testWidgets('the setup screen offers two to six seats', (tester) async {
     await tester.pumpWidget(const LudoAppForTest());
     await tester.pumpAndSettle();
@@ -119,6 +122,12 @@ void main() {
         reason: 'seat count $n missing',
       );
     }
+    // The options list scrolls, so reach the button the way a player would.
+    await tester.dragUntilVisible(
+      find.text('Start game'),
+      find.byType(ListView),
+      const Offset(0, -120),
+    );
     expect(find.text('Start game'), findsOneWidget);
   });
 }
@@ -132,4 +141,101 @@ class LudoAppForTest extends StatelessWidget {
     theme: buildTheme(Brightness.light),
     home: const SetupScreen(),
   );
+}
+
+/// The move animation is pure arithmetic over the geometry, so it can be
+/// checked exactly rather than watched.
+void animationTests() {
+  group('move animation', () {
+    final geometry = BoardGeometry.forSpec(BoardSpec.cross);
+
+    test('a roll of five is five separate hops', () {
+      var s = GameState.newGame(const RuleConfig());
+      final tokens = [...s.tokens];
+      tokens[0] = tokens[0].copyWith(progress: 4);
+      s = s.copyWith(tokens: tokens, dice: 5);
+
+      final move = engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      final a = MoveAnimation(move: move, before: s, geometry: geometry);
+      expect(a.hops, 5, reason: 'one hop per pip, so the move can be counted');
+      expect(
+        a.duration.inMilliseconds,
+        5 * (MoveAnimation.hopMillis + MoveAnimation.landMillis),
+      );
+    });
+
+    test('a chip leaves the ground and lands back on it', () {
+      var s = GameState.newGame(const RuleConfig());
+      final tokens = [...s.tokens];
+      tokens[0] = tokens[0].copyWith(progress: 4);
+      s = s.copyWith(tokens: tokens, dice: 2);
+      final move = engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      final a = MoveAnimation(move: move, before: s, geometry: geometry);
+
+      expect(a.moverAt(0).lift, closeTo(0, 0.01), reason: 'starts grounded');
+      expect(a.moverAt(1).lift, closeTo(0, 0.01), reason: 'ends grounded');
+
+      var peak = 0.0;
+      for (var i = 0; i <= 100; i++) {
+        final l = a.moverAt(i / 100).lift;
+        if (l > peak) peak = l;
+      }
+      expect(peak, greaterThan(0.7), reason: 'the hop has to be visible');
+    });
+
+    test('it ends exactly where the engine puts the chip', () {
+      var s = GameState.newGame(const RuleConfig());
+      final tokens = [...s.tokens];
+      tokens[0] = tokens[0].copyWith(progress: 10);
+      s = s.copyWith(tokens: tokens, dice: 3);
+      final move = engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      final a = MoveAnimation(move: move, before: s, geometry: geometry);
+
+      final after = engine.apply(s, PlayMove(move));
+      final settled = geometry.tokenAt(
+        after.armOf(0),
+        after.tokens[0].progress,
+      );
+      final ended = a.moverAt(1).ground;
+      expect(
+        (ended - settled).length,
+        lessThan(1e-9),
+        reason: 'the chip must land where the rules say it is',
+      );
+    });
+
+    test('leaving the yard is a single hop', () {
+      final s = GameState.newGame(const RuleConfig()).copyWith(dice: 6);
+      final move = engine.legalMoves(s).first;
+      final a = MoveAnimation(move: move, before: s, geometry: geometry);
+      expect(a.hops, 1);
+    });
+
+    test('a captured chip flies home and arrives in its own yard', () {
+      var s = GameState.newGame(const RuleConfig());
+      final b = s.board;
+      final victim =
+          (3 - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
+      final tokens = [...s.tokens];
+      tokens[0] = tokens[0].copyWith(progress: 2);
+      tokens[4] = tokens[4].copyWith(progress: victim);
+      s = s.copyWith(tokens: tokens, dice: 1);
+
+      final move = engine.legalMoves(s).firstWhere((m) => m.isCapture);
+      final a = MoveAnimation(move: move, before: s, geometry: geometry);
+      expect(
+        a.duration.inMilliseconds,
+        greaterThan(MoveAnimation.captureMillis),
+        reason: 'the flight home needs its own time',
+      );
+
+      final landed = a.capturedAt(1, 4)!;
+      final yard = geometry.yardSlots(s.armOf(1));
+      final nearest = yard
+          .map((p) => (p - landed.ground).length)
+          .reduce((x, y) => x < y ? x : y);
+      expect(nearest, lessThan(1e-6), reason: 'it must end in its own yard');
+      expect(landed.scale, lessThan(1), reason: 'it shrinks as it goes');
+    });
+  });
 }

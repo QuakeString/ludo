@@ -1,3 +1,4 @@
+import 'dart:math' as math;
 import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
@@ -49,10 +50,13 @@ class ChipArt {
     Color color, {
     double lift = 0,
     double squash = 1,
+    double scale = 1,
+    double spin = 0,
+    double fade = 1,
     int? badge,
     Color rim = Colors.white,
   }) {
-    final s = width / 100;
+    final s = width * scale / 100;
     canvas.save();
     canvas.translate(ground.dx, ground.dy);
 
@@ -69,6 +73,9 @@ class ChipArt {
 
     canvas.translate(0, -lift);
     canvas.scale(2 - squash, squash);
+    // A spin reads as rotation about the chip's own axis, so it foreshortens
+    // horizontally rather than tipping over.
+    if (spin != 0) canvas.scale(math.cos(spin).abs().clamp(0.15, 1.0), 1);
     canvas.scale(s);
     canvas.translate(-groundPoint.dx, -groundPoint.dy);
 
@@ -87,7 +94,8 @@ class ChipArt {
       canvas.drawCircle(_head, _headR, draw);
     }
 
-    final base = Paint()..color = color;
+    final base = Paint()
+      ..color = fade >= 1 ? color : color.withValues(alpha: fade);
     canvas.drawPath(_body, base);
     _shade(canvas, _body.getBounds(), (p) => canvas.drawPath(_body, p));
     canvas.drawOval(_collar, Paint()..color = _darken(color, 0.78));

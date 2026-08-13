@@ -72,6 +72,41 @@ and it can only be captured by another pair. If a pair also counted as a
 blockade, no pair could ever be captured, so the engine keeps them apart —
 `_blockedFor` skips linked tokens and `pairCapture` decides instead.
 
+## Computer players
+
+Three levels, built by deliberately weakening one engine rather than writing
+three opponents:
+
+| Level | How it plays |
+|---|---|
+| `easy` | Mostly random, taking the obvious move about a third of the time — misses captures, leaves chips in danger. |
+| `normal` | One move ahead: the best move on the board right now, blind to what it exposes next turn. |
+| `hard` | Expectimax search, averaging over all six dice faces at each opponent's turn, and pricing the risk of every square a chip lands on. |
+
+This is a heuristic game AI, not machine learning — no model, no training, no
+network. Ludo is a stochastic perfect-information game, which is exactly what
+expectimax is for, and the dice cap how much any amount of cleverness can be
+worth.
+
+Measured, not asserted — 400 games per pairing, seats swapped every game so
+going first cannot flatter either side (`dart run example/ai_arena.dart
+--games=400`):
+
+```
+hard   vs easy     82.8%  (331–69)
+hard   vs normal   54.5%  (218–182)
+normal vs easy     79.5%  (318–82)
+```
+
+Read the middle row honestly: searching three plies ahead is worth about four
+and a half points over the greedy player, not a rout. In a game this dominated
+by dice, that is close to the practical ceiling — which is also why a trained
+model would not earn its size, its inference cost, or its training rig.
+
+Every level is deterministic. `easy`'s randomness is drawn from a hash of the
+position, not `Random`, and no level touches the game's dice cursor — so a
+replay stays exact with computer seats at the table.
+
 ## Tests
 
 ```

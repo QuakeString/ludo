@@ -39,6 +39,15 @@ class _SetupScreenState extends State<SetupScreen> {
   bool _teams = false;
   bool _pairMove = false;
 
+  /// How many seats the computer takes, and how hard it plays. Seat 0 is
+  /// always yours; the computer fills from the last seat backwards.
+  int _computerSeats = 0;
+  AiLevel _level = AiLevel.normal;
+
+  Map<int, AiLevel> get _aiSeats => {
+    for (var i = 0; i < _computerSeats; i++) _players - 1 - i: _level,
+  };
+
   bool get _teamsPossible => _players == 4 || _players == 6;
 
   RuleConfig get _rules {
@@ -61,12 +70,14 @@ class _SetupScreenState extends State<SetupScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       body: SafeArea(
-        child: Center(
+        // Top-aligned and freely scrolling: the options list grows with the
+        // seat count, and on a short screen it has to be reachable.
+        child: Align(
+          alignment: Alignment.topCenter,
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 460),
             child: ListView(
               padding: const EdgeInsets.all(20),
-              shrinkWrap: true,
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -103,6 +114,9 @@ class _SetupScreenState extends State<SetupScreen> {
                     onSelectionChanged: (s) => setState(() {
                       _players = s.first;
                       if (!_teamsPossible) _teams = false;
+                      if (_computerSeats > _players - 1) {
+                        _computerSeats = _players - 1;
+                      }
                     }),
                   ),
                 ),
@@ -130,6 +144,48 @@ class _SetupScreenState extends State<SetupScreen> {
                         setState(() => _tokens = s.first),
                   ),
                 ),
+                const SizedBox(height: 18),
+                _Section(
+                  title: 'Computer players',
+                  child: SegmentedButton<int>(
+                    segments: [
+                      for (var n = 0; n < _players; n++)
+                        ButtonSegment(value: n, label: Text('$n')),
+                    ],
+                    selected: {_computerSeats},
+                    showSelectedIcon: false,
+                    onSelectionChanged: (s) =>
+                        setState(() => _computerSeats = s.first),
+                  ),
+                ),
+                if (_computerSeats > 0) ...[
+                  const SizedBox(height: 10),
+                  _Section(
+                    title: 'How hard they play',
+                    child: SegmentedButton<AiLevel>(
+                      segments: const [
+                        ButtonSegment(value: AiLevel.easy, label: Text('Easy')),
+                        ButtonSegment(
+                          value: AiLevel.normal,
+                          label: Text('Normal'),
+                        ),
+                        ButtonSegment(value: AiLevel.hard, label: Text('Hard')),
+                      ],
+                      selected: {_level},
+                      showSelectedIcon: false,
+                      onSelectionChanged: (s) =>
+                          setState(() => _level = s.first),
+                    ),
+                  ),
+                  Padding(
+                    padding: const EdgeInsets.only(left: 4, top: 4),
+                    child: Text(switch (_level) {
+                      AiLevel.easy => 'Mostly random — misses captures, leaves chips in danger.',
+                      AiLevel.normal => 'Takes the best move on the board, but cannot see what it exposes.',
+                      AiLevel.hard => 'Searches several turns ahead, weighing the risk of every square.',
+                    }, style: const TextStyle(fontSize: 12.5)),
+                  ),
+                ],
                 const SizedBox(height: 10),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
@@ -160,7 +216,8 @@ class _SetupScreenState extends State<SetupScreen> {
                 FilledButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) => GameScreen(rules: _rules),
+                      builder: (_) =>
+                          GameScreen(rules: _rules, aiSeats: _aiSeats),
                     ),
                   ),
                   style: FilledButton.styleFrom(
