@@ -1,0 +1,434 @@
+<title>Ludo Blueprint</title>
+<style>
+  :root{
+    --red:#E14B4B; --green:#3FA35C; --yellow:#E3B23C; --blue:#3B72D9;
+    --bg:#F7F3EC; --card:#FFFFFF; --ink:#2A2622; --muted:#6E675C;
+    --line:#E3DCCF; --track:#FFFFFF; --track-line:#C9C1B2;
+    --chip:#EFE9DD; --code-bg:#2A2622; --code-ink:#F3EDE2;
+    --shadow:0 2px 10px rgba(42,38,34,.08);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#171A21; --card:#1F232C; --ink:#EAE6DE; --muted:#9B958A;
+      --line:#31363F; --track:#262B35; --track-line:#3C424D;
+      --chip:#2A2F3A; --code-bg:#0F1116; --code-ink:#E7E1D4;
+      --shadow:0 2px 12px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#171A21; --card:#1F232C; --ink:#EAE6DE; --muted:#9B958A;
+    --line:#31363F; --track:#262B35; --track-line:#3C424D;
+    --chip:#2A2F3A; --code-bg:#0F1116; --code-ink:#E7E1D4;
+    --shadow:0 2px 12px rgba(0,0,0,.35);
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0; background:var(--bg); color:var(--ink);
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+    font-size:16px; line-height:1.55;
+  }
+  h1,h2,h3,.display{font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif}
+  .wrap{max-width:1060px; margin:0 auto; padding:0 24px 80px}
+  .eyebrow{
+    text-transform:uppercase; letter-spacing:.14em; font-size:12px;
+    color:var(--muted); font-weight:600;
+  }
+  h2{font-size:26px; margin:0 0 6px; text-wrap:balance}
+  .sect{margin-top:72px}
+  .sect > p.lede{max-width:62ch; color:var(--muted); margin:4px 0 24px}
+
+  /* ---------- hero ---------- */
+  .hero{
+    display:grid; grid-template-columns:1fr auto; gap:40px;
+    align-items:center; padding:56px 0 8px;
+  }
+  @media (max-width:820px){ .hero{grid-template-columns:1fr} }
+  .hero h1{
+    font-size:clamp(38px,6vw,58px); line-height:1.04; margin:10px 0 16px;
+    text-wrap:balance; letter-spacing:-.01em;
+  }
+  .hero h1 .r{color:var(--red)} .hero h1 .g{color:var(--green)}
+  .hero h1 .y{color:var(--yellow)} .hero h1 .b{color:var(--blue)}
+  .hero p{max-width:52ch; color:var(--muted); margin:0 0 22px}
+  .plat{display:flex; flex-wrap:wrap; gap:8px}
+  .plat span{
+    background:var(--chip); border:1px solid var(--line);
+    padding:6px 14px; border-radius:999px; font-size:13.5px; font-weight:600;
+  }
+  .boardbox{position:relative; width:min(420px,88vw); margin:0 auto}
+  .boardbox svg{width:100%; height:auto; display:block; border-radius:14px; box-shadow:var(--shadow)}
+  .die{
+    position:absolute; right:-16px; bottom:-16px; width:64px; height:64px;
+    background:var(--card); border:1px solid var(--line); border-radius:14px;
+    box-shadow:var(--shadow); transform:rotate(-8deg);
+    display:grid; grid-template-columns:repeat(3,1fr); grid-template-rows:repeat(3,1fr);
+    padding:11px;
+  }
+  .die i{border-radius:50%; background:var(--ink)}
+  .die i:nth-child(1){grid-area:1/1} .die i:nth-child(2){grid-area:1/3}
+  .die i:nth-child(3){grid-area:2/2} .die i:nth-child(4){grid-area:3/1}
+  .die i:nth-child(5){grid-area:3/3}
+
+  /* ---------- mode cards ---------- */
+  .modes{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:16px}
+  .mode{
+    background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:18px 18px 16px; box-shadow:var(--shadow);
+  }
+  .mode .tok{width:26px; height:26px; border-radius:50%; margin-bottom:12px;
+    border:3px solid rgba(255,255,255,.75); box-shadow:0 0 0 2px var(--line)}
+  .mode h3{margin:0 0 6px; font-size:17px}
+  .mode p{margin:0 0 10px; font-size:14px; color:var(--muted)}
+  .tag{font-size:11.5px; font-weight:700; letter-spacing:.08em; text-transform:uppercase;
+    color:var(--muted)}
+  .tag b{color:var(--ink); font-weight:700}
+
+  /* ---------- rule builder ---------- */
+  .rules{
+    display:grid; grid-template-columns:1.1fr .9fr; gap:16px; align-items:start;
+  }
+  @media (max-width:760px){ .rules{grid-template-columns:1fr} }
+  .panel{background:var(--card); border:1px solid var(--line); border-radius:12px;
+    box-shadow:var(--shadow); overflow:hidden}
+  .panel header{padding:14px 18px; border-bottom:1px solid var(--line);
+    font-weight:700; font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif}
+  .rrow{display:flex; align-items:center; justify-content:space-between;
+    gap:16px; padding:12px 18px; border-bottom:1px solid var(--line)}
+  .rrow:last-child{border-bottom:none}
+  .rrow .lab{font-size:14.5px}
+  .rrow .lab small{display:block; color:var(--muted); font-size:12.5px}
+  .sw{
+    flex:none; width:46px; height:26px; border-radius:999px; border:1px solid var(--line);
+    background:var(--chip); position:relative; cursor:pointer; padding:0;
+  }
+  .sw::after{
+    content:""; position:absolute; top:2px; left:2px; width:20px; height:20px;
+    border-radius:50%; background:var(--card); border:1px solid var(--line);
+    transition:transform .15s ease;
+  }
+  .sw[aria-checked="true"]{background:var(--green); border-color:var(--green)}
+  .sw[aria-checked="true"]::after{transform:translateX(20px)}
+  .sw:focus-visible{outline:3px solid var(--blue); outline-offset:2px}
+  .stepper{display:flex; align-items:center; gap:10px}
+  .stepper button{
+    width:28px; height:28px; border-radius:8px; border:1px solid var(--line);
+    background:var(--chip); color:var(--ink); font-size:16px; cursor:pointer;
+  }
+  .stepper button:focus-visible{outline:3px solid var(--blue); outline-offset:2px}
+  .stepper output{min-width:20px; text-align:center; font-weight:700;
+    font-variant-numeric:tabular-nums}
+  .summary{padding:16px 18px}
+  .summary p{margin:0 0 14px; font-size:15px}
+  .rulecode{
+    font-family:ui-monospace,"Cascadia Mono",Consolas,monospace;
+    background:var(--code-bg); color:var(--code-ink); border-radius:8px;
+    padding:10px 14px; font-size:14px; letter-spacing:.06em; display:inline-block;
+  }
+  .summary small{display:block; margin-top:10px; color:var(--muted)}
+
+  /* ---------- identity flow ---------- */
+  .flow{display:flex; flex-wrap:wrap; gap:10px; align-items:stretch}
+  .fbox{
+    background:var(--card); border:1px solid var(--line); border-radius:10px;
+    padding:12px 16px; font-size:14px; box-shadow:var(--shadow); flex:1 1 180px;
+  }
+  .fbox b{display:block; font-size:14.5px}
+  .fbox span{color:var(--muted); font-size:13px}
+  .farrow{align-self:center; color:var(--muted); font-size:18px; flex:none}
+  .fbox.optional{border-style:dashed; box-shadow:none}
+
+  /* ---------- architecture ---------- */
+  .arch{display:grid; grid-template-columns:1fr auto 1fr auto 1fr; gap:0 8px; align-items:center}
+  @media (max-width:760px){
+    .arch{grid-template-columns:1fr}
+    .arch .conn{transform:rotate(90deg); justify-self:center; margin:2px 0}
+  }
+  .node{background:var(--card); border:1px solid var(--line); border-radius:12px;
+    padding:16px 18px; box-shadow:var(--shadow)}
+  .node h3{margin:0 0 4px; font-size:16px}
+  .node p{margin:0; font-size:13.5px; color:var(--muted)}
+  .node ul{margin:8px 0 0; padding-left:18px; font-size:13.5px; color:var(--muted)}
+  .node.engine{border-top:4px solid var(--yellow)}
+  .node.client{border-top:4px solid var(--blue)}
+  .node.server{border-top:4px solid var(--green)}
+  .conn{color:var(--muted); font-size:13px; text-align:center; white-space:nowrap}
+
+  /* ---------- roadmap ---------- */
+  .road{list-style:none; margin:0; padding:0; counter-reset:ph -1}
+  .road li{
+    counter-increment:ph; display:grid; grid-template-columns:44px 1fr; gap:16px;
+    padding:14px 0; border-bottom:1px solid var(--line); align-items:baseline;
+  }
+  .road li::before{
+    content:counter(ph); font-family:"Trebuchet MS",Verdana,sans-serif;
+    font-weight:700; font-size:20px; color:var(--muted);
+    font-variant-numeric:tabular-nums; text-align:right;
+  }
+  .road b{font-size:15.5px}
+  .road span{color:var(--muted); font-size:14px; display:block}
+  .road li.ship b{color:var(--green)}
+
+  .foot{margin-top:64px; padding-top:20px; border-top:1px solid var(--line);
+    color:var(--muted); font-size:13.5px}
+  .foot code{font-family:ui-monospace,Consolas,monospace; background:var(--chip);
+    padding:1px 6px; border-radius:6px}
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important} }
+</style>
+
+<div class="wrap">
+
+  <div class="hero">
+    <div>
+      <div class="eyebrow">Design sketch · cross-platform board game</div>
+      <h1><span class="r">L</span><span class="g">u</span><span class="y">d</span><span class="b">o</span>, everywhere you are</h1>
+      <p>The traditional board game — four yards, one cross, dice and captures —
+         built once in Flutter and shipped to five platforms. Play offline with nobody's
+         permission, or online with friends and strangers. Your house rules included.</p>
+      <div class="plat">
+        <span>Android</span><span>iOS</span><span>Web</span><span>Windows</span><span>Linux</span>
+      </div>
+    </div>
+    <div class="boardbox">
+      <svg id="board" viewBox="0 0 600 600" role="img" aria-label="Classic Ludo board, mid-game: four colored yards, cross-shaped track with safe star squares, tokens in play"></svg>
+      <div class="die" aria-label="Die showing five"><i></i><i></i><i></i><i></i><i></i></div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <div class="eyebrow">Four colors, four ways to play</div>
+    <h2>Game modes</h2>
+    <p class="lede">Every mode drives the same rules engine — the board never knows whether
+       the opponent is an AI, the person next to you, or a player across the world.</p>
+    <div class="modes">
+      <div class="mode">
+        <div class="tok" style="background:var(--red)"></div>
+        <h3>Solo vs AI</h3>
+        <p>1 human against 1–3 computer players with three difficulty levels.</p>
+        <div class="tag">Offline · <b>No login</b></div>
+      </div>
+      <div class="mode">
+        <div class="tok" style="background:var(--green)"></div>
+        <h3>Pass &amp; play</h3>
+        <p>2–4 people share one device; a hand-off screen keeps turns honest.</p>
+        <div class="tag">Offline · <b>No login</b></div>
+      </div>
+      <div class="mode">
+        <div class="tok" style="background:var(--blue)"></div>
+        <h3>Play with friends</h3>
+        <p>Create a private room, share a 6-character code or link. Friends list for the regulars.</p>
+        <div class="tag">Online · <b>Guest OK</b></div>
+      </div>
+      <div class="mode">
+        <div class="tok" style="background:var(--yellow)"></div>
+        <h3>Quick match</h3>
+        <p>Matchmaking pairs random players who agreed to the same rule preset.</p>
+        <div class="tag">Online · <b>Guest OK</b></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <div class="eyebrow">House rules, made official</div>
+    <h2>Custom rule builder</h2>
+    <p class="lede">Every variant is data, not code: a rule config the engine interprets
+       identically on your phone and on the server. Try the toggles — the summary and the
+       shareable rule code update live.</p>
+    <div class="rules">
+      <div class="panel">
+        <header>New rule set</header>
+        <div class="rrow">
+          <div class="lab">Tokens per player<small>Fewer tokens, faster games</small></div>
+          <div class="stepper">
+            <button type="button" id="tokMinus" aria-label="Fewer tokens">−</button>
+            <output id="tokVal">4</output>
+            <button type="button" id="tokPlus" aria-label="More tokens">+</button>
+          </div>
+        </div>
+        <div class="rrow">
+          <div class="lab">Roll a 6 to leave the yard<small>Off = any roll gets a token out</small></div>
+          <button type="button" class="sw" role="switch" aria-checked="true" data-rule="entry"></button>
+        </div>
+        <div class="rrow">
+          <div class="lab">Capture grants an extra roll<small>Rewards aggressive play</small></div>
+          <button type="button" class="sw" role="switch" aria-checked="false" data-rule="capRoll"></button>
+        </div>
+        <div class="rrow">
+          <div class="lab">Safe star squares<small>Off = nowhere to hide</small></div>
+          <button type="button" class="sw" role="switch" aria-checked="true" data-rule="stars"></button>
+        </div>
+        <div class="rrow">
+          <div class="lab">Must capture once to win<small>Classic Indian variant</small></div>
+          <button type="button" class="sw" role="switch" aria-checked="false" data-rule="mustCap"></button>
+        </div>
+      </div>
+      <div class="panel">
+        <header>Summary</header>
+        <div class="summary">
+          <p id="ruleSummary"></p>
+          <span class="rulecode" id="ruleCode"></span>
+          <small>Friends paste this code — or join your room, where the server enforces
+            the exact same config. Presets ship for Classic, Quick, and Aggressive.</small>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <div class="eyebrow">Offline-first</div>
+    <h2>No login until you go online</h2>
+    <p class="lede">The app is fully playable the moment it installs. Accounts exist only
+       to carry friends and stats across devices — never as a gate.</p>
+    <div class="flow">
+      <div class="fbox"><b>Install &amp; play</b><span>Solo and pass &amp; play work with no network, no account. Games autosave locally.</span></div>
+      <div class="farrow">→</div>
+      <div class="fbox"><b>Tap “Online”</b><span>A guest identity is created silently from the device — pick a name, start matching.</span></div>
+      <div class="farrow">→</div>
+      <div class="fbox optional"><b>Optional account</b><span>Email / Google / Apple sign-in, only if you want friends &amp; stats to follow you across devices.</span></div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <div class="eyebrow">One rulebook, three homes</div>
+    <h2>Architecture</h2>
+    <p class="lede">The rules live in a pure Dart package with no UI and no networking.
+       The Flutter app runs it for offline play; the server runs the same package to
+       validate every online move — so nobody's client can cheat, and offline and online
+       games can never disagree.</p>
+    <div class="arch">
+      <div class="node client">
+        <h3>Flutter app</h3>
+        <p>One codebase, five platforms.</p>
+        <ul>
+          <li>Board renderer &amp; animations</li>
+          <li>Rule builder UI</li>
+          <li>Local saves (SQLite)</li>
+        </ul>
+      </div>
+      <div class="conn">moves ⇄ state</div>
+      <div class="node engine">
+        <h3>ludo_engine</h3>
+        <p>Pure Dart. Deterministic.</p>
+        <ul>
+          <li>Move legality &amp; captures</li>
+          <li>Interprets rule configs</li>
+          <li>Same code client &amp; server</li>
+        </ul>
+      </div>
+      <div class="conn">intents ⇄ verdicts</div>
+      <div class="node server">
+        <h3>Game server</h3>
+        <p>Nakama, self-hostable.</p>
+        <ul>
+          <li>Matchmaking &amp; rooms</li>
+          <li>Server-side dice</li>
+          <li>Guest auth, friends, reconnect</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <div class="sect">
+    <div class="eyebrow">From empty repo to app stores</div>
+    <h2>Roadmap</h2>
+    <ol class="road">
+      <li><div><b>Skeleton</b><span>Flutter app boots on all five targets; CI builds each platform.</span></div></li>
+      <li><div><b>Engine</b><span>Classic rules in pure Dart, fully unit-tested, deterministic replays.</span></div></li>
+      <li><div><b>Local play</b><span>Board UI, dice and token animations, pass &amp; play, save/resume. <em>First playable release.</em></span></div></li>
+      <li><div><b>AI opponents</b><span>Heuristic AI — capture &gt; progress &gt; safety — at three difficulty levels.</span></div></li>
+      <li><div><b>Custom rules</b><span>Rule configs in the engine, presets, builder UI, shareable codes.</span></div></li>
+      <li><div><b>Online core</b><span>Guest auth, private rooms with codes, server-authoritative matches.</span></div></li>
+      <li><div><b>Online social</b><span>Random matchmaking, friends and invites, reconnect handling.</span></div></li>
+      <li class="ship"><div><b>Polish &amp; ship</b><span>Themes, sound, languages; Play Store, App Store, web deploy, Windows &amp; Linux packages.</span></div></li>
+    </ol>
+  </div>
+
+  <div class="foot">
+    Full technical specification — stack choices, rule config schema, matchmaking and
+    testing strategy — lives in <code>DESIGN.md</code> on the
+    <code>claude/ludo-board-game-design-qd5nm3</code> branch of the ludo repository.
+  </div>
+</div>
+
+<script>
+(function(){
+  // ---- board ----
+  var NS='http://www.w3.org/2000/svg', svg=document.getElementById('board'), C=40;
+  var col={r:'#E14B4B', g:'#3FA35C', y:'#E3B23C', b:'#3B72D9'};
+  var css=getComputedStyle(document.documentElement);
+  function v(n){return css.getPropertyValue(n).trim()}
+  function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
+  function cell(cx,cy,fill){el('rect',{x:cx*C,y:cy*C,width:C,height:C,fill:fill,stroke:v('--track-line'),'stroke-width':1})}
+  function star(cx,cy){
+    var x=cx*C+C/2,y=cy*C+C/2,R=13,r=5.5,p=[];
+    for(var i=0;i<10;i++){var a=Math.PI/5*i-Math.PI/2,rr=i%2?r:R;
+      p.push((x+rr*Math.cos(a)).toFixed(1)+','+(y+rr*Math.sin(a)).toFixed(1))}
+    el('polygon',{points:p.join(' '),fill:'none',stroke:v('--muted'),'stroke-width':1.6,'stroke-linejoin':'round'})
+  }
+  function token(cx,cy,fill){
+    var x=cx*C+C/2,y=cy*C+C/2;
+    el('circle',{cx:x,cy:y+1.5,r:14,fill:'rgba(0,0,0,.25)'});
+    el('circle',{cx:x,cy:y,r:14,fill:fill,stroke:'#fff','stroke-width':3});
+    el('circle',{cx:x,cy:y-3,r:5,fill:'rgba(255,255,255,.45)'});
+  }
+  el('rect',{x:0,y:0,width:600,height:600,fill:v('--card'),rx:14});
+  // yards: red TL, green TR, yellow BR, blue BL
+  var yards=[[0,0,col.r],[9,0,col.g],[9,9,col.y],[0,9,col.b]];
+  yards.forEach(function(q){
+    el('rect',{x:q[0]*C,y:q[1]*C,width:6*C,height:6*C,fill:q[2],rx:10});
+    el('rect',{x:q[0]*C+C,y:q[1]*C+C,width:4*C,height:4*C,fill:v('--card'),rx:8});
+    [[1.9,1.9],[4.1,1.9],[1.9,4.1],[4.1,4.1]].forEach(function(o){
+      el('circle',{cx:(q[0]+o[0])*C,cy:(q[1]+o[1])*C,r:15,fill:q[2],stroke:'rgba(0,0,0,.18)','stroke-width':2})
+    })
+  });
+  // track
+  for(var r=0;r<15;r++)for(var c=0;c<15;c++){
+    var arm=(c>=6&&c<=8)||(r>=6&&r<=8), center=(c>=6&&c<=8&&r>=6&&r<=8), yard=(c<6||c>8)&&(r<6||r>8);
+    if(arm&&!center&&!yard) cell(c,r,v('--track'));
+  }
+  // home columns
+  for(var i=1;i<=5;i++){cell(i,7,col.r);cell(7,i,col.g);cell(8+i,7,col.y);cell(7,8+i,col.b)}
+  // start squares
+  cell(1,6,col.r); cell(8,1,col.g); cell(13,8,col.y); cell(6,13,col.b);
+  // center triangles
+  el('polygon',{points:'240,240 240,360 300,300',fill:col.r});
+  el('polygon',{points:'240,240 360,240 300,300',fill:col.g});
+  el('polygon',{points:'360,240 360,360 300,300',fill:col.y});
+  el('polygon',{points:'240,360 360,360 300,300',fill:col.b});
+  el('rect',{x:240,y:240,width:120,height:120,fill:'none',stroke:v('--track-line'),'stroke-width':1.5});
+  // safe stars
+  star(6,2); star(12,6); star(8,12); star(2,8);
+  // tokens mid-game
+  token(4,6,col.r); token(8,3,col.g); token(11,8,col.y); token(6,11,col.b); token(2,8,col.b);
+
+  // ---- rule builder ----
+  var tokens=4;
+  var state={entry:true, capRoll:false, stars:true, mustCap:false};
+  var tokVal=document.getElementById('tokVal');
+  function summary(){
+    var parts=[];
+    parts.push(tokens+(tokens===1?' token':' tokens')+' per player');
+    parts.push(state.entry?'roll a 6 to start':'any roll starts a token');
+    parts.push(state.capRoll?'captures earn an extra roll':'no bonus for captures');
+    parts.push(state.stars?'star squares are safe':'no safe squares');
+    if(state.mustCap)parts.push('one capture required to win');
+    var s=parts.join(' · ');
+    document.getElementById('ruleSummary').textContent=s.charAt(0).toUpperCase()+s.slice(1)+'.';
+    var bits=(tokens-1)|(state.entry?4:0)|(state.capRoll?8:0)|(state.stars?16:0)|(state.mustCap?32:0);
+    var alpha='ABCDEFGHJKMNPQRSTUVWXYZ23456789', code='', n=bits*911+37;
+    for(var i=0;i<4;i++){code+=alpha[n%alpha.length];n=Math.floor(n/alpha.length)+bits}
+    document.getElementById('ruleCode').textContent='LUDO-'+code+'-'+(bits<10?'0':'')+bits;
+  }
+  document.querySelectorAll('.sw').forEach(function(sw){
+    sw.addEventListener('click',function(){
+      var on=sw.getAttribute('aria-checked')!=='true';
+      sw.setAttribute('aria-checked',on);
+      state[sw.dataset.rule]=on; summary();
+    })
+  });
+  document.getElementById('tokMinus').addEventListener('click',function(){
+    tokens=Math.max(1,tokens-1); tokVal.textContent=tokens; summary()});
+  document.getElementById('tokPlus').addEventListener('click',function(){
+    tokens=Math.min(4,tokens+1); tokVal.textContent=tokens; summary()});
+  summary();
+})();
+</script>

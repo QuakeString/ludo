@@ -1,0 +1,691 @@
+<title>Ludo Chip Lab</title>
+<style>
+  :root{
+    --p1:#E14B4B; --p2:#3FA35C; --p3:#3B72D9; --p4:#E3B23C; --p5:#7E57C2; --p6:#EF8022;
+    --bg:#F7F3EC; --card:#FFFFFF; --ink:#2A2622; --muted:#6E675C; --line:#E3DCCF;
+    --chip:#EFE9DD; --cell:#FFFFFF; --cellline:#C9C1B2; --board:#FFFFFF;
+    --shadow:0 3px 14px rgba(42,38,34,.10);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161920; --card:#1E222A; --ink:#EAE6DE; --muted:#9B958A; --line:#2F343E;
+      --chip:#282D37; --cell:#F4F1EA; --cellline:#B9B1A2; --board:#F4F1EA;
+      --shadow:0 3px 16px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161920; --card:#1E222A; --ink:#EAE6DE; --muted:#9B958A; --line:#2F343E;
+    --chip:#282D37; --cell:#F4F1EA; --cellline:#B9B1A2; --board:#F4F1EA;
+    --shadow:0 3px 16px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink); font-size:16px; line-height:1.55;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  h1,h2,h3,.dsp{font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif}
+  .wrap{max-width:1000px; margin:0 auto; padding:38px 20px 90px}
+  .eyebrow{text-transform:uppercase; letter-spacing:.14em; font-size:11.5px; font-weight:700; color:var(--muted)}
+  h1{font-size:clamp(30px,5vw,42px); margin:8px 0 10px; line-height:1.08; text-wrap:balance}
+  .lede{color:var(--muted); max-width:62ch; margin:0}
+  section{margin-top:56px}
+  h2{font-size:23px; margin:0 0 4px}
+  section > .lede{margin-bottom:20px}
+  .card{background:var(--card); border:1px solid var(--line); border-radius:14px; box-shadow:var(--shadow)}
+  .pad{padding:20px}
+  .grid{display:grid; gap:14px}
+  .note{font-size:13.5px; color:var(--muted)}
+  b.k{color:var(--ink)}
+
+  /* anatomy */
+  .anat{display:grid; grid-template-columns:auto 1fr; gap:26px; align-items:center}
+  @media (max-width:640px){ .anat{grid-template-columns:1fr} }
+  .anat .big{width:190px; justify-self:center}
+  .parts{list-style:none; margin:0; padding:0; display:grid; gap:9px}
+  .parts li{display:grid; grid-template-columns:24px 1fr; gap:11px; font-size:14px; align-items:baseline}
+  .parts .n{width:22px; height:22px; border-radius:50%; background:var(--chip); border:1px solid var(--line);
+    display:grid; place-items:center; font-size:11.5px; font-weight:700; color:var(--muted)}
+  .parts b{display:block}
+  .parts span{color:var(--muted); font-size:13px}
+  .swatches{display:flex; flex-wrap:wrap; gap:6px; justify-content:center; align-items:flex-end; margin-top:6px}
+  .swatches .s{width:58px}
+  .swatches figcaption{text-align:center; font-size:11px; color:var(--muted); margin-top:2px}
+
+  /* cells */
+  .cellrow{display:flex; flex-wrap:wrap; gap:16px}
+  .celldemo{width:112px; text-align:center}
+  .cellbox{width:112px; height:112px; background:var(--cell); border:1.5px solid var(--cellline);
+    border-radius:10px; position:relative; overflow:visible}
+  .cellbox.safe::before{content:"★"; position:absolute; inset:0; display:grid; place-items:center;
+    font-size:44px; color:rgba(0,0,0,.10); line-height:1}
+  .cellbox.tinted{background:#F6E2E2}
+  .celldemo .cap{font-size:12px; margin-top:8px; font-weight:600}
+  .celldemo .sub{font-size:11.5px; color:var(--muted); display:block; font-weight:400}
+  .tok{position:absolute; left:50%; top:50%; transform-origin:50% 92%}
+
+  /* states */
+  .states{display:flex; flex-wrap:wrap; gap:16px}
+  .st{width:112px; text-align:center}
+  .stbox{width:112px; height:118px; background:var(--cell); border:1.5px solid var(--cellline);
+    border-radius:10px; position:relative}
+  .ring{position:absolute; left:50%; top:56%; width:78px; height:78px; margin:-39px 0 0 -39px;
+    border-radius:50%; border:3px solid var(--p2); opacity:0; }
+  .pulse .ring{animation:pulse 1.5s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(.6);opacity:.9} 100%{transform:scale(1.15);opacity:0}}
+  .bob{animation:bob 1.5s ease-in-out infinite}
+  @keyframes bob{0%,100%{transform:translate(-50%,-50%)} 50%{transform:translate(-50%,-58%)}}
+  .lift{filter:drop-shadow(0 8px 10px rgba(0,0,0,.3))}
+  .dim{opacity:.38; filter:saturate(.5)}
+  .glowsel{position:absolute; left:50%; top:56%; width:86px; height:86px; margin:-43px 0 0 -43px;
+    border-radius:50%; background:radial-gradient(circle,rgba(227,178,60,.55),transparent 70%)}
+
+  /* motion demos */
+  .track{position:relative; background:var(--board); border:1px solid var(--line); border-radius:12px;
+    padding:22px 16px; overflow-x:auto}
+  .lane{position:relative; height:120px; min-width:560px}
+  .lcell{position:absolute; top:34px; width:56px; height:56px; background:var(--cell);
+    border:1.5px solid var(--cellline); border-radius:8px}
+  .lcell.st1{background:#F6E2E2} .lcell.sf{background:var(--cell)}
+  .lcell.sf::after{content:"★"; position:absolute; inset:0; display:grid; place-items:center;
+    font-size:26px; color:rgba(0,0,0,.12)}
+  .runner{position:absolute; top:34px; left:0; width:56px; height:56px; pointer-events:none}
+  .runner .inner{position:absolute; left:50%; top:50%; transform:translate(-50%,-50%)}
+  .btnrow{display:flex; flex-wrap:wrap; gap:9px; margin-top:14px}
+  button.act{background:var(--ink); color:var(--bg); border:none; border-radius:10px; padding:10px 16px;
+    font-size:13.5px; font-weight:700; cursor:pointer; font-family:inherit}
+  button.act.ghost{background:transparent; color:var(--ink); border:1.5px solid var(--line)}
+  button.act:focus-visible{outline:3px solid var(--p3); outline-offset:2px}
+  .speed{display:flex; align-items:center; gap:8px; font-size:13px; color:var(--muted)}
+
+  /* board */
+  .boards{display:grid; grid-template-columns:1fr 1fr; gap:18px}
+  @media (max-width:760px){ .boards{grid-template-columns:1fr} }
+  .boardcard{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:14px; box-shadow:var(--shadow)}
+  .boardcard h3{margin:0 0 2px; font-size:16px}
+  .boardcard p{margin:0 0 10px; font-size:13px; color:var(--muted)}
+  .boardcard svg{width:100%; height:auto; display:block; border-radius:10px}
+
+  table{border-collapse:collapse; width:100%; font-size:13.5px}
+  th,td{text-align:left; padding:9px 12px; border-bottom:1px solid var(--line)}
+  th{font-size:11.5px; text-transform:uppercase; letter-spacing:.07em; color:var(--muted)}
+  td.num{font-variant-numeric:tabular-nums}
+  .tblwrap{overflow-x:auto}
+  .foot{margin-top:60px; padding-top:18px; border-top:1px solid var(--line); color:var(--muted); font-size:13.5px}
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important} }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="shd" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#000" stop-opacity="0"/>
+    <stop offset=".55" stop-color="#000" stop-opacity=".04"/>
+    <stop offset="1" stop-color="#000" stop-opacity=".34"/>
+  </linearGradient>
+  <linearGradient id="lit" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#fff" stop-opacity=".40"/>
+    <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+  </linearGradient>
+  <radialGradient id="spec" cx=".35" cy=".3" r=".5">
+    <stop offset="0" stop-color="#fff" stop-opacity=".75"/>
+    <stop offset="1" stop-color="#fff" stop-opacity="0"/>
+  </radialGradient>
+</defs></svg>
+
+<div class="wrap">
+  <div class="eyebrow">Ludo · chip &amp; motion design</div>
+  <h1>The chip is the game</h1>
+  <p class="lede">Everything a player feels comes through one object: a chip that reads instantly at
+     28&nbsp;pixels, holds its color on any square, and moves with weight. This page pins down its
+     shape, its states, how several chips share one square, and how it travels. Every motion demo
+     below is live — tap the buttons.</p>
+
+  <!-- ANATOMY -->
+  <section>
+    <div class="eyebrow">01 · Form</div>
+    <h2>Anatomy of a chip</h2>
+    <p class="lede">A classic carrom-style pawn, lit from the upper left, with a hard white rim.
+       Not cartoon, not glossy plastic — solid and legible. The rim is what keeps a blue chip
+       readable on a blue square, which is where most Ludo apps fail.</p>
+    <div class="card pad anat">
+      <div class="big" id="anatomy"></div>
+      <ol class="parts">
+        <li><span class="n">1</span><div><b>Ball head</b><span>The largest read at small size — it is what your eye tracks while the chip moves.</span></div></li>
+        <li><span class="n">2</span><div><b>Specular highlight</b><span>One soft highlight, upper-left. A single light source across the whole board.</span></div></li>
+        <li><span class="n">3</span><div><b>Collar</b><span>Separates head from body so the silhouette stays readable when chips overlap.</span></div></li>
+        <li><span class="n">4</span><div><b>Flared base</b><span>Wide foot = visually stable, and gives the squash-and-stretch something to land on.</span></div></li>
+        <li><span class="n">5</span><div><b>White rim (2px @ 44px)</b><span>Non-negotiable. Guarantees contrast against every board color.</span></div></li>
+        <li><span class="n">6</span><div><b>Contact shadow</b><span>Separate layer — it shrinks and darkens as the chip lifts, which is what sells the hop.</span></div></li>
+      </ol>
+    </div>
+    <div class="card pad" style="margin-top:14px">
+      <div class="note" style="margin-bottom:10px"><b class="k">Six seats.</b> Colors are chosen so no two neighbours on the board are confusable, and so all six stay distinct for the ~8% of men with red–green color deficiency — seat order plus the rim carries the difference, never hue alone.</div>
+      <div class="swatches" id="swatches"></div>
+    </div>
+  </section>
+
+  <!-- STATES -->
+  <section>
+    <div class="eyebrow">02 · Feedback</div>
+    <h2>Chip states</h2>
+    <p class="lede">A player should never have to guess which chips they may move. Legal chips
+       announce themselves; everything else recedes.</p>
+    <div class="states" id="states"></div>
+  </section>
+
+  <!-- STACKING -->
+  <section>
+    <div class="eyebrow">03 · The hard part</div>
+    <h2>Several chips on one square</h2>
+    <p class="lede">This is where most Ludo apps turn into mush. The rule: <b class="k">up to two chips
+       are drawn in full</b>; three or more collapse into one chip plus a count badge. Same-color
+       groups stack front-to-back; mixed colors sit side by side, because knowing <em>whose</em>
+       chips are there matters more than how many.</p>
+    <div class="card pad">
+      <div class="cellrow" id="stacks"></div>
+    </div>
+    <div class="card pad" style="margin-top:14px">
+      <div class="note"><b class="k">Tap-to-expand.</b> Tapping a stacked square fans the chips out
+      in an arc above the board so each can be picked individually — the fan closes on selection or
+      on tapping elsewhere. Below: closed, then fanned.</div>
+      <div class="cellrow" id="fan" style="margin-top:14px"></div>
+    </div>
+  </section>
+
+  <!-- MOTION -->
+  <section>
+    <div class="eyebrow">04 · Movement</div>
+    <h2>How a chip travels</h2>
+    <p class="lede">Movement is stepwise, never a slide: the chip hops once per pip, so a 5 visibly
+       counts out five squares. Each hop is a 150&nbsp;ms arc with a squash on landing, and the
+       contact shadow shrinks as the chip rises. Six pips take about 0.9&nbsp;s — fast enough not to
+       stall the turn, slow enough to follow.</p>
+    <div class="card pad">
+      <div class="track">
+        <div class="lane" id="lane1"></div>
+      </div>
+      <div class="btnrow">
+        <button class="act" id="b-move">Move 5 — step hops</button>
+        <button class="act ghost" id="b-cap">Capture &amp; send home</button>
+        <button class="act ghost" id="b-home">Enter home column</button>
+        <button class="act ghost" id="b-block">Blocked by a wall</button>
+      </div>
+      <div class="btnrow speed">
+        <label for="sp">Speed</label>
+        <input type="range" id="sp" min="50" max="200" value="100" step="10">
+        <span id="spv">1.0×</span>
+        <span style="margin-left:auto" id="log"></span>
+      </div>
+    </div>
+    <div class="grid" style="grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); margin-top:14px">
+      <div class="card pad"><b>Hop, don't slide</b><p class="note" style="margin:6px 0 0">One arc per pip so the player can count the move as it happens. Sliding hides miscounts and feels weightless.</p></div>
+      <div class="card pad"><b>Capture is an event</b><p class="note" style="margin:6px 0 0">The landing chip does a hard squash; the captured chip pops up, spins once, and arcs back to its yard. Roughly 0.7&nbsp;s — long enough to register, short enough to forgive.</p></div>
+      <div class="card pad"><b>Home is a reward</b><p class="note" style="margin:6px 0 0">Entering the home column slows down, the column lights up behind the chip, and the seat's counter ticks. Small confetti burst only on the fourth chip.</p></div>
+      <div class="card pad"><b>Illegal is instant</b><p class="note" style="margin:6px 0 0">A blocked move never animates halfway. The chip nudges forward 4&nbsp;px and stops, the blocking wall flashes, and the turn is still yours.</p></div>
+    </div>
+  </section>
+
+  <!-- BOARDS -->
+  <section>
+    <div class="eyebrow">05 · Surfaces</div>
+    <h2>The two boards</h2>
+    <p class="lede">Four-player uses the classic 15×15 cross. Six-player uses a hexagon: six yards,
+       six arms, 78 track squares. Chips shrink from 78% to 66% of a square on the hex board — the
+       same chip, never a different design.</p>
+    <div class="boards">
+      <div class="boardcard">
+        <h3>4 players · classic cross</h3>
+        <p>52 track squares · 4 chips each · 15×15 grid</p>
+        <svg id="board4" viewBox="0 0 600 600" role="img" aria-label="Four-player Ludo board with chips in play"></svg>
+      </div>
+      <div class="boardcard">
+        <h3>6 players · hexagon</h3>
+        <p>78 track squares · 3 chips each (default) · 6 arms at 60°</p>
+        <svg id="board6" viewBox="0 0 600 600" role="img" aria-label="Six-player hexagonal Ludo board with chips in play"></svg>
+      </div>
+    </div>
+    <div class="card pad" style="margin-top:14px">
+      <div class="note"><b class="k">Why 3 chips on the hexagon.</b> Six players × 4 chips is a
+      45-minute game and a crowded yard. Three chips each keeps a six-player round near the length of
+      a four-player one — and it is a rule setting, so a table that wants four can switch it back.</div>
+    </div>
+  </section>
+
+  <!-- SPECS -->
+  <section>
+    <div class="eyebrow">06 · Numbers</div>
+    <h2>Render specs</h2>
+    <div class="card tblwrap">
+      <table>
+        <thead><tr><th>Element</th><th>4-player board</th><th>6-player board</th><th>Note</th></tr></thead>
+        <tbody>
+          <tr><td>Square size</td><td class="num">100%</td><td class="num">100%</td><td>Board scales to fit width; all sizes below are % of a square</td></tr>
+          <tr><td>Chip width</td><td class="num">78%</td><td class="num">66%</td><td>Height ≈ 1.28 × width</td></tr>
+          <tr><td>White rim</td><td class="num">4.5%</td><td class="num">5%</td><td>Never thinner than 1.5 physical px</td></tr>
+          <tr><td>Contact shadow</td><td class="num">64% × 18%</td><td class="num">56% × 16%</td><td>Ellipse, 25% black, sits under the base</td></tr>
+          <tr><td>Hop height</td><td class="num">70%</td><td class="num">62%</td><td>Peak of the arc above the square</td></tr>
+          <tr><td>Hop duration</td><td class="num">150 ms</td><td class="num">150 ms</td><td>Per pip; ease-out up, ease-in down</td></tr>
+          <tr><td>Landing squash</td><td class="num">1.12 × 0.88</td><td class="num">1.12 × 0.88</td><td>Recovers over 90 ms</td></tr>
+          <tr><td>Count badge</td><td class="num">36%</td><td class="num">40%</td><td>Bottom-right, ink fill, white numeral</td></tr>
+          <tr><td>Minimum tap target</td><td class="num">44 px</td><td class="num">44 px</td><td>Invisible hit area, independent of chip size</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <div class="foot">Sizes are proportional so one renderer serves a 5&nbsp;inch phone and a 27&nbsp;inch
+    monitor. The chip is drawn as vector geometry in code — no bitmap assets — so it stays sharp at
+    every density and recolors for all six seats from a single shape.</div>
+</div>
+
+<script>
+(function(){
+  var NS='http://www.w3.org/2000/svg';
+  var COL=[
+    {k:'p1', c:'#E14B4B', n:'Red'},   {k:'p2', c:'#3FA35C', n:'Green'},
+    {k:'p3', c:'#3B72D9', n:'Blue'},  {k:'p4', c:'#E3B23C', n:'Yellow'},
+    {k:'p5', c:'#7E57C2', n:'Purple'},{k:'p6', c:'#EF8022', n:'Orange'}
+  ];
+  function darken(hex,f){
+    var n=parseInt(hex.slice(1),16), r=(n>>16)&255, g=(n>>8)&255, b=n&255;
+    r=Math.round(r*f); g=Math.round(g*f); b=Math.round(b*f);
+    return 'rgb('+r+','+g+','+b+')';
+  }
+  // ---- the chip ----
+  // viewBox 0 0 100 132 ; ground line at y=120
+  var BODY='M 16 114 C 16 102 30 96 37 82 C 40 76 40 70 38 64 L 62 64 C 60 70 60 76 63 82 C 70 96 84 102 84 114 C 84 121 16 121 16 114 Z';
+  function chip(color, opt){
+    opt = opt || {};
+    var sh = opt.shadow===false ? '' :
+      '<ellipse class="csh" cx="50" cy="117" rx="31" ry="8.5" fill="rgba(0,0,0,.26)"/>';
+    var badge = '';
+    if(opt.badge){
+      badge = '<g><circle cx="80" cy="100" r="19" fill="#2A2622" stroke="#fff" stroke-width="4"/>' +
+        '<text x="80" y="107" text-anchor="middle" font-size="22" font-weight="700" fill="#fff"' +
+        ' font-family="system-ui,sans-serif">'+opt.badge+'</text></g>';
+    }
+    var rim = opt.rim || '#ffffff';
+    return '<svg viewBox="0 0 100 132" style="width:100%;height:auto;overflow:visible" aria-hidden="true">'
+      + sh
+      + '<g class="cbody">'
+      // white rim backing
+      + '<g fill="'+rim+'" stroke="'+rim+'" stroke-width="7" stroke-linejoin="round">'
+      +   '<path d="'+BODY+'"/><ellipse cx="50" cy="62" rx="19" ry="6"/><circle cx="50" cy="40" r="22"/>'
+      + '</g>'
+      // color fill
+      + '<path d="'+BODY+'" fill="'+color+'"/>'
+      + '<path d="'+BODY+'" fill="url(#shd)"/>'
+      + '<path d="'+BODY+'" fill="url(#lit)"/>'
+      + '<ellipse cx="50" cy="62" rx="19" ry="6" fill="'+darken(color,.78)+'"/>'
+      + '<circle cx="50" cy="40" r="22" fill="'+color+'"/>'
+      + '<circle cx="50" cy="40" r="22" fill="url(#shd)"/>'
+      + '<ellipse cx="42" cy="32" rx="9" ry="6.5" fill="url(#spec)" transform="rotate(-28 42 32)"/>'
+      + '</g>' + badge + '</svg>';
+  }
+  function chipEl(color, w, opt){
+    var d=document.createElement('div');
+    d.style.width=w+'px'; d.innerHTML=chip(color,opt); return d;
+  }
+  function place(host, color, w, dx, dy, opt){
+    var d=chipEl(color,w,opt);
+    d.className='tok';
+    d.style.transform='translate('+(-w/2+dx)+'px, '+(-w*0.72+dy)+'px)';
+    host.appendChild(d); return d;
+  }
+
+  // ---- anatomy ----
+  (function(){
+    var host=document.getElementById('anatomy');
+    var s='<svg viewBox="-30 -6 160 150" style="width:100%;height:auto">';
+    s+='<g transform="translate(0,0)">'+chip('#E14B4B').replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'')+'</g>';
+    // callout dots
+    var pts=[[1,50,40],[2,40,30],[3,31,62],[4,22,106],[5,86,96],[6,50,119]];
+    pts.forEach(function(p){
+      s+='<circle cx="'+p[1]+'" cy="'+p[2]+'" r="9.5" fill="#2A2622" opacity=".92"/>';
+      s+='<text x="'+p[1]+'" y="'+(p[2]+4)+'" text-anchor="middle" font-size="11" font-weight="700" fill="#fff" font-family="system-ui">'+p[0]+'</text>';
+    });
+    s+='</svg>';
+    host.innerHTML=s;
+  })();
+
+  // ---- swatches ----
+  (function(){
+    var host=document.getElementById('swatches');
+    COL.forEach(function(c,i){
+      var f=document.createElement('figure');
+      f.className='s'; f.style.margin='0';
+      f.innerHTML=chip(c.c)+'<figcaption>'+(i+1)+' · '+c.n+'</figcaption>';
+      host.appendChild(f);
+    });
+  })();
+
+  // ---- states ----
+  (function(){
+    var host=document.getElementById('states');
+    var defs=[
+      {t:'Idle', s:'On the board, not your turn to act on it.', cls:'', extra:''},
+      {t:'Movable', s:'Legal move available — pulses and bobs.', cls:'pulse', extra:'ring'},
+      {t:'Selected', s:'Lifted, warm glow, destination previewed.', cls:'sel', extra:'glow'},
+      {t:'Not yours', s:'Another seat’s chip during your turn.', cls:'dimmed', extra:''},
+      {t:'In yard', s:'Waiting for a 6 — flat, no shadow lift.', cls:'yard', extra:''}
+    ];
+    defs.forEach(function(d){
+      var w=document.createElement('div'); w.className='st';
+      var box=document.createElement('div'); box.className='stbox '+(d.cls==='pulse'?'pulse':'');
+      if(d.extra==='glow'){var g=document.createElement('div'); g.className='glowsel'; box.appendChild(g);}
+      if(d.extra==='ring'){var r=document.createElement('div'); r.className='ring'; box.appendChild(r);}
+      var t=place(box, '#3FA35C', 62, 0, 8);
+      if(d.cls==='pulse') t.classList.add('bob');
+      if(d.cls==='sel'){ t.classList.add('lift'); t.style.transform='translate(-31px,-36px)'; }
+      if(d.cls==='dimmed'){ t.classList.add('dim'); t.innerHTML=chip('#3B72D9'); }
+      if(d.cls==='yard'){ box.style.background='#EDD3D3'; t.innerHTML=chip('#E14B4B'); }
+      w.appendChild(box);
+      w.insertAdjacentHTML('beforeend','<div class="cap">'+d.t+'<span class="sub">'+d.s+'</span></div>');
+      host.appendChild(w);
+    });
+  })();
+
+  // ---- stacking ----
+  (function(){
+    var host=document.getElementById('stacks');
+    function cellDemo(cap, sub, build, cls){
+      var w=document.createElement('div'); w.className='celldemo';
+      var box=document.createElement('div'); box.className='cellbox '+(cls||'');
+      build(box); w.appendChild(box);
+      w.insertAdjacentHTML('beforeend','<div class="cap">'+cap+'<span class="sub">'+sub+'</span></div>');
+      host.appendChild(w);
+    }
+    cellDemo('One chip','full size, centred',function(b){ place(b,'#3FA35C',72,0,10) });
+    cellDemo('Two · same seat','offset pair, both readable',function(b){
+      place(b,'#3FA35C',60,-13,2); place(b,'#3FA35C',60,13,14);
+    });
+    cellDemo('Three · same seat','one chip + count badge',function(b){
+      place(b,'#3FA35C',56,-8,-2).style.opacity='.55';
+      place(b,'#3FA35C',68,4,12,{badge:'3'});
+    });
+    cellDemo('Four · same seat','badge, never four chips',function(b){
+      place(b,'#3FA35C',56,-8,-2).style.opacity='.55';
+      place(b,'#3FA35C',68,4,12,{badge:'4'});
+    });
+    cellDemo('Two seats','side by side, 74%',function(b){
+      place(b,'#E14B4B',54,-17,8); place(b,'#3B72D9',54,17,8);
+    },'safe');
+    cellDemo('Three seats','tight cluster, 62%',function(b){
+      place(b,'#E14B4B',46,-19,0); place(b,'#3B72D9',46,19,0); place(b,'#E3B23C',46,0,16);
+    },'safe');
+    cellDemo('Mixed + count','2 red shown as one + badge',function(b){
+      place(b,'#3B72D9',48,-18,4); place(b,'#E14B4B',52,16,10,{badge:'2'});
+    },'safe');
+    cellDemo('Blockade','two of a seat — nobody passes',function(b){
+      var r=document.createElement('div');
+      r.style.cssText='position:absolute;inset:6px;border:3px dashed #2A2622;border-radius:8px;opacity:.55';
+      b.appendChild(r);
+      place(b,'#7E57C2',56,-13,4); place(b,'#7E57C2',56,13,14);
+    });
+  })();
+
+  // ---- fan ----
+  (function(){
+    var host=document.getElementById('fan');
+    var w1=document.createElement('div'); w1.className='celldemo';
+    var b1=document.createElement('div'); b1.className='cellbox';
+    place(b1,'#E3B23C',56,-8,-2).style.opacity='.55';
+    place(b1,'#E3B23C',68,4,12,{badge:'3'});
+    w1.appendChild(b1);
+    w1.insertAdjacentHTML('beforeend','<div class="cap">Closed<span class="sub">default state</span></div>');
+    host.appendChild(w1);
+
+    var w2=document.createElement('div'); w2.className='celldemo'; w2.style.width='190px';
+    var b2=document.createElement('div'); b2.className='cellbox'; b2.style.width='190px';
+    [[-58,-26],[0,-40],[58,-26]].forEach(function(o){
+      var t=place(b2,'#E3B23C',56,o[0],o[1]);
+      t.style.filter='drop-shadow(0 6px 8px rgba(0,0,0,.25))';
+    });
+    var hint=document.createElement('div');
+    hint.style.cssText='position:absolute;left:0;right:0;bottom:8px;text-align:center;font-size:11px;color:#6E675C';
+    hint.textContent='pick one';
+    b2.appendChild(hint);
+    w2.appendChild(b2);
+    w2.insertAdjacentHTML('beforeend','<div class="cap">Tapped — fanned<span class="sub">each chip individually selectable</span></div>');
+    host.appendChild(w2);
+  })();
+
+  // ---- motion lab ----
+  (function(){
+    var lane=document.getElementById('lane1');
+    var N=9, W=56, GAP=6, reduce=matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var cells=[];
+    for(var i=0;i<N;i++){
+      var c=document.createElement('div');
+      c.className='lcell'+(i===0?' st1':'')+(i===4?' sf':'');
+      c.style.left=(i*(W+GAP))+'px';
+      lane.appendChild(c); cells.push(c);
+    }
+    // home column marker
+    var hm=document.createElement('div');
+    hm.style.cssText='position:absolute;top:34px;left:'+(8*(W+GAP))+'px;width:56px;height:56px;'+
+      'background:#DCEBE0;border:1.5px solid #7FB894;border-radius:8px';
+    lane.insertBefore(hm, lane.firstChild);
+
+    function mk(color,idx){
+      var r=document.createElement('div'); r.className='runner';
+      r.style.left=(idx*(W+GAP))+'px';
+      var inner=document.createElement('div'); inner.className='inner'; inner.style.width='46px';
+      inner.innerHTML=chip(color);
+      r.appendChild(inner); lane.appendChild(r);
+      r._i=idx; r._inner=inner; return r;
+    }
+    var A=mk('#3FA35C',0), B=mk('#E14B4B',5);
+    var speed=1, busy=false;
+    var sp=document.getElementById('sp'), spv=document.getElementById('spv'), log=document.getElementById('log');
+    sp.addEventListener('input',function(){ speed=sp.value/100; spv.textContent=speed.toFixed(1)+'×' });
+    function say(t){ log.textContent=t }
+
+    function tween(ms,fn){
+      return new Promise(function(res){
+        if(reduce){ fn(1); return res() }
+        var d=ms/speed, t0=performance.now();
+        (function step(now){
+          var p=Math.min(1,(now-t0)/d); fn(p);
+          if(p<1) requestAnimationFrame(step); else res();
+        })(t0);
+      });
+    }
+    function setPos(r,x,lift,squash){
+      r.style.left=x+'px';
+      var s = squash||1;
+      r._inner.style.transform='translate(-50%,-50%) translateY('+(-lift)+'px) scale('+(2-s)+','+s+')';
+      var sh=r._inner.querySelector('.csh');
+      if(sh){ var k=Math.max(.25,1-lift/70); sh.setAttribute('opacity',String(0.35+0.65*k));
+        sh.setAttribute('rx',String(31*k)); }
+    }
+    async function hop(r,from,to,h){
+      var x0=from*(W+GAP), x1=to*(W+GAP);
+      await tween(150,function(p){
+        var x=x0+(x1-x0)*p, lift=Math.sin(Math.PI*p)*(h||40);
+        setPos(r,x,lift,1);
+      });
+      await tween(90,function(p){
+        var s = p<.5 ? 1-0.12*(p/.5) : 0.88+0.12*((p-.5)/.5);
+        setPos(r,x1,0,s);
+      });
+      r._i=to;
+    }
+    async function steps(r,n,h){ for(var i=0;i<n;i++){ await hop(r,r._i,r._i+1,h) } }
+
+    async function run(fn){ if(busy) return; busy=true; try{ await fn() } finally { busy=false } }
+
+    document.getElementById('b-move').addEventListener('click',function(){ run(async function(){
+      say('rolled 5 — five hops');
+      A.style.left=(0)+'px'; A._i=0; setPos(A,0,0,1);
+      await steps(A,5);
+      say('landed on the star — safe');
+    })});
+
+    document.getElementById('b-cap').addEventListener('click',function(){ run(async function(){
+      A._i=2; setPos(A,2*(W+GAP),0,1); B._i=5; setPos(B,5*(W+GAP),0,1); B._inner.style.opacity='1';
+      say('rolled 3 — capture');
+      await steps(A,3);
+      // hard squash on landing
+      await tween(110,function(p){ setPos(A,A._i*(W+GAP),0, p<.5?1-0.22*(p/.5):0.78+0.22*((p-.5)/.5)) });
+      say('red is sent back to its yard');
+      var x0=B._i*(W+GAP);
+      await tween(650,function(p){
+        var x=x0+(-x0-40)*p, lift=Math.sin(Math.PI*p)*120, sc=1-0.45*p;
+        B.style.left=x+'px';
+        B._inner.style.transform='translate(-50%,-50%) translateY('+(-lift)+'px) rotate('+(720*p)+'deg) scale('+sc+')';
+        B._inner.style.opacity=String(1-0.5*p);
+      });
+      say('capture complete — you roll again');
+    })});
+
+    document.getElementById('b-home').addEventListener('click',function(){ run(async function(){
+      A._i=5; setPos(A,5*(W+GAP),0,1);
+      say('rolled 3 — exact count into home');
+      await steps(A,3,44);
+      hm.style.transition='background .3s'; hm.style.background='#B7E0C4';
+      await tween(420,function(p){
+        setPos(A,8*(W+GAP),Math.sin(Math.PI*p)*20,1);
+        hm.style.boxShadow='0 0 '+(26*Math.sin(Math.PI*p))+'px rgba(63,163,92,.9)';
+      });
+      say('home — 1 of 4');
+      setTimeout(function(){ hm.style.background='#DCEBE0'; hm.style.boxShadow='none' },900);
+    })});
+
+    document.getElementById('b-block').addEventListener('click',function(){ run(async function(){
+      A._i=2; setPos(A,2*(W+GAP),0,1);
+      B._i=4; setPos(B,4*(W+GAP),0,1); B._inner.style.opacity='1';
+      B._inner.style.transform='translate(-50%,-50%)';
+      say('rolled 4 — but a wall sits on the star');
+      await tween(160,function(p){ setPos(A,2*(W+GAP)+8*Math.sin(Math.PI*p),4*Math.sin(Math.PI*p),1) });
+      cells[4].style.transition='none'; cells[4].style.background='#F3D3D3';
+      cells[4].style.borderColor='#E14B4B';
+      await tween(420,function(){});
+      cells[4].style.transition='background .3s,border-color .3s';
+      cells[4].style.background=''; cells[4].style.borderColor='';
+      say('move refused — pick another chip');
+    })});
+  })();
+
+  // ---- boards ----
+  function svgEl(svg,t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
+  function boardChip(svg,cx,cy,w,color,badge){
+    var g=svgEl(svg,'g',{transform:'translate('+(cx-w/2)+','+(cy-w*0.86)+') scale('+(w/100)+')'});
+    g.innerHTML=chip(color,badge?{badge:badge}:null).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'');
+    return g;
+  }
+  // 4-player
+  (function(){
+    var svg=document.getElementById('board4'), C=40;
+    var col={r:'#E14B4B',g:'#3FA35C',y:'#E3B23C',b:'#3B72D9'};
+    var TRACK='#FFFFFF', LINE='#C9C1B2';
+    function cell(cx,cy,f){svgEl(svg,'rect',{x:cx*C,y:cy*C,width:C,height:C,fill:f,stroke:LINE,'stroke-width':1})}
+    function star(cx,cy){var x=cx*C+C/2,y=cy*C+C/2,R=13,r=5.5,p=[];
+      for(var i=0;i<10;i++){var a=Math.PI/5*i-Math.PI/2,rr=i%2?r:R;
+        p.push((x+rr*Math.cos(a)).toFixed(1)+','+(y+rr*Math.sin(a)).toFixed(1))}
+      svgEl(svg,'polygon',{points:p.join(' '),fill:'none',stroke:'#8a8478','stroke-width':1.6,'stroke-linejoin':'round'})}
+    svgEl(svg,'rect',{x:0,y:0,width:600,height:600,fill:'#fff',rx:12});
+    [[0,0,col.r],[9,0,col.g],[9,9,col.y],[0,9,col.b]].forEach(function(q){
+      svgEl(svg,'rect',{x:q[0]*C,y:q[1]*C,width:6*C,height:6*C,fill:q[2],rx:10});
+      svgEl(svg,'rect',{x:q[0]*C+C,y:q[1]*C+C,width:4*C,height:4*C,fill:'#fff',rx:8});
+      [[1.9,1.9],[4.1,1.9],[1.9,4.1],[4.1,4.1]].forEach(function(o){
+        svgEl(svg,'circle',{cx:(q[0]+o[0])*C,cy:(q[1]+o[1])*C,r:15,fill:'rgba(0,0,0,.07)'})
+      })
+    });
+    for(var r=0;r<15;r++)for(var c=0;c<15;c++){
+      var arm=(c>=6&&c<=8)||(r>=6&&r<=8), ctr=(c>=6&&c<=8&&r>=6&&r<=8), yd=(c<6||c>8)&&(r<6||r>8);
+      if(arm&&!ctr&&!yd) cell(c,r,TRACK);
+    }
+    for(var i=1;i<=5;i++){cell(i,7,col.r);cell(7,i,col.g);cell(8+i,7,col.y);cell(7,8+i,col.b)}
+    cell(1,6,col.r); cell(8,1,col.g); cell(13,8,col.y); cell(6,13,col.b);
+    svgEl(svg,'polygon',{points:'240,240 240,360 300,300',fill:col.r});
+    svgEl(svg,'polygon',{points:'240,240 360,240 300,300',fill:col.g});
+    svgEl(svg,'polygon',{points:'360,240 360,360 300,300',fill:col.y});
+    svgEl(svg,'polygon',{points:'240,360 360,360 300,300',fill:col.b});
+    star(6,2); star(12,6); star(8,12); star(2,8);
+    // chips: yard + track, incl. a stack and a mixed safe square
+    boardChip(svg,1.9*C,1.9*C,32,col.r); boardChip(svg,4.1*C,1.9*C,32,col.r);
+    boardChip(svg,(9+1.9)*C,1.9*C,32,col.g);
+    boardChip(svg,4.5*C,6.5*C,34,col.r);
+    boardChip(svg,8.5*C,3.5*C,34,col.g);
+    boardChip(svg,12.5*C,6.5*C,30,col.y); boardChip(svg,12.5*C,6.5*C,30,col.b);  // mixed on star
+    boardChip(svg,2.5*C,8.5*C,34,col.b,'2');
+    boardChip(svg,7.5*C,11.5*C,34,col.b);
+  })();
+  // 6-player hexagon
+  window.hexBoard = function(svg, opt){
+    opt = opt || {};
+    var C=30, CX=300, CY=300, LINE='#C9C1B2';
+    var cols=['#E14B4B','#3FA35C','#3B72D9','#E3B23C','#7E57C2','#EF8022'];
+    var R_OUT = 6.9*C;          // outermost track row centre
+    var YARD_R = 200, YARD_S = 1.5*C, PLATE = 268;
+    function pt(ang,rad,lat){
+      var a=Math.PI/180*ang, ux=Math.cos(a), uy=Math.sin(a);
+      return [CX+ux*rad + (-uy)*lat, CY+uy*rad + ux*lat];
+    }
+    function hexPts(r, rot){
+      var o=[]; for(var i=0;i<6;i++){var a=Math.PI/180*(60*i-90+(rot||0));
+        o.push((CX+r*Math.cos(a)).toFixed(1)+','+(CY+r*Math.sin(a)).toFixed(1))} return o.join(' ');
+    }
+    function cellAt(ang,rad,lat,fill){
+      var p=pt(ang,rad,lat);
+      var g=svgEl(svg,'g',{transform:'translate('+p[0].toFixed(2)+','+p[1].toFixed(2)+') rotate('+(ang+90)+')'});
+      var r=document.createElementNS(NS,'rect');
+      r.setAttribute('x',-C/2); r.setAttribute('y',-C/2); r.setAttribute('width',C); r.setAttribute('height',C);
+      r.setAttribute('fill',fill); r.setAttribute('stroke',LINE); r.setAttribute('stroke-width',1);
+      g.appendChild(r); return p;
+    }
+    function starAt(p){
+      var R=10,r=4.4,pts=[];
+      for(var i=0;i<10;i++){var a=Math.PI/5*i-Math.PI/2,rr=i%2?r:R;
+        pts.push((p[0]+rr*Math.cos(a)).toFixed(1)+','+(p[1]+rr*Math.sin(a)).toFixed(1))}
+      svgEl(svg,'polygon',{points:pts.join(' '),fill:'none',stroke:'#8a8478','stroke-width':1.4,'stroke-linejoin':'round'});
+    }
+    svgEl(svg,'rect',{x:0,y:0,width:600,height:600,fill:'#fff',rx:12});
+    // plate — vertices point at the yards
+    svgEl(svg,'polygon',{points:hexPts(PLATE,-30),fill:'#FBF9F5',stroke:LINE,'stroke-width':1.5,'stroke-linejoin':'round'});
+    // six arms
+    for(var k=0;k<6;k++){
+      var ang=-90+60*k, col=cols[k];
+      for(var j=0;j<6;j++){
+        var rad=R_OUT-j*C;
+        cellAt(ang,rad,-C,'#fff');
+        cellAt(ang,rad, C,'#fff');
+        cellAt(ang,rad, 0, j===0 ? '#fff' : col);   // j=0 entry, j1-5 home column
+      }
+      cellAt(ang,R_OUT,-C,col);                      // start square, beside its own yard
+      starAt(pt(ang,R_OUT-3*C,C));                   // safe star on the returning lane
+    }
+    // centre hub — six wedges
+    for(var k=0;k<6;k++){
+      var a0=Math.PI/180*(60*k-120), a1=Math.PI/180*(60*(k+1)-120), R=1.45*C;
+      svgEl(svg,'polygon',{points:CX+','+CY+' '
+        +(CX+R*Math.cos(a0)).toFixed(1)+','+(CY+R*Math.sin(a0)).toFixed(1)+' '
+        +(CX+R*Math.cos(a1)).toFixed(1)+','+(CY+R*Math.sin(a1)).toFixed(1), fill:cols[k]});
+    }
+    svgEl(svg,'polygon',{points:hexPts(1.45*C,-30),fill:'none',stroke:LINE,'stroke-width':1.5});
+    // yards — one per seat, sitting beside its own start square
+    var chipsIn = opt.yardChips == null ? 3 : opt.yardChips;
+    for(var k=0;k<6;k++){
+      var ya=-90+60*k-30, p=pt(ya,YARD_R,0), yc=cols[k];
+      svgEl(svg,'circle',{cx:p[0],cy:p[1],r:YARD_S,fill:yc,stroke:'rgba(0,0,0,.12)','stroke-width':2});
+      svgEl(svg,'circle',{cx:p[0],cy:p[1],r:YARD_S*0.72,fill:'#fff'});
+      var slots=[[-0.52,-0.34],[0.52,-0.34],[0,0.46]];
+      slots.forEach(function(o){
+        svgEl(svg,'circle',{cx:p[0]+o[0]*C,cy:p[1]+o[1]*C,r:0.34*C,fill:'rgba(0,0,0,.07)'});
+      });
+      var nIn=(opt.perYard&&opt.perYard[k]!=null)?opt.perYard[k]:chipsIn;
+      for(var s=0;s<Math.min(nIn,3);s++){
+        boardChip(svg, p[0]+slots[s][0]*C, p[1]+slots[s][1]*C, 23, yc);
+      }
+    }
+    if(opt.chips===false) return;
+    // chips out on the track
+    var q;
+    q=pt(-90, R_OUT, -C);            boardChip(svg,q[0],q[1],25,cols[0]);
+    q=pt(-30, R_OUT-2*C, -C);        boardChip(svg,q[0],q[1],25,cols[1]);
+    q=pt(30,  R_OUT-3*C,  C);        boardChip(svg,q[0]-7,q[1]-2,22,cols[2]);
+                                     boardChip(svg,q[0]+7,q[1]+3,22,cols[4]);
+    q=pt(90,  R_OUT-2*C,  0);        boardChip(svg,q[0],q[1],25,cols[3]);
+    q=pt(150, R_OUT-1*C,  C);        boardChip(svg,q[0],q[1],25,cols[4],'2');
+    q=pt(-150,R_OUT-4*C, -C);        boardChip(svg,q[0],q[1],25,cols[5]);
+  };
+  if(document.getElementById('board6')) window.hexBoard(document.getElementById('board6'), {perYard:[2,2,3,3,1,2]});
+})();
+</script>

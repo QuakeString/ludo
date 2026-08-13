@@ -1,0 +1,486 @@
+<title>Ludo Review Sheet</title>
+<style>
+  :root{
+    --p1:#E14B4B; --p2:#3FA35C; --p3:#3B72D9; --p4:#E3B23C; --p5:#7E57C2; --p6:#EF8022;
+    --bg:#F7F3EC; --card:#FFFFFF; --ink:#2A2622; --muted:#6E675C; --line:#E3DCCF;
+    --chip:#EFE9DD; --field:#FBF9F4; --shadow:0 2px 10px rgba(42,38,34,.08);
+    --ok:#3FA35C; --warn:#E3B23C; --ask:#3B72D9;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#161920; --card:#1E222A; --ink:#EAE6DE; --muted:#9B958A; --line:#2F343E;
+      --chip:#282D37; --field:#151920; --shadow:0 2px 14px rgba(0,0,0,.4);
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#161920; --card:#1E222A; --ink:#EAE6DE; --muted:#9B958A; --line:#2F343E;
+    --chip:#282D37; --field:#151920; --shadow:0 2px 14px rgba(0,0,0,.4);
+  }
+  *{box-sizing:border-box}
+  body{margin:0; background:var(--bg); color:var(--ink); font-size:16px; line-height:1.55;
+    font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+  h1,h2,h3,.dsp{font-family:"Trebuchet MS","Segoe UI",Verdana,sans-serif}
+  .wrap{max-width:760px; margin:0 auto; padding:30px 16px 120px}
+  .eyebrow{text-transform:uppercase; letter-spacing:.14em; font-size:11.5px; font-weight:700; color:var(--muted)}
+  h1{font-size:clamp(27px,5.5vw,38px); margin:8px 0 10px; line-height:1.1}
+  .lede{color:var(--muted); margin:0 0 6px}
+  .how{background:var(--card); border:1px solid var(--line); border-radius:13px; padding:14px 16px;
+    margin-top:18px; box-shadow:var(--shadow); font-size:14px}
+  .how b{color:var(--ink)}
+  .how ol{margin:8px 0 0; padding-left:20px; color:var(--muted)}
+  .how li{margin:4px 0}
+  .links{display:flex; flex-wrap:wrap; gap:8px; margin-top:12px}
+  .links a{font-size:13px; font-weight:600; text-decoration:none; color:var(--ink);
+    background:var(--chip); border:1px solid var(--line); border-radius:999px; padding:7px 13px}
+  .links a:focus-visible{outline:3px solid var(--ask); outline-offset:2px}
+
+  /* sticky bar */
+  .bar{position:sticky; top:0; z-index:20; background:var(--bg); border-bottom:1px solid var(--line);
+    padding:9px 0; margin-bottom:6px; display:flex; align-items:center; gap:10px}
+  .bar .prog{font-size:13px; color:var(--muted); font-variant-numeric:tabular-nums}
+  .bar .prog b{color:var(--ink)}
+  .bar .sp{margin-left:auto; display:flex; gap:7px}
+  button{font-family:inherit; cursor:pointer}
+  .btn{background:var(--ink); color:var(--bg); border:none; border-radius:10px; padding:9px 14px;
+    font-size:13px; font-weight:700}
+  .btn.ghost{background:transparent; color:var(--ink); border:1.5px solid var(--line)}
+  .btn:focus-visible{outline:3px solid var(--ask); outline-offset:2px}
+  .track{height:5px; background:var(--chip); border-radius:99px; overflow:hidden; margin-top:8px}
+  .track i{display:block; height:100%; width:0; background:var(--ok); transition:width .25s}
+
+  h2.grp{font-size:15px; text-transform:uppercase; letter-spacing:.1em; color:var(--muted);
+    margin:34px 0 12px; padding-bottom:7px; border-bottom:1px solid var(--line)}
+
+  .item{background:var(--card); border:1px solid var(--line); border-radius:14px; padding:16px;
+    box-shadow:var(--shadow); margin-bottom:13px}
+  .item.done{border-color:var(--ok)}
+  .item.chg{border-color:var(--warn)}
+  .item.dis{border-color:var(--ask)}
+  .ihead{display:flex; gap:11px; align-items:baseline}
+  .inum{font-size:12px; font-weight:700; color:var(--muted); font-variant-numeric:tabular-nums; flex:none;
+    min-width:20px}
+  .ihead h3{margin:0; font-size:17px; line-height:1.25; text-wrap:balance}
+  .idesc{margin:7px 0 0 31px; color:var(--muted); font-size:14px}
+  .idesc b{color:var(--ink)}
+  .vis{margin:12px 0 0 31px}
+  .ctrls{display:flex; flex-wrap:wrap; gap:6px; margin:13px 0 0 31px}
+  .ctrls button{border:1.5px solid var(--line); background:transparent; color:var(--muted);
+    border-radius:999px; padding:6px 13px; font-size:12.5px; font-weight:700}
+  .ctrls button[aria-pressed="true"][data-v="ok"]{background:var(--ok); border-color:var(--ok); color:#fff}
+  .ctrls button[aria-pressed="true"][data-v="chg"]{background:var(--warn); border-color:var(--warn); color:#2A2622}
+  .ctrls button[aria-pressed="true"][data-v="dis"]{background:var(--ask); border-color:var(--ask); color:#fff}
+  .ctrls button:focus-visible{outline:3px solid var(--ask); outline-offset:2px}
+  textarea{width:calc(100% - 31px); margin:10px 0 0 31px; background:var(--field); color:var(--ink);
+    border:1.5px solid var(--line); border-radius:10px; padding:11px 12px; font:inherit; font-size:14.5px;
+    resize:vertical; min-height:46px; line-height:1.45}
+  textarea:focus{outline:none; border-color:var(--ask)}
+  textarea::placeholder{color:var(--muted); opacity:.65}
+
+  /* visuals */
+  .chiprow{display:flex; gap:10px; align-items:flex-end; flex-wrap:wrap}
+  .chiprow .c{width:44px}
+  .chiprow .c figcaption{font-size:10.5px; color:var(--muted); text-align:center; margin-top:2px}
+  .cellrow{display:flex; gap:11px; flex-wrap:wrap}
+  .cd{width:82px; text-align:center}
+  .cdbox{width:82px; height:82px; background:#fff; border:1.5px solid #C9C1B2; border-radius:9px; position:relative}
+  .cd .cap{font-size:10.5px; color:var(--muted); margin-top:5px; line-height:1.3}
+  .tk{position:absolute; left:50%; top:50%}
+  .minisplash{width:150px; height:150px; background:#171A21; border-radius:14px; display:grid;
+    place-items:center; position:relative}
+  .diamond{position:relative; width:76px; height:76px; display:grid; place-items:center}
+  .dpetal{position:absolute; inset:0; border-radius:15px; transform:rotate(45deg); overflow:hidden;
+    display:grid; grid-template-columns:1fr 1fr}
+  .dpetal i:nth-child(1){background:var(--p1)} .dpetal i:nth-child(2){background:var(--p2)}
+  .dpetal i:nth-child(3){background:var(--p3)} .dpetal i:nth-child(4){background:var(--p4)}
+  .coinstage{position:relative; width:36px; height:36px; perspective:340px; z-index:2}
+  .coin{position:relative; width:100%; height:100%; transform-style:preserve-3d;
+    animation:flip 3.6s cubic-bezier(.32,0,.26,1) infinite}
+  .coin .face{position:absolute; inset:0; border-radius:50%; overflow:hidden; display:grid; place-items:center;
+    background:radial-gradient(circle at 34% 28%,#FFF 0%,#F3EDE2 38%,#D9CFBC 78%,#B7A991 100%);
+    box-shadow:inset 0 0 0 2px rgba(255,255,255,.6), inset 0 -3px 7px rgba(0,0,0,.22)}
+  .coin .face.back{transform:rotateY(180deg)}
+  .coin .pin{width:100%; height:100%; display:grid; grid-template-columns:1fr 1fr}
+  .coin .pin i:nth-child(1){background:var(--p1)} .coin .pin i:nth-child(2){background:var(--p2)}
+  .coin .pin i:nth-child(3){background:var(--p3)} .coin .pin i:nth-child(4){background:var(--p4)}
+  .coin .hub{position:absolute; width:13px; height:13px; border-radius:50%;
+    background:radial-gradient(circle at 34% 30%,#fff,#E7DFCE 60%,#C3B69D)}
+  @keyframes flip{0%,8%{transform:rotateY(0)} 58%,100%{transform:rotateY(1080deg)}}
+  .boardmini{width:100%; max-width:260px}
+  .boardmini svg{width:100%; height:auto; display:block}
+  .facts{display:flex; flex-wrap:wrap; gap:6px}
+  .facts i{font-style:normal; font-size:11.5px; font-weight:600; background:var(--chip);
+    border:1px solid var(--line); border-radius:999px; padding:4px 10px; color:var(--muted)}
+
+  /* output */
+  .out{margin-top:34px; background:var(--card); border:1px solid var(--line); border-radius:14px;
+    padding:16px; box-shadow:var(--shadow)}
+  .out h3{margin:0 0 4px; font-size:18px}
+  .out p{margin:0 0 12px; color:var(--muted); font-size:13.5px}
+  #dump{width:100%; margin:0; min-height:190px; font-family:ui-monospace,Consolas,monospace; font-size:12.5px}
+  .said{font-size:13px; color:var(--ok); font-weight:700; min-height:19px; margin-top:9px}
+  .foot{margin-top:28px; color:var(--muted); font-size:13px}
+  @media (prefers-reduced-motion: reduce){ *{animation:none!important; transition:none!important} }
+</style>
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <linearGradient id="shd" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#000" stop-opacity="0"/><stop offset=".55" stop-color="#000" stop-opacity=".04"/>
+    <stop offset="1" stop-color="#000" stop-opacity=".34"/></linearGradient>
+  <linearGradient id="lit" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0" stop-color="#fff" stop-opacity=".40"/><stop offset=".5" stop-color="#fff" stop-opacity="0"/></linearGradient>
+  <radialGradient id="spec" cx=".35" cy=".3" r=".5">
+    <stop offset="0" stop-color="#fff" stop-opacity=".75"/><stop offset="1" stop-color="#fff" stop-opacity="0"/></radialGradient>
+</defs></svg>
+
+<div class="wrap">
+  <div class="eyebrow">Ludo · design review sheet</div>
+  <h1>Mark it up</h1>
+  <p class="lede">Every decision made so far, one per card. Say yes, ask for a change, or flag it for
+     discussion — and type whatever you want next to it. When you're done, hit
+     <b>Copy all notes</b> at the top and paste the result back to me.</p>
+
+  <div class="how">
+    <b>Two things worth knowing.</b>
+    <ol>
+      <li>Your notes are saved on <b>this device</b> as you type, so you can close the page and come back.</li>
+      <li>I can't see them until you paste them back — that's what the copy button is for.</li>
+    </ol>
+    <div class="links">
+      <a href="https://claude.ai/code/artifact/b6a557bf-c579-4889-b7cb-e070560578cd" target="_blank" rel="noopener">↗ Screen flow</a>
+      <a href="https://claude.ai/code/artifact/7f3c50e2-c296-4053-aa36-bb687bd41b4a" target="_blank" rel="noopener">↗ Board &amp; plan</a>
+    </div>
+  </div>
+
+  <div class="bar">
+    <div>
+      <div class="prog"><b id="pcount">0</b> of <span id="ptotal">0</span> reviewed</div>
+      <div class="track"><i id="pbar"></i></div>
+    </div>
+    <div class="sp">
+      <button class="btn ghost" id="reset">Reset</button>
+      <button class="btn" id="copy">Copy all notes</button>
+    </div>
+  </div>
+
+  <div id="items"></div>
+
+  <div class="out">
+    <h3>Your notes</h3>
+    <p>This updates as you go. If the copy button doesn't work on your phone, long-press inside the box,
+       Select All, and copy from here.</p>
+    <textarea id="dump" readonly></textarea>
+    <div class="said" id="said"></div>
+  </div>
+
+  <div class="foot">Nothing on this page is final. Anything you mark <b>Change</b> gets reworked before
+    a line of app code is written.</div>
+</div>
+
+<script>
+(function(){
+  var NS='http://www.w3.org/2000/svg';
+  var P={p1:'#E14B4B',p2:'#3FA35C',p3:'#3B72D9',p4:'#E3B23C',p5:'#7E57C2',p6:'#EF8022'};
+  function darken(h,f){var n=parseInt(h.slice(1),16);
+    return 'rgb('+Math.round(((n>>16)&255)*f)+','+Math.round(((n>>8)&255)*f)+','+Math.round((n&255)*f)+')'}
+  var BODY='M 16 114 C 16 102 30 96 37 82 C 40 76 40 70 38 64 L 62 64 C 60 70 60 76 63 82 C 70 96 84 102 84 114 C 84 121 16 121 16 114 Z';
+  function chip(color,opt){
+    opt=opt||{};
+    var badge = opt.badge ? '<g><circle cx="80" cy="100" r="19" fill="#2A2622" stroke="#fff" stroke-width="4"/>'
+      +'<text x="80" y="107" text-anchor="middle" font-size="22" font-weight="700" fill="#fff" font-family="system-ui,sans-serif">'+opt.badge+'</text></g>':'';
+    return '<svg viewBox="0 0 100 132" style="width:100%;height:auto;overflow:visible" aria-hidden="true">'
+      +'<ellipse cx="50" cy="117" rx="31" ry="8.5" fill="rgba(0,0,0,.26)"/>'
+      +'<g fill="#fff" stroke="#fff" stroke-width="7" stroke-linejoin="round">'
+      +'<path d="'+BODY+'"/><ellipse cx="50" cy="62" rx="19" ry="6"/><circle cx="50" cy="40" r="22"/></g>'
+      +'<path d="'+BODY+'" fill="'+color+'"/><path d="'+BODY+'" fill="url(#shd)"/><path d="'+BODY+'" fill="url(#lit)"/>'
+      +'<ellipse cx="50" cy="62" rx="19" ry="6" fill="'+darken(color,.78)+'"/>'
+      +'<circle cx="50" cy="40" r="22" fill="'+color+'"/><circle cx="50" cy="40" r="22" fill="url(#shd)"/>'
+      +'<ellipse cx="42" cy="32" rx="9" ry="6.5" fill="url(#spec)" transform="rotate(-28 42 32)"/>'
+      + badge + '</svg>';
+  }
+  function tok(host,color,w,dx,dy,opt){
+    var d=document.createElement('div'); d.className='tk'; d.style.width=w+'px';
+    d.innerHTML=chip(color,opt);
+    d.style.transform='translate('+(-w/2+dx)+'px,'+(-w*0.72+dy)+'px)';
+    host.appendChild(d); return d;
+  }
+
+  // ---------- visual builders ----------
+  var VIS={
+    palette:function(h){
+      var r=document.createElement('div'); r.className='chiprow';
+      [['p1','Red'],['p2','Green'],['p3','Blue'],['p4','Yellow'],['p5','Purple'],['p6','Orange']]
+      .forEach(function(c){
+        var f=document.createElement('figure'); f.className='c'; f.style.margin='0';
+        f.innerHTML=chip(P[c[0]])+'<figcaption>'+c[1]+'</figcaption>'; r.appendChild(f);
+      });
+      h.appendChild(r);
+    },
+    chipshape:function(h){
+      var r=document.createElement('div'); r.className='chiprow';
+      [64,44,30,22].forEach(function(w){
+        var f=document.createElement('figure'); f.className='c'; f.style.cssText='margin:0;width:'+w+'px';
+        f.innerHTML=chip(P.p3)+'<figcaption>'+w+'px</figcaption>'; r.appendChild(f);
+      });
+      h.appendChild(r);
+    },
+    stacks:function(h){
+      var r=document.createElement('div'); r.className='cellrow';
+      function cd(cap,build){
+        var w=document.createElement('div'); w.className='cd';
+        var b=document.createElement('div'); b.className='cdbox'; build(b); w.appendChild(b);
+        w.insertAdjacentHTML('beforeend','<div class="cap">'+cap+'</div>'); r.appendChild(w);
+      }
+      cd('one', function(b){ tok(b,P.p2,54,0,8) });
+      cd('two · same', function(b){ tok(b,P.p2,45,-10,1); tok(b,P.p2,45,10,11) });
+      cd('three · same', function(b){ tok(b,P.p2,42,-6,-2).style.opacity='.55'; tok(b,P.p2,51,3,9,{badge:'3'}) });
+      cd('two seats', function(b){ tok(b,P.p1,40,-13,6); tok(b,P.p3,40,13,6) });
+      cd('three seats', function(b){ tok(b,P.p1,34,-14,0); tok(b,P.p3,34,14,0); tok(b,P.p4,34,0,12) });
+      h.appendChild(r);
+    },
+    splash:function(h){
+      h.innerHTML='<div class="minisplash"><div class="diamond"><div class="dpetal">'
+        +'<i></i><i></i><i></i><i></i></div><div class="coinstage"><div class="coin">'
+        +'<div class="face front"><div class="pin"><i></i><i></i><i></i><i></i></div><div class="hub"></div></div>'
+        +'<div class="face back"><div class="pin"><i></i><i></i><i></i><i></i></div><div class="hub"></div></div>'
+        +'</div></div></div></div>';
+    },
+    hex:function(h){
+      var d=document.createElement('div'); d.className='boardmini';
+      var svg=document.createElementNS(NS,'svg');
+      svg.setAttribute('viewBox','0 0 600 600');
+      svg.setAttribute('role','img');
+      svg.setAttribute('aria-label','Six-player hexagonal Ludo board');
+      d.appendChild(svg); h.appendChild(d);
+      var C=30,CX=300,CY=300,LINE='#C9C1B2',cols=[P.p1,P.p2,P.p3,P.p4,P.p5,P.p6];
+      var R_OUT=6.9*C, YARD_R=200, YARD_S=1.5*C;
+      function el(t,a){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);svg.appendChild(e);return e}
+      function pt(an,rad,lat){var a=Math.PI/180*an,ux=Math.cos(a),uy=Math.sin(a);
+        return [CX+ux*rad+(-uy)*lat, CY+uy*rad+ux*lat]}
+      function hexPts(r,rot){var o=[];for(var i=0;i<6;i++){var a=Math.PI/180*(60*i-90+(rot||0));
+        o.push((CX+r*Math.cos(a)).toFixed(1)+','+(CY+r*Math.sin(a)).toFixed(1))}return o.join(' ')}
+      function cellAt(an,rad,lat,fill){
+        var p=pt(an,rad,lat);
+        var g=el('g',{transform:'translate('+p[0].toFixed(2)+','+p[1].toFixed(2)+') rotate('+(an+90)+')'});
+        var r=document.createElementNS(NS,'rect');
+        r.setAttribute('x',-C/2);r.setAttribute('y',-C/2);r.setAttribute('width',C);r.setAttribute('height',C);
+        r.setAttribute('fill',fill);r.setAttribute('stroke',LINE);r.setAttribute('stroke-width',1);
+        g.appendChild(r); return p;
+      }
+      function bchip(cx,cy,w,color){
+        var g=el('g',{transform:'translate('+(cx-w/2)+','+(cy-w*0.86)+') scale('+(w/100)+')'});
+        g.innerHTML=chip(color).replace(/^<svg[^>]*>/,'').replace(/<\/svg>$/,'');
+      }
+      el('polygon',{points:hexPts(268,-30),fill:'#FDFBF7',stroke:LINE,'stroke-width':1.5,'stroke-linejoin':'round'});
+      for(var k=0;k<6;k++){
+        var an=-90+60*k;
+        for(var j=0;j<6;j++){var rad=R_OUT-j*C;
+          cellAt(an,rad,-C,'#fff'); cellAt(an,rad,C,'#fff'); cellAt(an,rad,0, j===0?'#fff':cols[k]);}
+        cellAt(an,R_OUT,-C,cols[k]);
+      }
+      for(var k=0;k<6;k++){
+        var a0=Math.PI/180*(60*k-120),a1=Math.PI/180*(60*(k+1)-120),R=1.45*C;
+        el('polygon',{points:CX+','+CY+' '+(CX+R*Math.cos(a0)).toFixed(1)+','+(CY+R*Math.sin(a0)).toFixed(1)
+          +' '+(CX+R*Math.cos(a1)).toFixed(1)+','+(CY+R*Math.sin(a1)).toFixed(1),fill:cols[k]});
+      }
+      for(var k=0;k<6;k++){
+        var ya=-90+60*k-30,p=pt(ya,YARD_R,0);
+        el('circle',{cx:p[0],cy:p[1],r:YARD_S,fill:cols[k],stroke:'rgba(0,0,0,.12)','stroke-width':2});
+        el('circle',{cx:p[0],cy:p[1],r:YARD_S*0.72,fill:'#fff'});
+        var slots=[[-0.52,-0.34],[0.52,-0.34],[0,0.46]];
+        slots.forEach(function(o){el('circle',{cx:p[0]+o[0]*C,cy:p[1]+o[1]*C,r:0.34*C,fill:'rgba(0,0,0,.07)'})});
+        for(var s=0;s<2;s++) bchip(p[0]+slots[s][0]*C,p[1]+slots[s][1]*C,23,cols[k]);
+      }
+    },
+    facts:function(list){ return function(h){
+      var d=document.createElement('div'); d.className='facts';
+      list.forEach(function(t){ var i=document.createElement('i'); i.textContent=t; d.appendChild(i) });
+      h.appendChild(d);
+    }}
+  };
+
+  // ---------- the checklist ----------
+  var GROUPS=[
+    {g:'Scope', items:[
+      {id:'platforms', t:'Five platforms from one codebase',
+       d:'Android, iOS, Web, Windows and Linux built from a single Flutter project. iOS release still needs a Mac and an Apple developer account — that is Apple\'s rule, not a stack limit.',
+       v:VIS.facts(['Flutter','Dart','one codebase','5 targets'])},
+      {id:'stack', t:'Flutter + Dart, Nakama for online',
+       d:'Rules live in a pure Dart package that runs on the phone <b>and</b> on the server, so offline and online can never disagree and no client can cheat. Nakama gives matchmaking, friends and rooms without building them.',
+       v:VIS.facts(['ludo_engine','Nakama','Postgres','SQLite on device'])}
+    ]},
+    {g:'Players and modes', items:[
+      {id:'sixseats', t:'Up to 6 players',
+       d:'Seat counts 2 through 6, in every mode — solo with AI, pass and play, private rooms and quick match. Humans and AI can be mixed in any combination.'},
+      {id:'hexboard', t:'Six seats use a hexagon board',
+       d:'Four seats keep the classic cross. Six seats need six yards and six arms, so the board becomes a hexagon with <b>78 track squares</b>. Same chips, same rules, different surface.',
+       v:VIS.hex},
+      {id:'chipcount', t:'3 chips each at six seats (default)',
+       d:'Six players with four chips each runs long and crowds every square. Three keeps a six-seat round about as long as a four-seat one. It is a rule setting, so a table that wants four can switch it back.'},
+      {id:'teamlocal', t:'Team (pair) play — pass and play',
+       d:'The screen you flagged as missing. After choosing seats you pick <b>Free-for-all</b> or <b>Teams</b>; four seats give 2 v 2, six seats give 3 v 3 or 2 v 2 v 2. Tap a seat to move a player between sides.'},
+      {id:'teamonline', t:'Team (pair) play — online rooms',
+       d:'Same model online. The host sets seats and format when creating the room; teammates are arranged in the lobby, where players can be dragged between sides before the match starts.'},
+      {id:'teamrules', t:'What being partners actually means',
+       d:'Partners never capture each other · partners do not block each other · a player whose chips are all home keeps rolling for the team · <b>the team wins when every partner is home</b>. Each of these is a switch if you want it different.'},
+      {id:'modes', t:'Four ways to play on the home screen',
+       d:'Play vs AI and Pass &amp; Play are marked offline; Friends Room and Quick Match are marked online. A Resume card sits above them when a saved game exists.'}
+    ]},
+    {g:'Online and identity', items:[
+      {id:'guest', t:'No login unless you go online — and even then, guest is enough',
+       d:'Offline play never asks for anything. Tapping an online mode creates a guest identity silently from the device. An actual account is only for carrying friends and stats to a second device.'},
+      {id:'rooms', t:'Room codes and friends',
+       d:'A private room gets a six-character code and a share link, so a group can start a game from a WhatsApp message. A friends list is for the people you play with often, not a requirement.'},
+      {id:'quickmatch', t:'Quick match with strangers',
+       d:'Matchmaking only pairs players who agreed to the same seat count and rule set, so nobody joins a game whose rules surprise them. Empty seats can be filled with AI after a wait.'},
+      {id:'discon', t:'Disconnects and reconnects',
+       d:'Game state lives on the server, so rejoining is instant. Sixty seconds of grace, then the seat is played by AI or skipped, depending on a room setting.'}
+    ]},
+    {g:'Rules', items:[
+      {id:'customrules', t:'Custom rules are data, not code',
+       d:'Chips per player, entry roll, extra roll on six, safe squares, blockades, must-capture-to-win, turn timers, dice count. Presets ship for Classic, Quick and Aggressive; the builder exposes the rest.'},
+      {id:'rulecodes', t:'Shareable rule codes',
+       d:'A rule set turns into a short code your friends can paste, and online rooms carry it so the server enforces exactly the rules you agreed on.'}
+    ]},
+    {g:'Look and motion', items:[
+      {id:'splash', t:'Splash: four-color diamond with a flipping coin',
+       d:'The white dot is now a real Ludo coin that tosses and spins while the game loads. It is animating in the panel below right now — that is the actual timing, roughly 1.2 seconds.',
+       v:VIS.splash},
+      {id:'chipshape', t:'The chip: a solid pawn with a white rim',
+       d:'A carrom-style pawn lit from the upper left, with a hard white rim so a blue chip stays readable on a blue square. Shown here at 64, 44, 30 and 22 pixels — it has to survive the smallest one.',
+       v:VIS.chipshape},
+      {id:'palette', t:'Six seat colors',
+       d:'Chosen so no two neighbours on the board are confusable and all six stay distinct for red–green color blindness. Seat position and the rim carry the difference, never hue alone.',
+       v:VIS.palette},
+      {id:'stacking', t:'Several chips on one square',
+       d:'Up to two chips draw in full; three or more collapse to one chip plus a count badge. Same-seat groups stack front to back, mixed seats sit side by side — knowing <b>whose</b> chips are there matters more than how many.',
+       v:VIS.stacks},
+      {id:'fan', t:'Tap a stack to fan it out',
+       d:'Tapping a crowded square spreads its chips in an arc above the board so each one can be picked individually. The fan closes on selection or on tapping elsewhere.'},
+      {id:'motion', t:'Chips hop, one hop per pip',
+       d:'A roll of 5 is five separate arcs, about 150&nbsp;ms each, so the move can be counted as it happens. Captures get a hard squash and the captured chip arcs back to its yard. Illegal moves never animate — the chip nudges and stops.'},
+      {id:'boardstyle', t:'Light paper board, not a dark casino table',
+       d:'Warm off-white surface, muted grid lines, colors doing the shouting. Most Ludo apps go dark and glossy; this stays closer to a real board on a table. A dark theme is still planned for night play.'}
+    ]},
+    {g:'Build order', items:[
+      {id:'firstbuild', t:'What gets built first',
+       d:'Rules engine with tests, then the board and chips, then pass and play — a real game you can hold after phase 2, before any server exists. AI, custom rules, then online.'},
+      {id:'anything', t:'Anything missing?',
+       d:'Modes, rules, screens, or details of how a chip should behave that have not come up yet. Write it here.'}
+    ]}
+  ];
+
+  var KEY='ludo-review-v2';
+  var state = {};
+  try{ state = JSON.parse(localStorage.getItem(KEY)||'{}') }catch(e){ state={} }
+  function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }
+
+  var host=document.getElementById('items'), total=0;
+  var LABEL={ok:'Looks right', chg:'Change this', dis:'Let\'s discuss'};
+  var n=0;
+  GROUPS.forEach(function(grp){
+    var h=document.createElement('h2'); h.className='grp'; h.textContent=grp.g; host.appendChild(h);
+    grp.items.forEach(function(it){
+      n++; total++;
+      var st = state[it.id] || {};
+      var card=document.createElement('div'); card.className='item'; card.dataset.id=it.id;
+      var head=document.createElement('div'); head.className='ihead';
+      head.innerHTML='<span class="inum">'+n+'</span><h3>'+it.t+'</h3>';
+      card.appendChild(head);
+      card.insertAdjacentHTML('beforeend','<p class="idesc">'+it.d+'</p>');
+      if(it.v){ var vw=document.createElement('div'); vw.className='vis'; it.v(vw); card.appendChild(vw) }
+      var ctr=document.createElement('div'); ctr.className='ctrls';
+      ['ok','chg','dis'].forEach(function(v){
+        var b=document.createElement('button');
+        b.type='button'; b.dataset.v=v; b.textContent=LABEL[v];
+        b.setAttribute('aria-pressed', st.v===v ? 'true':'false');
+        b.addEventListener('click',function(){
+          var cur=(state[it.id]||{});
+          cur.v = cur.v===v ? null : v;
+          state[it.id]=cur; save();
+          ctr.querySelectorAll('button').forEach(function(o){
+            o.setAttribute('aria-pressed', o.dataset.v===cur.v ? 'true':'false')});
+          paint(card,cur.v); refresh();
+        });
+        ctr.appendChild(b);
+      });
+      card.appendChild(ctr);
+      var ta=document.createElement('textarea');
+      ta.placeholder='Notes on “'+it.t+'”…';
+      ta.value = st.c || '';
+      ta.setAttribute('aria-label','Notes on '+it.t);
+      ta.addEventListener('input',function(){
+        var cur=(state[it.id]||{}); cur.c=ta.value; state[it.id]=cur; save();
+        ta.style.height='auto'; ta.style.height=Math.max(46,ta.scrollHeight)+'px';
+        refresh();
+      });
+      card.appendChild(ta);
+      host.appendChild(card);
+      paint(card, st.v);
+      if(st.c){ ta.style.height='auto'; ta.style.height=Math.max(46,ta.scrollHeight)+'px' }
+      it._n=n;
+    });
+  });
+  function paint(card,v){
+    card.classList.remove('done','chg','dis');
+    if(v==='ok') card.classList.add('done');
+    if(v==='chg') card.classList.add('chg');
+    if(v==='dis') card.classList.add('dis');
+  }
+  document.getElementById('ptotal').textContent=total;
+
+  function compile(){
+    var out=['# Ludo design review — my notes',''];
+    var any=false;
+    GROUPS.forEach(function(grp){
+      var lines=[];
+      grp.items.forEach(function(it){
+        var st=state[it.id]; if(!st || (!st.v && !(st.c||'').trim())) return;
+        any=true;
+        var mark = st.v==='ok' ? 'OK' : st.v==='chg' ? 'CHANGE' : st.v==='dis' ? 'DISCUSS' : '—';
+        lines.push('- ['+mark+'] '+it._n+'. '+it.t.replace(/&amp;/g,'&'));
+        if((st.c||'').trim()) lines.push('      ' + st.c.trim().replace(/\n/g,'\n      '));
+      });
+      if(lines.length){ out.push('## '+grp.g, ''); out.push.apply(out,lines); out.push('') }
+    });
+    if(!any) return '(nothing marked yet — tap a button or type a note on any card above)';
+    return out.join('\n');
+  }
+  function refresh(){
+    var done=0;
+    GROUPS.forEach(function(g){g.items.forEach(function(it){
+      var st=state[it.id]; if(st && (st.v || (st.c||'').trim())) done++ })});
+    document.getElementById('pcount').textContent=done;
+    document.getElementById('pbar').style.width=(total?Math.round(done/total*100):0)+'%';
+    document.getElementById('dump').value=compile();
+  }
+  refresh();
+
+  document.getElementById('copy').addEventListener('click',function(){
+    var txt=compile(), said=document.getElementById('said');
+    var dump=document.getElementById('dump');
+    dump.scrollIntoView({behavior:'smooth', block:'center'});
+    function fallback(){
+      dump.removeAttribute('readonly'); dump.focus(); dump.select();
+      try{ document.execCommand('copy') }catch(e){}
+      dump.setAttribute('readonly','');
+      said.textContent='Selected below — copy it and paste it back to me.';
+    }
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(txt).then(function(){
+        said.textContent='Copied. Paste it back to me in the chat.';
+        setTimeout(function(){said.textContent=''},5000);
+      }, fallback);
+    } else fallback();
+  });
+  document.getElementById('reset').addEventListener('click',function(){
+    if(!confirm('Clear every note on this page?')) return;
+    state={}; save();
+    document.querySelectorAll('.item').forEach(function(c){
+      paint(c,null);
+      c.querySelectorAll('.ctrls button').forEach(function(b){b.setAttribute('aria-pressed','false')});
+      var t=c.querySelector('textarea'); if(t){t.value=''; t.style.height='46px'}
+    });
+    refresh();
+  });
+})();
+</script>

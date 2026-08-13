@@ -14,7 +14,20 @@ required unless playing online).
 | 2 | Local player (vs AI), local multiplayer, online with random people, online with friends | Game-mode system on top of one shared game engine |
 | 3 | Custom rules | Data-driven **Rule Config** (JSON) interpreted by the engine; rule presets + rule builder UI + shareable rule codes |
 | 4 | Online or offline; login only for online play | Offline-first design; anonymous **guest identity** by default, account only when going online |
-| 5 | Design sketch | This document + `docs/` mockups |
+| 5 | Design sketch | This document + `docs/mockups/` |
+| 6 | Up to 6 players | Hexagonal board for 5–6 seats; 2–4 seats keep the classic cross |
+| 7 | Team ("pair") play | 2v2 at four seats; 3v3 or 2v2v2 at six — available in pass-and-play *and* online rooms |
+
+### Mockups
+
+Open these in a browser — every chip is drawn by the same vector routine the app will use.
+
+| File | What it covers |
+|------|----------------|
+| `docs/mockups/screen-flow.html` | 11 phone screens, splash → home → seats/teams → gameplay → online → result |
+| `docs/mockups/chip-and-motion.html` | Chip anatomy, states, stacking, **live movement demos**, both boards |
+| `docs/mockups/review-sheet.html` | Commentable checklist of every decision (notes saved on-device) |
+| `docs/mockups/overview.html` | One-page summary of stack, modes and roadmap |
 
 ---
 
@@ -128,10 +141,13 @@ ludo/
 
 | Mode | Players | Network | Login | Dice | Notes |
 |------|---------|---------|-------|------|-------|
-| **Local vs AI** | 1 human + 1–3 AI | Offline | No | Local RNG | 3 AI difficulty levels |
-| **Local multiplayer (pass & play)** | 2–4 humans, one device | Offline | No | Local RNG | Turn hand-off screen between players |
-| **Online — random people** | 2–4 | Online | Yes (guest OK) | Server RNG | Matchmaking by player count + rule preset |
-| **Online — friends** | 2–4 | Online | Yes (guest OK) | Server RNG | Private room with a 6-char **room code** / share link; friends list for regulars |
+| **Local vs AI** | 1 human + 1–5 AI | Offline | No | Local RNG | 3 AI difficulty levels |
+| **Local multiplayer (pass & play)** | 2–6 humans, one device | Offline | No | Local RNG | Turn hand-off screen between players |
+| **Online — random people** | 2–6 | Online | Yes (guest OK) | Server RNG | Matchmaking by seat count + rule preset |
+| **Online — friends** | 2–6 | Online | Yes (guest OK) | Server RNG | Private room with a 6-char **room code** / share link; friends list for regulars |
+
+Humans and AI can be mixed freely in any mode — an online room with an empty seat can be
+filled by AI rather than blocking the start.
 
 Online details:
 
@@ -144,6 +160,24 @@ Online details:
   after that the seat is taken over by AI or skipped, per room setting.
 - **Anti-cheat:** server-authoritative state + server-side dice → clients can't lie.
 
+### Team ("pair") play
+
+Available in pass-and-play *and* online rooms, at any seat count that divides evenly:
+
+| Seats | Formats |
+|-------|---------|
+| 4 | `2v2` (partners seated opposite) or free-for-all |
+| 6 | `3v3`, `2v2v2`, or free-for-all |
+
+Team behaviour — each item is a `RuleConfig` switch, not a hard-coded rule:
+
+- Partners never capture each other, and don't blockade each other.
+- A player whose tokens are all home keeps rolling **for the team** (moving a partner's token).
+- The team wins when *every* partner has all tokens home.
+- UI: your own team carries a colored rail in the seat list, so friend-vs-foe is readable
+  without decoding six hues. Teams are assigned in a dedicated setup screen (local) or by
+  dragging players between sides in the lobby (online).
+
 ---
 
 ## 5. Rules Engine & Custom Rules
@@ -154,6 +188,23 @@ Online details:
   row forfeits the turn; landing on an opponent captures (sends home) unless on a safe
   (star) square; exact roll needed to enter home; first to bring all 4 tokens home wins.
 
+### The two boards
+
+| | 2–4 seats | 5–6 seats |
+|---|---|---|
+| Shape | Classic 15×15 cross | Hexagon, 6 arms at 60° |
+| Track squares | 52 (4 × 13) | 78 (6 × 13) |
+| Home column | 5 squares | 5 squares |
+| Tokens per player (default) | 4 | **3** |
+| Token size | 78% of a square | 66% of a square |
+
+Six players × 4 tokens runs long and crowds every square, so six seats default to 3 tokens
+each — which keeps a six-player round close to the length of a four-player one. It is a
+`RuleConfig` value, so a table that wants four can set it back.
+
+Both boards use the same geometry generator and the same token renderer; only the sector
+count and radius change.
+
 ### Custom rules = a data object, not code
 
 Every variant is expressed as a `RuleConfig` the engine interprets:
@@ -162,7 +213,11 @@ Every variant is expressed as a `RuleConfig` the engine interprets:
 {
   "id": "quick-family",
   "name": "Quick Family Game",
-  "tokensPerPlayer": 2,          // 1..4
+  "seats": 6,                     // 2..6 — 5 or 6 selects the hexagon board
+  "teams": [[0, 2, 4], [1, 3, 5]],// null = free-for-all; else seat indices per team
+  "partnersCanCapture": false,
+  "finishedPlayerMovesPartner": true,
+  "tokensPerPlayer": 2,          // 1..4 (defaults to 3 at 5–6 seats, 4 otherwise)
   "entryRoll": 6,                 // roll needed to leave yard, or "any"
   "extraRollOnSix": true,
   "tripleSixForfeits": true,
@@ -215,24 +270,71 @@ first launch ──► play immediately (guest, no login)
 ## 7. UI / Screen Flow
 
 ```
-Splash ─► Home ──┬─► Play vs AI ─────────► Game Board
-                 ├─► Pass & Play ─► player setup ─► Game Board
+Splash ─► Home ──┬─► Play vs AI ────► seats ─┬─► [teams] ─► rules ─► Game Board
+                 ├─► Pass & Play ──► seats ──┘
                  ├─► Online ─┬─► Quick Match (matchmaking) ─► Game Board
-                 │           ├─► Create Room (rules + code) ─► Lobby ─► Game Board
+                 │           ├─► Create Room (seats + teams + rules) ─► Lobby ─► Game Board
                  │           ├─► Join Room (enter code) ─► Lobby ─► Game Board
                  │           └─► Friends (list / invites)
                  ├─► Rules (presets + Rule Builder)
                  └─► Settings (theme, sound, language, account)
+                                                        Game Board ─► Result / Rematch
 ```
+
+Seat count is chosen **before** anything else, because it determines the board shape, the
+default token count, and whether teams are possible at all. The teams step appears only for
+4 and 6 seats. See `docs/mockups/screen-flow.html` for all 11 screens.
 
 Board screen essentials:
 
-- Classic cross-shaped board, 15×15 grid; 4 colored yards, star safe squares, home column.
-- Big tappable dice with roll animation; movable tokens pulse when they have a legal move;
-  auto-move when only one legal move exists (toggleable).
-- Turn indicator, per-player captured/finished counters, emoji quick-chat in online games
-  (no free text → no moderation burden), turn timer ring in online games.
+- Board (cross or hexagon per seat count), big tappable dice with roll animation.
+- Movable tokens pulse; auto-move when only one legal move exists (toggleable).
+- Turn indicator, per-seat finished counters grouped by team, emoji quick-chat in online
+  games (no free text → no moderation burden), turn timer ring in online games.
 - Portrait-first layout for phones; the board scales to landscape/desktop with side panels.
+
+### Splash
+
+Four-colour diamond mark with a **3D Ludo coin at its centre that tosses and spins** while
+the local save loads (~1.2 s), then settles. Skippable on tap; falls back to a static mark
+under `prefers-reduced-motion`.
+
+---
+
+## 7a. Token ("chip") Rendering
+
+The token is the single most important object in the game — this is where most Ludo apps
+fail, so it is specified rather than left to implementation. Full spec with live motion
+demos: `docs/mockups/chip-and-motion.html`.
+
+**Form.** A carrom-style pawn — ball head, collar, flared base — lit from the upper left,
+with a hard **white rim** so a blue token stays readable on a blue square. Drawn as vector
+geometry in code (no bitmap assets) and recoloured for all six seats from one shape, so it
+stays sharp at every density.
+
+**Six seat colours.** Red `#E14B4B`, Green `#3FA35C`, Blue `#3B72D9`, Yellow `#E3B23C`,
+Purple `#7E57C2`, Orange `#EF8022` — ordered so no two adjacent seats are confusable, and
+so seat position plus the rim (never hue alone) carries the difference for red–green colour
+deficiency.
+
+**Several tokens on one square.** Up to two draw in full; three or more collapse to one
+token plus a count badge. Same-seat groups stack front-to-back; mixed seats sit side by side
+— *whose* tokens are there matters more than how many. Tapping a crowded square fans its
+tokens into an arc above the board so each is individually selectable.
+
+**Movement.** One hop per pip — a roll of 5 is five separate ~150 ms arcs, so the move can
+be counted as it happens. Landing squashes 1.12 × 0.88 and recovers over 90 ms; the contact
+shadow shrinks as the token rises. Captures get a hard squash, then the captured token pops,
+spins and arcs back to its yard (~0.7 s). Illegal moves never animate halfway — the token
+nudges 4 px, the blocker flashes, and the turn is still yours.
+
+| Element | 4-player board | 6-player board |
+|---|---|---|
+| Token width | 78% of a square | 66% of a square |
+| White rim | 4.5% | 5% (never < 1.5 physical px) |
+| Hop height | 70% | 62% |
+| Count badge | 36% | 40% |
+| Minimum tap target | 44 px (invisible, independent of token size) | 44 px |
 
 ---
 
@@ -242,7 +344,8 @@ Board screen essentials:
 |-------|-------------|
 | **0. Skeleton** | Flutter app boots on all 5 targets; CI builds each platform |
 | **1. Engine** | `ludo_engine` with classic rules, full unit tests, deterministic replays |
-| **2. Local play** | Board UI + animations; pass & play; save/resume |
+| **2. Local play** | Board UI (cross), token renderer + motion, pass & play, save/resume |
+| **2b. Six seats & teams** | Hexagon board generator, team rules, seat/team setup screens |
 | **3. AI** | Heuristic AI (capture > progress > safety), 3 difficulty levels |
 | **4. Custom rules** | `RuleConfig` in engine, presets, Rule Builder UI, rule codes |
 | **5. Online core** | Nakama setup, guest auth, room codes, server-authoritative matches |
