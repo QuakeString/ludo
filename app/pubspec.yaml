@@ -35,6 +35,14 @@ dependencies:
     path: ../packages/ludo_engine
   ludo_geometry:
     path: ../packages/ludo_geometry
+  ludo_protocol:
+    path: ../packages/ludo_protocol
+
+  # Works on every target the app ships to, web included.
+  web_socket_channel: ^3.0.0
+  # Remembers the guest id, so coming back is the same person without ever
+  # asking anyone to make an account.
+  shared_preferences: ^2.3.0
 
   # The following adds the Cupertino Icons font to your application.
   # Use with the CupertinoIcons class for iOS style icons.
@@ -50,6 +58,12 @@ dev_dependencies:
   # package. See that file for information about deactivating specific lint
   # rules and activating additional ones.
   flutter_lints: ^6.0.0
+
+  # So the online tests can boot a real server and play against it over a real
+  # socket. Claiming online play works without ever having run one is not
+  # something a test suite should let anybody do.
+  ludo_server:
+    path: ../server
 
 # For information on the generic Dart part of this file, see the
 # following page: https://dart.dev/tools/pub/pubspec

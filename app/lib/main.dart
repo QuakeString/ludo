@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:ludo_engine/ludo_engine.dart';
 
 import 'screens/game_screen.dart';
+import 'screens/online_screen.dart';
 import 'theme/seat_colors.dart';
 
 void main() => runApp(const LudoApp());
@@ -236,6 +237,17 @@ class _SetupScreenState extends State<SetupScreen> {
                     'Rule code  ${_rules.toRuleCode()}',
                     style: const TextStyle(fontSize: 11.5),
                   ),
+                ),
+                const SizedBox(height: 18),
+                OutlinedButton.icon(
+                  onPressed: () => Navigator.of(context).push(
+                    MaterialPageRoute(builder: (_) => const OnlineScreen()),
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                  ),
+                  icon: const Icon(Icons.public),
+                  label: const Text('Play online'),
                 ),
               ],
             ),

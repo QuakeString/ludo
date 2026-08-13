@@ -3,9 +3,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:ludo_engine/ludo_engine.dart';
 import 'package:ludo_geometry/ludo_geometry.dart';
+import 'package:ludo_protocol/ludo_protocol.dart';
 
 import '../board/board_painter.dart';
 import '../board/move_animation.dart';
+import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
 /// One device, two to six seats, any mix of people and computer players.
@@ -20,6 +22,7 @@ class GameScreen extends StatefulWidget {
     required this.rules,
     this.seed = 1,
     this.aiSeats = const {},
+    this.session,
   });
 
   final RuleConfig rules;
@@ -27,6 +30,11 @@ class GameScreen extends StatefulWidget {
 
   /// Seats played by the computer, and how hard each one plays.
   final Map<int, AiLevel> aiSeats;
+
+  /// Set for an online match. When it is, this screen stops being a player of
+  /// the game and becomes a view of one: taps turn into intents sent to the
+  /// server, and the position only ever changes because the server said so.
+  final OnlineSession? session;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -47,10 +55,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Timer? _scheduled;
   String? _flash;
 
+  /// Online only: the position to settle into once the current animation has
+  /// finished, and any updates that arrived while it was still running.
+  GameState? _pendingState;
+  final List<MatchUpdate> _queued = [];
+  StreamSubscription<MatchUpdate>? _matchSub;
+
+  OnlineSession? get _session => widget.session;
+  bool get _online => _session != null;
+
   @override
   void initState() {
     super.initState();
-    _state = GameState.newGame(widget.rules, seed: widget.seed);
+    final session = _session;
+    _state =
+        session?.state ?? GameState.newGame(widget.rules, seed: widget.seed);
     _geometry = BoardGeometry.forSpec(_state.board);
     _pulse = AnimationController(
       vsync: this,
@@ -60,12 +79,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) _settle();
       });
-    _maybeTakeComputerTurn();
+
+    if (session != null) {
+      _matchSub = session.matches.listen(_serverSaid);
+      session.addListener(_sessionChanged);
+    } else {
+      _maybeTakeComputerTurn();
+    }
   }
 
   @override
   void dispose() {
     _scheduled?.cancel();
+    _matchSub?.cancel();
+    _session?.removeListener(_sessionChanged);
     _pulse.dispose();
     _mover.dispose();
     super.dispose();
@@ -76,6 +103,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   bool get _busy => _playing != null;
   bool _isComputer(int seat) => widget.aiSeats.containsKey(seat);
+
+  /// Whether this device may act right now. Offline that means any seat a
+  /// person is sitting at; online it means your seat and no other.
+  bool get _myMove {
+    if (_busy || _state.isOver) return false;
+    final session = _session;
+    if (session != null) return session.isMyTurn;
+    return !_isComputer(_state.turn);
+  }
 
   // --- turn flow -----------------------------------------------------------
 
@@ -90,8 +126,64 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
   }
 
+  // --- online: the server talks, the board listens -------------------------
+
+  void _sessionChanged() {
+    if (mounted) setState(() {});
+  }
+
+  /// A new position from the server.
+  ///
+  /// It is never applied straight away when it came from a move: the chips are
+  /// walked from where they were to where the server says they are now, so a
+  /// remote player's move reads the same as your own instead of teleporting.
+  void _serverSaid(MatchUpdate update) {
+    if (!mounted) return;
+    if (_busy) {
+      _queued.add(update); // finish the current move first
+      return;
+    }
+
+    final move = update.lastMove;
+    final playable =
+        move != null &&
+        move.tokenId >= 0 &&
+        move.tokenId < _state.tokens.length &&
+        _state.tokens[move.tokenId].progress == move.fromProgress;
+
+    if (!playable) {
+      setState(() {
+        _state = update.state;
+        _flash = update.autoPlayed
+            ? 'Time ran out — played automatically'
+            : null;
+      });
+      return;
+    }
+
+    _pendingState = update.state;
+    final animation = MoveAnimation(
+      move: move,
+      before: _state,
+      geometry: _geometry,
+    );
+    setState(() {
+      _playing = animation;
+      _flash = update.autoPlayed ? 'Time ran out — played automatically' : null;
+    });
+    _mover
+      ..duration = animation.duration
+      ..forward(from: 0);
+  }
+
   void _roll() {
     if (_busy) return;
+    final session = _session;
+    if (session != null) {
+      // Online the dice are the server's. Asking is all this device does.
+      if (session.isMyTurn) session.roll();
+      return;
+    }
     _apply(const RollDice());
     if (_state.isOver) return;
 
@@ -108,6 +200,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// Starts a move playing. The engine is not told until the chips land.
   void _play(Move move) {
     if (_busy) return;
+    final session = _session;
+    if (session != null) {
+      // Ask, then wait. Nothing moves on this board until the server has
+      // agreed it may — a move drawn optimistically and then taken back is a
+      // worse experience than one that starts a moment later.
+      session.move(move);
+      return;
+    }
     final animation = MoveAnimation(
       move: move,
       before: _state,
@@ -126,6 +226,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _settle() {
     final animation = _playing;
     if (animation == null) return;
+
+    if (_online) {
+      // Online there is nothing to work out: the position the chips just
+      // walked into is the one the server already sent.
+      setState(() {
+        _playing = null;
+        _state = _pendingState ?? _state;
+        _pendingState = null;
+      });
+      if (_queued.isNotEmpty) {
+        final next = _queued.removeAt(0);
+        _serverSaid(next);
+      }
+      return;
+    }
+
     setState(() {
       _playing = null;
       _state = engine.apply(_state, PlayMove(animation.move));
@@ -169,9 +285,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   /// Picks the legal move whose chip is nearest the tap.
   void _tapBoard(Offset local, Size size) {
-    if (_busy) return;
+    if (!_myMove) return;
     final moves = _legalMoves;
-    if (moves.isEmpty || _isComputer(_state.turn)) return;
+    if (moves.isEmpty) return;
     final side = size.shortestSide;
     final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
 
@@ -205,31 +321,52 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
     final rules = _state.rules;
-    final moves = _legalMoves;
+    // Only offer moves the player is actually allowed to make. Online that
+    // matters twice over: the rings around movable chips must not light up on
+    // somebody else's turn.
+    final moves = _myMove ? _legalMoves : const <Move>[];
+    final session = _session;
 
     return Scaffold(
       backgroundColor: palette.felt,
       appBar: AppBar(
         backgroundColor: palette.felt,
-        title: Text('${rules.name} · ${rules.players} seats'),
+        title: Text(
+          session == null
+              ? '${rules.name} · ${rules.players} seats'
+              : 'Room ${session.room?.code ?? ''}',
+        ),
         actions: [
-          IconButton(
-            tooltip: 'New game',
-            onPressed: () => setState(() {
-              _scheduled?.cancel();
-              _playing = null;
-              _state = GameState.newGame(rules, seed: widget.seed + 1);
-              _flash = null;
-              _maybeTakeComputerTurn();
-            }),
-            icon: const Icon(Icons.refresh),
-          ),
+          if (session == null)
+            IconButton(
+              tooltip: 'New game',
+              onPressed: () => setState(() {
+                _scheduled?.cancel();
+                _playing = null;
+                _state = GameState.newGame(rules, seed: widget.seed + 1);
+                _flash = null;
+                _maybeTakeComputerTurn();
+              }),
+              icon: const Icon(Icons.refresh),
+            ),
         ],
       ),
       body: SafeArea(
         child: Column(
           children: [
-            _TurnBar(state: _state, flash: _flash, aiSeats: widget.aiSeats),
+            _TurnBar(
+              state: _state,
+              flash: _flash,
+              aiSeats: widget.aiSeats,
+              session: session,
+            ),
+            if (session?.disconnected ?? false)
+              const _Banner(
+                icon: Icons.wifi_off,
+                text:
+                    'Lost the connection. Your seat is held for five '
+                    'minutes — the table plays on meanwhile.',
+              ),
             Expanded(
               child: Center(
                 child: AspectRatio(
@@ -263,9 +400,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               state: _state,
               moves: moves,
               busy: _busy,
-              isComputerTurn: _isComputer(_state.turn),
+              // Online, "not your move" covers a computer seat, a remote
+              // player's seat, and a seat being covered for — all of them mean
+              // the same thing to these buttons: wait.
+              isComputerTurn: !_myMove && !_state.isOver,
               onRoll: _roll,
-              onPass: () => _apply(const PassTurn()),
+              onPass: () =>
+                  session == null ? _apply(const PassTurn()) : session.pass(),
             ),
           ],
         ),
@@ -276,19 +417,37 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
 /// Whose turn it is, plus the turn clock when the rules use one.
 class _TurnBar extends StatelessWidget {
-  const _TurnBar({required this.state, required this.aiSeats, this.flash});
+  const _TurnBar({
+    required this.state,
+    required this.aiSeats,
+    this.flash,
+    this.session,
+  });
 
   final GameState state;
   final Map<int, AiLevel> aiSeats;
   final String? flash;
+  final OnlineSession? session;
+
+  /// Who is at a seat. Online that is a person with a name, so use it — "Blue"
+  /// is what you call a colour, not the person you are playing against.
+  String _nameFor(int seat) {
+    final seats = session?.room?.seats;
+    if (seats != null && seat < seats.length) {
+      final info = seats[seat];
+      if (seat == session?.yourSeat) return 'You';
+      final name = info.displayName;
+      if (name != null && name.isNotEmpty) return name;
+    }
+    if (aiSeats.containsKey(seat)) return 'Computer (${aiSeats[seat]!.name})';
+    return seatNames[seat];
+  }
 
   @override
   Widget build(BuildContext context) {
     final over = state.isOver;
     final seat = over ? state.winner! : state.turn;
-    final who = aiSeats.containsKey(seat)
-        ? 'Computer (${aiSeats[seat]!.name})'
-        : seatNames[seat];
+    final who = _nameFor(seat);
     final label = over
         ? state.rules.isTeamGame
               ? 'Team ${state.winningTeam! + 1} wins'
@@ -318,17 +477,71 @@ class _TurnBar extends StatelessWidget {
                   ?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
-          if (state.rules.turnTimerDots > 0 && !over)
-            for (var i = 0; i < state.rules.turnTimerDots; i++)
-              Container(
-                margin: const EdgeInsets.only(left: 4),
-                width: 8,
-                height: 8,
-                decoration: BoxDecoration(
-                  color: seatColors[1],
-                  shape: BoxShape.circle,
-                ),
-              ),
+          if (state.rules.turnTimerDots > 0 && !over) _dots(),
+        ],
+      ),
+    );
+  }
+
+  /// The turn clock, as dots rather than a number: six of them, one per five
+  /// seconds, going out one at a time. A row of dots emptying is read at a
+  /// glance; a number has to be interpreted.
+  Widget _dots() {
+    final total = state.rules.turnTimerDots;
+    final left = session?.secondsLeft;
+    final limit = state.rules.turnSeconds;
+
+    // Offline nobody is being timed out, so the dots are shown full rather
+    // than pretending to count down against a clock that is not running.
+    final lit = (left == null || limit <= 0)
+        ? total
+        : (left * total / limit).ceil().clamp(0, total);
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (var i = 0; i < total; i++)
+          Container(
+            margin: const EdgeInsets.only(left: 4),
+            width: 8,
+            height: 8,
+            decoration: BoxDecoration(
+              color: i < lit
+                  ? seatColors[state.turn]
+                  : seatColors[state.turn].withValues(alpha: 0.18),
+              shape: BoxShape.circle,
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// A line across the top of the board for something the player needs to know
+/// but must not be stopped by.
+class _Banner extends StatelessWidget {
+  const _Banner({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final scheme = Theme.of(context).colorScheme;
+    return Container(
+      width: double.infinity,
+      color: scheme.errorContainer,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: scheme.onErrorContainer),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              text,
+              style: TextStyle(color: scheme.onErrorContainer, fontSize: 13),
+            ),
+          ),
         ],
       ),
     );

@@ -132,7 +132,12 @@ jobs:
           channel: stable
       - run: flutter pub get
       - run: flutter analyze
+      # This runs test/online_test.dart, which boots a real server on an
+      # ephemeral port and plays a match against it over a real socket.
       - run: flutter test
+
+      - name: The app still builds for the web
+        run: flutter build web --release --no-web-resources-cdn
       - name: Keep the rendered boards for review
         uses: actions/upload-artifact@v4
         with:

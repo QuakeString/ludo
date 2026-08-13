@@ -70,6 +70,15 @@ class RoomInfo {
   final String hostId;
   final bool fillEmptySeatsWithAI;
 
+  RoomInfo copyWith({RoomPhase? phase}) => RoomInfo(
+        code: code,
+        phase: phase ?? this.phase,
+        rules: rules,
+        seats: seats,
+        hostId: hostId,
+        fillEmptySeatsWithAI: fillEmptySeatsWithAI,
+      );
+
   Map<String, Object?> toJson() => {
         'code': code,
         'phase': phase.name,
@@ -267,6 +276,8 @@ class Play extends Envelope {
         tokenId: m.tokenId,
         toProgress: m.toProgress,
       );
+  static Play breakPair(int pairId) =>
+      Play(action: 'breakPair', pairId: pairId);
 }
 
 // --- server to app ---------------------------------------------------------

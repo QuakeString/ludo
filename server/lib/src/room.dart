@@ -178,9 +178,11 @@ class Room {
       }
     } else if (seats.any((s) => s.isEmpty)) {
       // Playing a seat short is allowed, but the rules have to match the
-      // number actually sitting down.
-      return 'some seats are still empty — fill them or turn on computer '
-          'players';
+      // number actually sitting down. Name the way out that the lobby actually
+      // offers — telling a host to change a setting they cannot reach from
+      // here is a dead end, not an error message.
+      return 'some seats are still empty — add computer players to fill them, '
+          'or wait for more people';
     }
 
     phase = RoomPhase.playing;
