@@ -17,6 +17,27 @@ const serverUri = String.fromEnvironment(
   defaultValue: 'ws://localhost:8080/ws',
 );
 
+/// True when this build was never given a server to talk to.
+///
+/// The default points at localhost, which is right on a developer's machine
+/// and meaningless anywhere else — a build published to a web host would sit
+/// there trying to open a socket to the *player's own* computer and then
+/// report a connection error, which reads as "this app is broken" rather than
+/// "this copy has no server". Worth naming, so the screen can say the true
+/// thing instead.
+///
+/// A browser also refuses a plain ws:// socket from a page served over https,
+/// so on a hosted build this could not work even if something were listening.
+bool get serverIsUnset {
+  final target = Uri.tryParse(serverUri);
+  final pointsAtThisMachine =
+      target?.host == 'localhost' || target?.host == '127.0.0.1';
+  final host = Uri.base.host;
+  final runningHere =
+      host.isEmpty || host == 'localhost' || host == '127.0.0.1';
+  return pointsAtThisMachine && !runningHere;
+}
+
 /// Getting online, from tapping the button to sitting at a table.
 ///
 /// Nothing here asks anyone to make an account. Connecting mints a guest id if
@@ -57,6 +78,18 @@ class _OnlineScreenState extends State<OnlineScreen> {
   }
 
   Future<void> _connect() async {
+    if (serverIsUnset) {
+      // Don't open a socket that cannot succeed just to report the failure.
+      setState(() {
+        _connecting = false;
+        _problem =
+            'This build has no game server behind it.\n\n'
+            'Everything else works: pass & play and playing the computer are '
+            'entirely on your device. Online play needs the server running '
+            'somewhere this app can reach.';
+      });
+      return;
+    }
     setState(() {
       _connecting = true;
       _problem = null;
@@ -127,7 +160,11 @@ class _OnlineScreenState extends State<OnlineScreen> {
             child: _connecting
                 ? const Center(child: CircularProgressIndicator())
                 : _problem != null
-                ? _Problem(message: _problem!, onRetry: _connect)
+                ? _Problem(
+                    message: _problem!,
+                    // Nothing to retry when there is no server to reach.
+                    onRetry: serverIsUnset ? null : _connect,
+                  )
                 : session!.room != null
                 ? _Lobby(session: session, onLeave: _leaveRoom)
                 : _entrance(session),
@@ -423,10 +460,10 @@ class _SeatRow extends StatelessWidget {
 }
 
 class _Problem extends StatelessWidget {
-  const _Problem({required this.message, required this.onRetry});
+  const _Problem({required this.message, this.onRetry});
 
   final String message;
-  final VoidCallback onRetry;
+  final VoidCallback? onRetry;
 
   @override
   Widget build(BuildContext context) {
@@ -438,14 +475,16 @@ class _Problem extends StatelessWidget {
           const Icon(Icons.cloud_off, size: 44),
           const SizedBox(height: 14),
           Text(message, textAlign: TextAlign.center),
-          const SizedBox(height: 8),
-          const Text(
-            'Everything except online play works without a server.',
-            style: TextStyle(fontSize: 12.5),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 18),
-          FilledButton(onPressed: onRetry, child: const Text('Try again')),
+          if (onRetry != null) ...[
+            const SizedBox(height: 8),
+            const Text(
+              'Everything except online play works without a server.',
+              style: TextStyle(fontSize: 12.5),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 18),
+            FilledButton(onPressed: onRetry, child: const Text('Try again')),
+          ],
         ],
       ),
     );
