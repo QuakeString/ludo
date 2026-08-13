@@ -191,10 +191,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       // A roll with nothing to play is not a puzzle for the player to work
       // out — say so, then move the game on.
       setState(() => _flash = 'Rolled ${_state.dice} — no legal move');
-      _after(900, () => _apply(const PassTurn()));
+      _after(900, _passLocal);
       return;
     }
     _maybeTakeComputerTurn();
+  }
+
+  /// Ends a local turn and hands over.
+  ///
+  /// Passing is the one action that puts the next seat on turn without
+  /// anything else running afterwards — a move has [_settle] to follow it, a
+  /// roll continues into this method. Miss the handover here and a table with
+  /// a computer in it stops dead the first time a person rolls with nothing to
+  /// play.
+  void _passLocal() {
+    _apply(const PassTurn());
+    if (!_state.isOver) _maybeTakeComputerTurn();
   }
 
   /// Starts a move playing. The engine is not told until the chips land.
@@ -405,8 +417,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               // the same thing to these buttons: wait.
               isComputerTurn: !_myMove && !_state.isOver,
               onRoll: _roll,
-              onPass: () =>
-                  session == null ? _apply(const PassTurn()) : session.pass(),
+              onPass: () => session == null ? _passLocal() : session.pass(),
             ),
           ],
         ),
