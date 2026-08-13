@@ -13,10 +13,13 @@ required unless playing online).
 | 1 | Runs on Android, iOS, Web, Windows, Linux | Single **Flutter** codebase (one UI, five targets) |
 | 2 | Local player (vs AI), local multiplayer, online with random people, online with friends | Game-mode system on top of one shared game engine |
 | 3 | Custom rules | Data-driven **Rule Config** (JSON) interpreted by the engine; rule presets + rule builder UI + shareable rule codes |
-| 4 | Online or offline; login only for online play | Offline-first design; anonymous **guest identity** by default, account only when going online |
+| 4 | Online or offline; login only for online play | Offline-first; **an account is never required** — an anonymous guest ID plays everything, online included |
 | 5 | Design sketch | This document + `docs/mockups/` |
-| 6 | Up to 6 players | Hexagonal board for 5–6 seats; 2–4 seats keep the classic cross |
+| 6 | Up to 6 players | Hexagonal board with **triangular yards** for 5–6 seats; 2–4 seats keep the classic cross |
 | 7 | Team ("pair") play | 2v2 at four seats; 3v3 or 2v2v2 at six — available in pass-and-play *and* online rooms |
+| 8 | Pair move (opt-in) | Two tokens on one square link into a **pair** and move together on an even roll, advancing half the pips; may pair across partners |
+| 9 | Profile &amp; friends | Photo, display name and level for guests; friend **requests**, and your own **nicknames** for friends |
+| 10 | Light &amp; dark theme | Both from day one — follows the system, overridable by hand |
 
 ### Mockups
 
@@ -24,8 +27,8 @@ Open these in a browser — every chip is drawn by the same vector routine the a
 
 | File | What it covers |
 |------|----------------|
-| `docs/mockups/screen-flow.html` | 11 phone screens, splash → home → seats/teams → gameplay → online → result |
-| `docs/mockups/chip-and-motion.html` | Chip anatomy, states, stacking, **live movement demos**, both boards |
+| `docs/mockups/screen-flow.html` | 17 phone screens, splash → home → seats/teams → gameplay → online → profile → result, light **and** dark |
+| `docs/mockups/chip-and-motion.html` | Chip anatomy, states, stacking, pairs, **live movement demos**, both boards, both themes |
 | `docs/mockups/review-sheet.html` | Commentable checklist of every decision (notes saved on-device) |
 | `docs/mockups/overview.html` | One-page summary of stack, modes and roadmap |
 
@@ -143,11 +146,11 @@ ludo/
 |------|---------|---------|-------|------|-------|
 | **Local vs AI** | 1 human + 1–5 AI | Offline | No | Local RNG | 3 AI difficulty levels |
 | **Local multiplayer (pass & play)** | 2–6 humans, one device | Offline | No | Local RNG | Turn hand-off screen between players |
-| **Online — random people** | 2–6 | Online | Yes (guest OK) | Server RNG | Matchmaking by seat count + rule preset |
-| **Online — friends** | 2–6 | Online | Yes (guest OK) | Server RNG | Private room with a 6-char **room code** / share link; friends list for regulars |
+| **Online — random people** | 2–6 | Online | **No** (anonymous guest) | Server RNG | Matchmaking by seat count + rule preset |
+| **Online — friends** | 2–6 | Online | **No** (anonymous guest) | Server RNG | Private room with a 6-char **room code** / share link; friends list for regulars |
 
-Humans and AI can be mixed freely in any mode — an online room with an empty seat can be
-filled by AI rather than blocking the start.
+Humans and AI can be mixed freely in any mode. Whether an empty online seat is filled by AI
+is the host's choice, never automatic.
 
 Online details:
 
@@ -156,8 +159,12 @@ Online details:
   setting).
 - **Friends:** friend list + invites via Nakama; a room can also be joined by anyone with
   the room code, no friendship required (great for "share link on WhatsApp" flows).
-- **Disconnects:** 60s grace to reconnect (state is server-side, so rejoin is trivial);
-  after that the seat is taken over by AI or skipped, per room setting.
+- **Disconnects:** **5 minutes** to reconnect (state is server-side, so rejoin is trivial).
+  The game does not freeze while waiting: AI plays the absent player's turns from the moment
+  they drop, and they reclaim the seat mid-game the instant they return, with the moves made
+  in their absence shown in the turn log.
+- **Empty seats:** filling them with AI is a **room setting, not automatic** — `Fill with AI`
+  or `Leave empty`. Choosing the latter simply starts the match a player short.
 - **Anti-cheat:** server-authoritative state + server-side dice → clients can't lie.
 
 ### Team ("pair") play
@@ -178,6 +185,22 @@ Team behaviour — each item is a `RuleConfig` switch, not a hard-coded rule:
   without decoding six hues. Teams are assigned in a dedicated setup screen (local) or by
   dragging players between sides in the lobby (online).
 
+### Pair move (opt-in rule)
+
+Two tokens sharing a square may be **linked into a pair**:
+
+- The pair moves as one, and only on an **even roll**, advancing **half the pips** (a 6 moves
+  the pair 3 squares).
+- In team games a pair may be formed from your token **and a partner's token**
+  (`pairAcrossPartners`).
+- A pair is drawn with a gold link and a `÷2` tag — deliberately *not* like a blockade, which
+  keeps its dashed-wall treatment. Both are two tokens on one square, so they must not look
+  alike.
+
+Defaults, all switchable, **pending confirmation**: a pair cannot be captured; an odd roll
+splits the pair (move one token normally); linking is manual (tap to link, tap to break)
+rather than automatic, so pairing never steals a move you wanted.
+
 ---
 
 ## 5. Rules Engine & Custom Rules
@@ -195,15 +218,19 @@ Team behaviour — each item is a `RuleConfig` switch, not a hard-coded rule:
 | Shape | Classic 15×15 cross | Hexagon, 6 arms at 60° |
 | Track squares | 52 (4 × 13) | 78 (6 × 13) |
 | Home column | 5 squares | 5 squares |
-| Tokens per player (default) | 4 | **3** |
+| Yard shape | Square, 4 slots | **Triangle** (apex toward centre), 4 slots |
+| Tokens per player | **2, 3 or 4 — player's choice** | **2, 3 or 4 — player's choice** |
 | Token size | 78% of a square | 66% of a square |
 
-Six players × 4 tokens runs long and crowds every square, so six seats default to 3 tokens
-each — which keeps a six-player round close to the length of a four-player one. It is a
-`RuleConfig` value, so a table that wants four can set it back.
+Tokens per player is a `RuleConfig` selector at *every* seat count, not a fixed default: 3
+keeps a six-seat round close to the length of a four-seat one, 4 is the traditional game.
+The yard is always drawn with **four slots** regardless, so changing the count never changes
+the board.
 
 Both boards use the same geometry generator and the same token renderer; only the sector
-count and radius change.
+count and radius change. Hexagon geometry: outermost track row at radius `6.9c`, yard
+triangle spanning radius `110 → 226` with half-width `68`, plate a hexagon of radius `268`
+whose vertices point at the yards.
 
 ### Custom rules = a data object, not code
 
@@ -223,6 +250,10 @@ Every variant is expressed as a `RuleConfig` the engine interprets:
   "tripleSixForfeits": true,
   "captureSendsHome": true,
   "captureGrantsExtraRoll": false,
+  "pairMove": true,               // two tokens on one square may link into a pair
+  "pairMoveEvenOnly": true,       // pair advances only on an even roll, by roll / 2
+  "pairAcrossPartners": true,     // in team games, pair with a partner's token
+  "pairCapturable": false,        // a linked pair is safe from capture
   "safeSquares": "stars",        // "stars" | "none" | "starts+stars"
   "blockades": true,              // two own tokens block a square
   "exactHomeEntry": true,
@@ -259,9 +290,21 @@ first launch ──► play immediately (guest, no login)
 
 - **Offline-first:** the app fully works with no network. Games autosave locally and
   resume after app restart.
-- **Guest online play:** Nakama device-ID auth means "playing online" still doesn't force
-  a signup form — a guest gets a random name (editable) and can matchmake and use room
-  codes. Creating a *real* account is only needed to sync across devices / keep friends.
+- **Anonymous online play:** an account is **never required**. Nakama device-ID auth creates
+  a guest ID silently; guests are matched with other guests, can use room codes, and can hold
+  a friends list. Signing in is offered exactly once, as an optional way to copy the profile
+  to a second device.
+
+### Profile, friends and levels
+
+Even an anonymous guest is somebody:
+
+- **Profile:** display name, **profile photo** (or a generated avatar), and a **level** that
+  grows with matches played and won. Stored on-device unless an account is linked.
+- **Friend requests:** you send a request, it lands in the other player's inbox, and it only
+  sticks if they accept.
+- **Nicknames:** because guest IDs are arbitrary, every friend can be given **your own
+  nickname**; the list shows your name for them with the real ID underneath.
 - **Netiquette of data:** nothing personal is collected for offline play; online guests
   store only a display name and device ID.
 
@@ -295,9 +338,28 @@ Board screen essentials:
 
 ### Splash
 
-Four-colour diamond mark with a **3D Ludo coin at its centre that tosses and spins** while
-the local save loads (~1.2 s), then settles. Skippable on tap; falls back to a static mark
-under `prefers-reduced-motion`.
+Four-colour diamond mark with **the game token itself standing at its centre**, tossing and
+spinning in 3D while the local save loads (~1.2 s), then settling. Using the real token
+rather than a generic coin means the first thing a player ever sees is the object they will
+spend the whole game moving. Skippable on tap; falls back to a static mark under
+`prefers-reduced-motion`.
+
+### Theming
+
+**Light and dark are both first-class from day one** — not a later phase. The app follows the
+system theme and can be overridden by hand (`System / Light / Dark`) in settings. Dark is its
+own palette, not a filter: surface, grid lines and yard interiors are all redrawn. The token
+is unchanged between themes — its white rim is precisely what lets one design work on both
+grounds.
+
+| Token | Light | Dark |
+|---|---|---|
+| Plate | `#FDFBF7` | `#232830` |
+| Track square | `#FFFFFF` | `#2E343F` |
+| Grid line | `#C9C1B2` | `#4A5260` |
+| Yard interior | `#FFFFFF` | `#1B1F26` |
+
+Seat colours are identical in both themes.
 
 ---
 
@@ -344,13 +406,13 @@ nudges 4 px, the blocker flashes, and the turn is still yours.
 |-------|-------------|
 | **0. Skeleton** | Flutter app boots on all 5 targets; CI builds each platform |
 | **1. Engine** | `ludo_engine` with classic rules, full unit tests, deterministic replays |
-| **2. Local play** | Board UI (cross), token renderer + motion, pass & play, save/resume |
-| **2b. Six seats & teams** | Hexagon board generator, team rules, seat/team setup screens |
+| **2. Local play** | Board UI (cross), token renderer + motion, **light/dark theming**, pass & play, save/resume |
+| **2b. Six seats & teams** | Hexagon board generator (triangular yards), team rules, pair move, seat/team setup screens |
 | **3. AI** | Heuristic AI (capture > progress > safety), 3 difficulty levels |
 | **4. Custom rules** | `RuleConfig` in engine, presets, Rule Builder UI, rule codes |
 | **5. Online core** | Nakama setup, guest auth, room codes, server-authoritative matches |
-| **6. Online social** | Random matchmaking, friends, invites, reconnect handling |
-| **7. Polish & ship** | Themes, sounds, i18n, store listings (Play/App Store), web deploy, Windows/Linux packages |
+| **6. Online social** | Random matchmaking, profiles &amp; levels, friend requests &amp; nicknames, invites, 5-minute reconnect |
+| **7. Polish & ship** | Sounds, i18n, store listings (Play/App Store), web deploy, Windows/Linux packages |
 
 Each phase is releasable on its own — after Phase 2 you already have a playable offline
 game to put in people's hands.

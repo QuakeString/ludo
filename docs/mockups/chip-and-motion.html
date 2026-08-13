@@ -186,6 +186,13 @@
       on tapping elsewhere. Below: closed, then fanned.</div>
       <div class="cellrow" id="fan" style="margin-top:14px"></div>
     </div>
+    <div class="card pad" style="margin-top:14px">
+      <div class="note"><b class="k">A pair is not a blockade.</b> Both are two chips on one square,
+      so they must not look alike. A blockade is drawn with a dashed wall around the square — it is a
+      wall other players hit. A pair is drawn with a gold link and a <b class="k">÷2</b> tag — it is
+      two chips that have agreed to travel together, and only exists when the pair-move rule is
+      switched on.</div>
+    </div>
   </section>
 
   <!-- MOTION -->
@@ -225,31 +232,55 @@
   <section>
     <div class="eyebrow">05 · Surfaces</div>
     <h2>The two boards</h2>
-    <p class="lede">Four-player uses the classic 15×15 cross. Six-player uses a hexagon: six yards,
-       six arms, 78 track squares. Chips shrink from 78% to 66% of a square on the hex board — the
-       same chip, never a different design.</p>
+    <p class="lede">Four-player uses the classic 15×15 cross. Six-player uses a hexagon with
+       <b class="k">triangular home bases</b>, six arms and 78 track squares. Every yard holds four
+       chips, whether or not you play with four. Chips shrink from 78% to 66% of a square on the hex
+       board — the same chip, never a different design.</p>
     <div class="boards">
       <div class="boardcard">
         <h3>4 players · classic cross</h3>
-        <p>52 track squares · 4 chips each · 15×15 grid</p>
+        <p>52 track squares · 15×15 grid · square yards</p>
         <svg id="board4" viewBox="0 0 600 600" role="img" aria-label="Four-player Ludo board with chips in play"></svg>
       </div>
       <div class="boardcard">
         <h3>6 players · hexagon</h3>
-        <p>78 track squares · 3 chips each (default) · 6 arms at 60°</p>
-        <svg id="board6" viewBox="0 0 600 600" role="img" aria-label="Six-player hexagonal Ludo board with chips in play"></svg>
+        <p>78 track squares · 6 arms at 60° · triangular yards</p>
+        <svg id="board6" viewBox="0 0 600 600" role="img" aria-label="Six-player hexagonal Ludo board with triangular home bases and chips in play"></svg>
       </div>
     </div>
     <div class="card pad" style="margin-top:14px">
-      <div class="note"><b class="k">Why 3 chips on the hexagon.</b> Six players × 4 chips is a
-      45-minute game and a crowded yard. Three chips each keeps a six-player round near the length of
-      a four-player one — and it is a rule setting, so a table that wants four can switch it back.</div>
+      <div class="note"><b class="k">3 or 4 chips — the table decides.</b> Six players × 4 chips runs
+      long; 3 keeps a six-seat round near the length of a four-seat one. Neither is forced: chips per
+      player is a setting on the rules screen, and the yard is drawn with four slots either way, so
+      switching never changes the board.</div>
+    </div>
+  </section>
+
+  <!-- THEMES -->
+  <section>
+    <div class="eyebrow">06 · Themes</div>
+    <h2>Light and dark, from day one</h2>
+    <p class="lede">The app follows your system theme and can be overridden by hand in settings.
+       Dark is not a filter over the light board — the surface, grid and yard interiors are their own
+       palette. The chips are unchanged: their white rim is exactly what lets one chip design work on
+       both grounds.</p>
+    <div class="boards">
+      <div class="boardcard">
+        <h3>Light — warm paper</h3>
+        <p>Off-white surface, muted grid, colors doing the shouting</p>
+        <svg id="board6l" viewBox="0 0 600 600" role="img" aria-label="Hexagonal Ludo board, light theme"></svg>
+      </div>
+      <div class="boardcard" style="background:#161920; border-color:#2F343E">
+        <h3 style="color:#EAE6DE">Dark — slate</h3>
+        <p style="color:#9B958A">Cool dark surface, lifted grid lines, same six seat colors</p>
+        <svg id="board6d" viewBox="0 0 600 600" role="img" aria-label="Hexagonal Ludo board, dark theme"></svg>
+      </div>
     </div>
   </section>
 
   <!-- SPECS -->
   <section>
-    <div class="eyebrow">06 · Numbers</div>
+    <div class="eyebrow">07 · Numbers</div>
     <h2>Render specs</h2>
     <div class="card tblwrap">
       <table>
@@ -417,6 +448,18 @@
       r.style.cssText='position:absolute;inset:6px;border:3px dashed #2A2622;border-radius:8px;opacity:.55';
       b.appendChild(r);
       place(b,'#7E57C2',56,-13,4); place(b,'#7E57C2',56,13,14);
+    });
+    cellDemo('Pair (opt-in rule)','linked — moves as one on an even roll',function(b){
+      var r=document.createElement('div');
+      r.style.cssText='position:absolute;left:50%;top:50%;width:74px;height:44px;margin:-16px 0 0 -37px;'+
+        'border:2.5px solid #E3B23C;border-radius:999px;background:rgba(227,178,60,.14)';
+      b.appendChild(r);
+      place(b,'#E14B4B',52,-15,6); place(b,'#E14B4B',52,15,12);
+      var lk=document.createElement('div');
+      lk.style.cssText='position:absolute;left:50%;bottom:4px;transform:translateX(-50%);font-size:10px;'+
+        'font-weight:700;color:#8a6f1e;background:#F6EAC8;border-radius:99px;padding:1px 7px';
+      lk.textContent='÷2';
+      b.appendChild(lk);
     });
   })();
 
@@ -608,13 +651,20 @@
     boardChip(svg,2.5*C,8.5*C,34,col.b,'2');
     boardChip(svg,7.5*C,11.5*C,34,col.b);
   })();
-  // 6-player hexagon
+  // 6-player hexagon — triangular yards, 4 chip slots each
+  var THEME_LIGHT={plate:'#FDFBF7', cell:'#FFFFFF', line:'#C9C1B2', star:'#8a8478',
+                   yardIn:'#FFFFFF', slot:'rgba(0,0,0,.09)'};
+  var THEME_DARK ={plate:'#232830', cell:'#2E343F', line:'#4A5260', star:'#8E96A4',
+                   yardIn:'#1B1F26', slot:'rgba(255,255,255,.10)'};
   window.hexBoard = function(svg, opt){
     opt = opt || {};
-    var C=30, CX=300, CY=300, LINE='#C9C1B2';
+    var TH = opt.dark ? THEME_DARK : THEME_LIGHT;
+    var C=30, CX=300, CY=300;
     var cols=['#E14B4B','#3FA35C','#3B72D9','#E3B23C','#7E57C2','#EF8022'];
-    var R_OUT = 6.9*C;          // outermost track row centre
-    var YARD_R = 200, YARD_S = 1.5*C, PLATE = 268;
+    var R_OUT = 6.9*C;                        // outermost track row centre
+    var PLATE = 268;
+    var Y_IN=110, Y_OUT=226, Y_W=68;          // yard triangle: apex inward, base outward
+    var SLOTS=[[163,0],[192,-24],[192,24],[206,0]];       // 4 resting places (radius, lateral)
     function pt(ang,rad,lat){
       var a=Math.PI/180*ang, ux=Math.cos(a), uy=Math.sin(a);
       return [CX+ux*rad + (-uy)*lat, CY+uy*rad + ux*lat];
@@ -628,26 +678,33 @@
       var g=svgEl(svg,'g',{transform:'translate('+p[0].toFixed(2)+','+p[1].toFixed(2)+') rotate('+(ang+90)+')'});
       var r=document.createElementNS(NS,'rect');
       r.setAttribute('x',-C/2); r.setAttribute('y',-C/2); r.setAttribute('width',C); r.setAttribute('height',C);
-      r.setAttribute('fill',fill); r.setAttribute('stroke',LINE); r.setAttribute('stroke-width',1);
+      r.setAttribute('fill',fill); r.setAttribute('stroke',TH.line); r.setAttribute('stroke-width',1);
       g.appendChild(r); return p;
     }
     function starAt(p){
       var R=10,r=4.4,pts=[];
       for(var i=0;i<10;i++){var a=Math.PI/5*i-Math.PI/2,rr=i%2?r:R;
         pts.push((p[0]+rr*Math.cos(a)).toFixed(1)+','+(p[1]+rr*Math.sin(a)).toFixed(1))}
-      svgEl(svg,'polygon',{points:pts.join(' '),fill:'none',stroke:'#8a8478','stroke-width':1.4,'stroke-linejoin':'round'});
+      svgEl(svg,'polygon',{points:pts.join(' '),fill:'none',stroke:TH.star,'stroke-width':1.4,'stroke-linejoin':'round'});
     }
-    svgEl(svg,'rect',{x:0,y:0,width:600,height:600,fill:'#fff',rx:12});
-    // plate — vertices point at the yards
-    svgEl(svg,'polygon',{points:hexPts(PLATE,-30),fill:'#FBF9F5',stroke:LINE,'stroke-width':1.5,'stroke-linejoin':'round'});
+    function shrink(tri,f){
+      var gx=(tri[0][0]+tri[1][0]+tri[2][0])/3, gy=(tri[0][1]+tri[1][1]+tri[2][1])/3;
+      return tri.map(function(p){return [gx+(p[0]-gx)*f, gy+(p[1]-gy)*f]});
+    }
+    function poly(tri,attrs){
+      attrs.points=tri.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ');
+      return svgEl(svg,'polygon',attrs);
+    }
+    svgEl(svg,'polygon',{points:hexPts(PLATE,-30),fill:TH.plate,stroke:TH.line,
+      'stroke-width':1.5,'stroke-linejoin':'round'});
     // six arms
     for(var k=0;k<6;k++){
       var ang=-90+60*k, col=cols[k];
       for(var j=0;j<6;j++){
         var rad=R_OUT-j*C;
-        cellAt(ang,rad,-C,'#fff');
-        cellAt(ang,rad, C,'#fff');
-        cellAt(ang,rad, 0, j===0 ? '#fff' : col);   // j=0 entry, j1-5 home column
+        cellAt(ang,rad,-C,TH.cell);
+        cellAt(ang,rad, C,TH.cell);
+        cellAt(ang,rad, 0, j===0 ? TH.cell : col);   // j=0 entry, j1–5 home column
       }
       cellAt(ang,R_OUT,-C,col);                      // start square, beside its own yard
       starAt(pt(ang,R_OUT-3*C,C));                   // safe star on the returning lane
@@ -659,21 +716,18 @@
         +(CX+R*Math.cos(a0)).toFixed(1)+','+(CY+R*Math.sin(a0)).toFixed(1)+' '
         +(CX+R*Math.cos(a1)).toFixed(1)+','+(CY+R*Math.sin(a1)).toFixed(1), fill:cols[k]});
     }
-    svgEl(svg,'polygon',{points:hexPts(1.45*C,-30),fill:'none',stroke:LINE,'stroke-width':1.5});
-    // yards — one per seat, sitting beside its own start square
-    var chipsIn = opt.yardChips == null ? 3 : opt.yardChips;
+    svgEl(svg,'polygon',{points:hexPts(1.45*C,-30),fill:'none',stroke:TH.line,'stroke-width':1.5});
+    // yards — a triangle per seat, apex pointing at the centre, 4 slots inside
+    var chipsIn = opt.yardChips == null ? 4 : opt.yardChips;
     for(var k=0;k<6;k++){
-      var ya=-90+60*k-30, p=pt(ya,YARD_R,0), yc=cols[k];
-      svgEl(svg,'circle',{cx:p[0],cy:p[1],r:YARD_S,fill:yc,stroke:'rgba(0,0,0,.12)','stroke-width':2});
-      svgEl(svg,'circle',{cx:p[0],cy:p[1],r:YARD_S*0.72,fill:'#fff'});
-      var slots=[[-0.52,-0.34],[0.52,-0.34],[0,0.46]];
-      slots.forEach(function(o){
-        svgEl(svg,'circle',{cx:p[0]+o[0]*C,cy:p[1]+o[1]*C,r:0.34*C,fill:'rgba(0,0,0,.07)'});
-      });
+      var ya=-90+60*k-30, yc=cols[k];
+      var tri=[pt(ya,Y_IN,0), pt(ya,Y_OUT,-Y_W), pt(ya,Y_OUT,Y_W)];
+      poly(tri,{fill:yc,stroke:'rgba(0,0,0,.14)','stroke-width':2,'stroke-linejoin':'round'});
+      poly(shrink(tri,.80),{fill:TH.yardIn,'stroke-linejoin':'round'});
+      var pts=SLOTS.map(function(s){ return pt(ya, s[0], s[1]) });
+      pts.forEach(function(p){ svgEl(svg,'circle',{cx:p[0],cy:p[1],r:11.5,fill:TH.slot}) });
       var nIn=(opt.perYard&&opt.perYard[k]!=null)?opt.perYard[k]:chipsIn;
-      for(var s=0;s<Math.min(nIn,3);s++){
-        boardChip(svg, p[0]+slots[s][0]*C, p[1]+slots[s][1]*C, 23, yc);
-      }
+      for(var s=0;s<Math.min(nIn,4);s++) boardChip(svg, pts[s][0], pts[s][1], 24, yc);
     }
     if(opt.chips===false) return;
     // chips out on the track
@@ -686,6 +740,8 @@
     q=pt(150, R_OUT-1*C,  C);        boardChip(svg,q[0],q[1],25,cols[4],'2');
     q=pt(-150,R_OUT-4*C, -C);        boardChip(svg,q[0],q[1],25,cols[5]);
   };
-  if(document.getElementById('board6')) window.hexBoard(document.getElementById('board6'), {perYard:[2,2,3,3,1,2]});
+  if(document.getElementById('board6')) window.hexBoard(document.getElementById('board6'), {perYard:[3,4,2,4,1,3]});
+  if(document.getElementById('board6l')) window.hexBoard(document.getElementById('board6l'), {perYard:[3,4,2,4,1,3]});
+  if(document.getElementById('board6d')) window.hexBoard(document.getElementById('board6d'), {dark:true, perYard:[3,4,2,4,1,3]});
 })();
 </script>

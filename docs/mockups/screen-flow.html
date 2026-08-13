@@ -50,28 +50,16 @@
   .dpetal i{display:block}
   .dpetal i:nth-child(1){background:var(--p1)} .dpetal i:nth-child(2){background:var(--p2)}
   .dpetal i:nth-child(3){background:var(--p3)} .dpetal i:nth-child(4){background:var(--p4)}
-  .coinstage{position:relative; width:62px; height:62px; perspective:520px; z-index:2}
-  .coinbob{width:100%; height:100%; animation:toss 3.6s cubic-bezier(.3,0,.3,1) infinite}
-  .coin{position:relative; width:100%; height:100%; transform-style:preserve-3d;
-    animation:flip 3.6s cubic-bezier(.32,0,.26,1) infinite}
-  .coin .sl{position:absolute; inset:0; border-radius:50%; backface-visibility:visible}
-  .coin .face{position:absolute; inset:0; border-radius:50%; overflow:hidden;
-    background:radial-gradient(circle at 34% 28%, #FFFFFF 0%, #F3EDE2 38%, #D9CFBC 78%, #B7A991 100%);
-    box-shadow:inset 0 0 0 3px rgba(255,255,255,.6), inset 0 -4px 10px rgba(0,0,0,.22);
-    display:grid; place-items:center}
-  .coin .face.back{transform:rotateY(180deg)}
-  .coin .face .pin{width:100%; height:100%; display:grid; grid-template-columns:1fr 1fr; opacity:.95}
-  .coin .face .pin i:nth-child(1){background:var(--p1)} .coin .face .pin i:nth-child(2){background:var(--p2)}
-  .coin .face .pin i:nth-child(3){background:var(--p3)} .coin .face .pin i:nth-child(4){background:var(--p4)}
-  .coin .face .hub{position:absolute; width:22px; height:22px; border-radius:50%;
-    background:radial-gradient(circle at 34% 30%, #fff, #E7DFCE 60%, #C3B69D);
-    box-shadow:0 1px 3px rgba(0,0,0,.35)}
+  .coinstage{position:relative; width:58px; height:74px; perspective:480px; z-index:2;
+    display:grid; place-items:center; filter:drop-shadow(0 7px 9px rgba(0,0,0,.5))}
+  .coinbob{width:100%; height:100%; display:grid; place-items:center;
+    animation:toss 3.6s cubic-bezier(.3,0,.3,1) infinite}
+  .coin{width:46px; transform-style:preserve-3d; animation:flip 3.6s cubic-bezier(.32,0,.26,1) infinite}
   @keyframes flip{
-    0%{transform:rotateY(0deg)} 8%{transform:rotateY(0deg)}
-    58%{transform:rotateY(1080deg)} 100%{transform:rotateY(1080deg)}
+    0%,8%{transform:rotateY(0deg)} 58%,100%{transform:rotateY(1080deg)}
   }
   @keyframes toss{
-    0%,8%{transform:translateY(0) scale(1)} 30%{transform:translateY(-26px) scale(1.06)}
+    0%,8%{transform:translateY(0) scale(1)} 30%{transform:translateY(-22px) scale(1.07)}
     58%,100%{transform:translateY(0) scale(1)}
   }
   .splash h2{font-family:"Trebuchet MS",Verdana,sans-serif; font-size:40px; letter-spacing:.24em;
@@ -202,6 +190,78 @@
   .chiprow i{font-style:normal; font-size:10px; font-weight:600; background:#EFE9DD; border-radius:999px;
     padding:3px 8px; color:#4c463c}
 
+  /* pair demo */
+  .pairdemo{display:flex; align-items:center; gap:6px}
+  .pd{flex:1; display:flex; flex-wrap:wrap; gap:3px; align-items:center; justify-content:center; text-align:center}
+  .pd .ck{width:22px}
+  .pd em{flex-basis:100%; font-style:normal; font-size:9.5px; color:#6E675C; line-height:1.3; margin-top:3px}
+  .pdarrow{color:#B4AC9E; font-size:13px; flex:none}
+  .dieface{width:26px; height:26px; background:#fff; border:1px solid #E3DCCF; border-radius:6px;
+    display:grid; grid-template-columns:1fr 1fr; gap:2px; padding:4px}
+  .dieface i{border-radius:50%; background:#2A2622}
+  .movetag{background:var(--p4); color:#2A2622; font-weight:700; font-size:11px; border-radius:99px; padding:4px 10px}
+
+  /* profile */
+  .prof{display:flex; flex-direction:column; align-items:center; gap:5px; padding:6px 0 2px}
+  .avatar{width:74px; height:74px; border-radius:50%; background:linear-gradient(140deg,#3B72D9,#7E57C2);
+    display:grid; place-items:center; color:#fff; font-size:28px; font-weight:700;
+    font-family:"Trebuchet MS",Verdana,sans-serif; border:3px solid #fff;
+    box-shadow:0 3px 10px rgba(42,38,34,.25); position:relative}
+  .avatar .cam{position:absolute; right:-2px; bottom:-2px; width:24px; height:24px; border-radius:50%;
+    background:#2A2622; color:#fff; font-size:11px; display:grid; place-items:center; border:2px solid #fff}
+  .prof .who{font-family:"Trebuchet MS",Verdana,sans-serif; font-weight:700; font-size:16px}
+  .prof .sub{font-size:10.5px; color:#6E675C}
+  .lvl{display:flex; align-items:center; gap:7px; width:100%; margin-top:6px}
+  .lvl .b{flex:1; height:7px; background:#EFE9DD; border-radius:99px; overflow:hidden}
+  .lvl .b i{display:block; height:100%; width:62%; background:var(--p4)}
+  .lvl span{font-size:10px; font-weight:700; color:#6E675C}
+  .statgrid{display:grid; grid-template-columns:1fr 1fr 1fr; gap:7px; text-align:center}
+  .statgrid div{background:#F7F3EC; border-radius:9px; padding:7px 3px}
+  .statgrid b{display:block; font-size:15px; font-variant-numeric:tabular-nums}
+  .statgrid span{font-size:9px; color:#6E675C; text-transform:uppercase; letter-spacing:.05em}
+  .reqrow{display:flex; align-items:center; gap:8px; padding:7px 0; border-bottom:1px solid #F0EBE0}
+  .reqrow:last-child{border-bottom:none}
+  .reqrow .av{width:28px; height:28px; border-radius:50%; color:#fff; display:grid; place-items:center;
+    font-weight:700; font-size:12px; flex:none}
+  .reqrow .who{flex:1; min-width:0}
+  .reqrow b{font-size:12.5px; display:block}
+  .reqrow span{font-size:10px; color:#6E675C}
+  .yn{display:flex; gap:5px; flex:none}
+  .yn i{font-style:normal; width:26px; height:26px; border-radius:8px; display:grid; place-items:center; font-size:13px}
+  .yn .y{background:var(--p2); color:#fff} .yn .n{background:#EFE9DD; color:#6E675C}
+  .nickline{font-size:10px; color:#6E675C}
+  .nickline b{color:#2A2622}
+
+  /* dark screens */
+  .screen.dk{background:#161920; color:#EAE6DE}
+  .screen.dk .card{background:#1E222A; border-color:#2F343E}
+  .screen.dk .card h4{color:#9B958A}
+  .screen.dk .prow{border-color:#272C35}
+  .screen.dk .banner{background:#232830; color:#B9B3A7}
+  .screen.dk .seg{background:#232830}
+  .screen.dk .seg i{color:#9B958A}
+  .screen.dk .seg i.sel{background:#333A46; color:#EAE6DE}
+  .screen.dk .tagpill{background:#2C323C; color:#9B958A}
+  .screen.dk .guestchip{background:#232830; border-color:#333A46}
+  .screen.dk .resume{background:#1E222A; border-color:#2F343E}
+  .screen.dk .resume span,.screen.dk .note,.screen.dk .rollhint{color:#9B958A}
+  .screen.dk .homefoot button{background:#1E222A; border-color:#2F343E; color:#EAE6DE}
+  .screen.dk .appbar .back{background:#232830; color:#EAE6DE}
+  .screen.dk.gamescreen{background:#12151B}
+  .screen.dk .bigdie{background:#EAE6DE}
+  .screen.dk .bigdie i{background:#171A21}
+  .screen.dk .pstat{color:#9B958A}
+  .screen.dk .pstat .r b{color:#EAE6DE}
+  .screen.dk .rollhint b{color:#EAE6DE}
+  .screen.dk .roomcode b,.screen.dk .prof .who,.screen.dk .reqrow b,.screen.dk .frow b{color:#EAE6DE}
+  .screen.dk .statgrid div{background:#232830}
+  .screen.dk .statgrid span{color:#9B958A}
+  .themerow{display:flex; gap:7px}
+  .themetile{flex:1; border-radius:11px; padding:9px 6px; text-align:center; font-size:10.5px;
+    font-weight:700; border:2px solid transparent}
+  .themetile .sw{height:30px; border-radius:7px; margin-bottom:5px; border:1px solid rgba(0,0,0,.12)}
+  .themetile.sel{border-color:var(--p3)}
+
   /* win */
   .winscreen{background:linear-gradient(#1D2028,#171A21); color:#EAE6DE}
   .winscreen .body{gap:12px}
@@ -261,17 +321,16 @@
           <div class="mid">
             <div class="diamond">
               <div class="dpetal"><i></i><i></i><i></i><i></i></div>
-              <div class="coinstage"><div class="coinbob"><div class="coin" id="coin">
-                <div class="face front"><div class="pin"><i></i><i></i><i></i><i></i></div><div class="hub"></div></div>
-                <div class="face back"><div class="pin"><i></i><i></i><i></i><i></i></div><div class="hub"></div></div>
-              </div></div></div>
+              <div class="coinstage"><div class="coinbob">
+                <div class="coin" data-chip="p3"></div>
+              </div></div>
             </div>
             <h2>LUDO</h2>
             <div class="tag">Roll. Chase. Bring them home.</div>
           </div>
           <div class="load"><i></i><i></i><i></i><i></i></div>
         </div></div>
-        <div class="steplab">1 · Splash<span>coin tosses &amp; spins, ~1.2 s</span></div>
+        <div class="steplab">1 · Splash<span>the chip itself tosses &amp; spins, ~1.2 s</span></div>
       </div>
 
       <div class="step">
@@ -388,20 +447,59 @@
               <div class="seg sm"><i class="sel">Classic</i><i>Quick</i><i>Aggressive</i></div>
             </div>
             <div class="card">
-              <div class="prow"><span class="nm">Chips per player</span><span class="tagpill">3</span></div>
+              <h4>Chips per player</h4>
+              <div class="seg"><i>2</i><i class="sel">3</i><i>4</i></div>
+            </div>
+            <div class="card">
               <div class="prow"><span class="nm">Roll a 6 to leave the yard</span><span class="tagpill you">On</span></div>
               <div class="prow"><span class="nm">Capture grants extra roll</span><span class="tagpill">Off</span></div>
               <div class="prow"><span class="nm">Star squares are safe</span><span class="tagpill you">On</span></div>
               <div class="prow"><span class="nm">Blockades allowed</span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">Pair move <small style="color:#6E675C">even roll ÷ 2</small></span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">&nbsp;&nbsp;↳ pair with a partner's chip</span><span class="tagpill you">On</span></div>
               <div class="prow"><span class="nm">Must capture once to win</span><span class="tagpill">Off</span></div>
               <div class="prow"><span class="nm">Turn timer</span><span class="tagpill">Off</span></div>
             </div>
-            <div class="banner">Six seats default to <b>3 chips each</b> so a round stays about as long
-              as a four-player game. Change it here if your table wants four.</div>
+            <div class="banner"><b>3 or 4 chips is your call</b> at every seat count — 3 keeps a
+              six-seat round short, 4 is the traditional game.</div>
             <div class="primary mt" style="background:var(--p2)">Start game</div>
           </div>
         </div></div>
         <div class="steplab">5 · Rules<span>presets, or open the full builder</span></div>
+      </div>
+
+      <div class="step">
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
+          <div class="appbar"><div class="back">‹</div><b>Pair move</b><span class="rt">opt-in</span></div>
+          <div class="body">
+            <div class="card">
+              <h4>What it does</h4>
+              <div class="pairdemo">
+                <div class="pd"><span class="ck" data-chip="p1"></span><span class="ck" data-chip="p1"></span>
+                  <em>two chips on one square</em></div>
+                <div class="pdarrow">→</div>
+                <div class="pd"><span class="dieface"><i></i><i></i><i></i><i></i></span>
+                  <em>roll an even number</em></div>
+                <div class="pdarrow">→</div>
+                <div class="pd"><span class="movetag">move 2</span><em>the pair advances half the roll,
+                  together</em></div>
+              </div>
+            </div>
+            <div class="card">
+              <div class="prow"><span class="nm">Pair move</span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">Pair with a partner's chip <small style="color:#6E675C">team games</small></span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">A pair can be captured</span><span class="tagpill">Off</span></div>
+              <div class="prow"><span class="nm">Odd rolls split the pair</span><span class="tagpill you">On</span></div>
+            </div>
+            <div class="banner">A pair travels as one until you break it. Because it takes an even
+              roll and moves <b>half</b> the pips, pairing trades speed for safety — two chips that
+              can't be picked off one at a time.</div>
+            <div class="banner" style="background:#F6EAC8; color:#6b551a">⚠︎ Three details still need
+              your call — they're questions 26–28 on the review sheet.</div>
+          </div>
+        </div></div>
+        <div class="steplab">6 · Pair move rule<span>your new opt-in rule, spelled out</span></div>
       </div>
     </div>
   </div>
@@ -429,7 +527,7 @@
             <div class="rollhint"><b>Tap to roll</b>6 = extra turn</div>
           </div>
         </div></div>
-        <div class="steplab">6 · Game — 4 seats<span>classic cross, 4 chips each</span></div>
+        <div class="steplab">7 · Game — 4 seats<span>classic cross, chips you chose</span></div>
       </div>
 
       <div class="step">
@@ -448,7 +546,7 @@
             <div class="rollhint"><b>Move a chip</b>2 legal moves</div>
           </div>
         </div></div>
-        <div class="steplab">7 · Game — 6 seats, teams<span>hexagon, 3 chips each, team rail on the left</span></div>
+        <div class="steplab">8 · Game — 6 seats, teams<span>hexagon, triangular yards, team rail on the left</span></div>
       </div>
 
       <div class="keynote"><b>Reading a six-seat board.</b> With six colors in play, the seat list is
@@ -470,7 +568,8 @@
           <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
           <div class="appbar"><div class="back">‹</div><b>Play online</b></div>
           <div class="body">
-            <div class="banner">Playing as <b>Guest_4821</b> — sign in only to keep friends &amp; stats across devices</div>
+            <div class="banner">Playing as <b>Guest_4821</b> — no account needed, ever. Sign in only
+              if you want this profile on a second device.</div>
             <div class="primary" style="background:var(--p4)">⚡ Quick match<small>2–6 players · Classic · ~15 s wait</small></div>
             <div class="primary" style="background:var(--p3)">＋ Create room<small>Pick seats, teams and rules</small></div>
             <div class="card">
@@ -485,7 +584,7 @@
             </div>
           </div>
         </div></div>
-        <div class="steplab">8 · Online menu<span>guest by default</span></div>
+        <div class="steplab">9 · Online menu<span>anonymous by default</span></div>
       </div>
 
       <div class="step">
@@ -508,13 +607,19 @@
               <div class="seg sm"><i class="sel">Anyone with the code</i><i>Friends only</i></div>
             </div>
             <div class="card">
+              <h4>Empty seats at kick-off</h4>
+              <div class="seg sm"><i class="sel">Fill with AI</i><i>Leave empty</i></div>
+              <div class="note" style="margin-top:6px">Your call, not ours — start 3 v 2 if you'd
+                rather play a person short.</div>
+            </div>
+            <div class="card">
               <h4>Rules</h4>
-              <div class="chiprow"><i>Classic</i><i>3 chips</i><i>stars safe</i><i>30 s turns</i><i>edit…</i></div>
+              <div class="chiprow"><i>Classic</i><i>4 chips</i><i>pair move</i><i>stars safe</i><i>30 s turns</i><i>edit…</i></div>
             </div>
             <div class="primary mt" style="background:var(--p3)">Create room</div>
           </div>
         </div></div>
-        <div class="steplab">9 · Room options<span>6 seats + teams, before anyone joins</span></div>
+        <div class="steplab">10 · Room options<span>seats, teams, and who fills empty seats</span></div>
       </div>
 
       <div class="step">
@@ -544,7 +649,7 @@
             <div class="primary mt" style="background:var(--p3)">Start match</div>
           </div>
         </div></div>
-        <div class="steplab">10 · Pair play — online<span>same team model as local</span></div>
+        <div class="steplab">11 · Pair play — online<span>same team model as local</span></div>
       </div>
 
       <div class="step">
@@ -569,8 +674,161 @@
             </div>
           </div>
         </div></div>
-        <div class="steplab">11 · Result<span>team result, then per-player</span></div>
+        <div class="steplab">12 · Result<span>team result, then per-player</span></div>
       </div>
+    </div>
+  </div>
+
+  <!-- ACT 5 -->
+  <div class="act">
+    <h2><span class="idx">ACT 5</span> Who you are — profile, friends, and the seat you keep</h2>
+    <p>An anonymous guest is still <em>somebody</em>: a name, a face, a level, and a friends list that
+       survives without an account. Because guest IDs are arbitrary, you can rename anyone in your
+       list to what you actually call them.</p>
+    <div class="row">
+
+      <div class="step">
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
+          <div class="appbar"><div class="back">‹</div><b>Profile</b><span class="rt">Guest</span></div>
+          <div class="body">
+            <div class="card">
+              <div class="prof">
+                <div class="avatar">R<span class="cam">📷</span></div>
+                <div class="who">Rajat</div>
+                <div class="sub">Guest_4821 · tap to rename</div>
+                <div class="lvl"><span>LV 12</span><div class="b"><i></i></div><span>620/1000</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <h4>Record</h4>
+              <div class="statgrid">
+                <div><b>148</b><span>played</span></div>
+                <div><b>63</b><span>won</span></div>
+                <div><b>412</b><span>captures</span></div>
+              </div>
+            </div>
+            <div class="card">
+              <h4>Account</h4>
+              <div class="prow"><span class="nm">Playing anonymously</span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">Link an account <small style="color:#6E675C">optional</small></span><span class="tagpill">Never</span></div>
+            </div>
+            <div class="banner">Your photo, name and level live on this device. Linking an account is
+              the <b>only</b> reason to sign in — it copies them to your next phone.</div>
+          </div>
+        </div></div>
+        <div class="steplab">13 · Profile<span>photo, level, record — no account</span></div>
+      </div>
+
+      <div class="step">
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
+          <div class="appbar"><div class="back">‹</div><b>Friends</b><span class="rt">＋ Add</span></div>
+          <div class="body">
+            <div class="card">
+              <h4>Requests · 2</h4>
+              <div class="reqrow"><span class="av" style="background:var(--p6)">K</span>
+                <span class="who"><b>Guest_9013</b><span>played with you 20 min ago</span></span>
+                <span class="yn"><i class="y">✓</i><i class="n">✕</i></span></div>
+              <div class="reqrow"><span class="av" style="background:var(--p5)">A</span>
+                <span class="who"><b>Arif</b><span>sent a request</span></span>
+                <span class="yn"><i class="y">✓</i><i class="n">✕</i></span></div>
+            </div>
+            <div class="card" style="flex:1">
+              <h4>Your list · 3</h4>
+              <div class="frow"><span class="av" style="background:var(--p2)">S</span>
+                <div><b>Sagor</b><span class="nickline">Guest_2277 · you call him <b>Sagor</b></span></div><span class="dot on"></span></div>
+              <div class="frow"><span class="av" style="background:var(--p1)">M</span>
+                <div><b>Mitu</b><span class="nickline">Guest_8890 · in a game</span></div><span class="dot on"></span></div>
+              <div class="frow"><span class="av" style="background:var(--p3)">T</span>
+                <div><b>Tanvir</b><span class="nickline">Guest_1042 · 2 h ago</span></div><span class="dot off"></span></div>
+            </div>
+            <div class="banner">Requests go to the other player and only stick if they accept.
+              <b>Rename anyone</b> in your list — nobody remembers a number.</div>
+          </div>
+        </div></div>
+        <div class="steplab">14 · Friends<span>requests, accept, and your own nicknames</span></div>
+      </div>
+
+      <div class="step">
+        <div class="phone"><div class="screen">
+          <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
+          <div class="appbar"><div class="back">‹</div><b>Settings</b></div>
+          <div class="body">
+            <div class="card">
+              <h4>Appearance</h4>
+              <div class="themerow">
+                <div class="themetile sel" style="background:#EFE9DD">
+                  <div class="sw" style="background:linear-gradient(#F7F3EC 50%,#171A21 50%)"></div>System</div>
+                <div class="themetile" style="background:#EFE9DD">
+                  <div class="sw" style="background:#F7F3EC"></div>Light</div>
+                <div class="themetile" style="background:#EFE9DD">
+                  <div class="sw" style="background:#171A21"></div>Dark</div>
+              </div>
+              <div class="note" style="margin-top:7px">Follows your phone unless you pick one.</div>
+            </div>
+            <div class="card">
+              <div class="prow"><span class="nm">Sound effects</span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">Haptics</span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">Auto-move single legal move</span><span class="tagpill you">On</span></div>
+              <div class="prow"><span class="nm">Reduce motion</span><span class="tagpill">Off</span></div>
+              <div class="prow"><span class="nm">Language</span><span class="tagpill">English</span></div>
+            </div>
+            <div class="banner">Light and dark are both built from day one — dark is a real palette,
+              not a filter over the light board.</div>
+          </div>
+        </div></div>
+        <div class="steplab">15 · Settings<span>system / light / dark, your choice</span></div>
+      </div>
+
+      <div class="step">
+        <div class="phone"><div class="screen dk gamescreen">
+          <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
+          <div class="turnbar"><span class="td" style="background:var(--p3)"></span><b>Your turn — Team Blue</b><span class="timer">0:29</span></div>
+          <div class="boardhold"><svg id="b6d" viewBox="0 0 600 600" role="img" aria-label="Six-player hexagonal Ludo board, dark theme"></svg></div>
+          <div class="dicebar">
+            <div class="pstat">
+              <div class="r tm"><i style="background:var(--p3)"></i>You<b>1/4</b></div>
+              <div class="r tm"><i style="background:var(--p2)"></i>Ammu<b>0/4</b></div>
+              <div class="r tm"><i style="background:var(--p5)"></i>AI<b>2/4</b></div>
+              <div class="r"><i style="background:var(--p1)"></i>Sagor<b>1/4</b></div>
+            </div>
+            <div class="bigdie"><i style="grid-area:1/1"></i><i style="grid-area:1/3"></i><i style="grid-area:3/1"></i><i style="grid-area:3/3"></i></div>
+            <div class="rollhint"><b>Even roll</b>pair can move 2</div>
+          </div>
+        </div></div>
+        <div class="steplab">16 · Dark board<span>same chips, own palette</span></div>
+      </div>
+
+      <div class="step">
+        <div class="phone"><div class="screen dk">
+          <div class="status"><span>9:41</span><span>▲ ● ▮</span></div>
+          <div class="apphead">
+            <div class="wordmark"><span>L</span><span>U</span><span>D</span><span>O</span></div>
+            <div class="guestchip"><span class="av">R</span>Rajat · LV 12</div>
+          </div>
+          <div class="body">
+            <div class="resume">
+              <div class="mini"><i></i><i></i><i></i><i></i></div>
+              <div><b>Resume game</b><span>Pass &amp; play · 6 seats · your turn</span></div>
+              <div class="go">›</div>
+            </div>
+            <div class="modegrid">
+              <div class="mcard" style="background:var(--p1)"><div class="ic">🤖</div><b>Play vs AI</b><span>Solo, 1–5 computer seats</span><span class="net">Offline</span></div>
+              <div class="mcard" style="background:var(--p2)"><div class="ic">📱</div><b>Pass &amp; Play</b><span>2–6 players, one phone</span><span class="net">Offline</span></div>
+              <div class="mcard" style="background:var(--p3)"><div class="ic">👥</div><b>Friends Room</b><span>Private room + code</span><span class="net">Online</span></div>
+              <div class="mcard" style="background:var(--p4)"><div class="ic">⚡</div><b>Quick Match</b><span>Random opponents</span><span class="net">Online</span></div>
+            </div>
+            <div class="homefoot"><button>🎛 Custom rules</button><button>❓ How to play</button></div>
+          </div>
+        </div></div>
+        <div class="steplab">17 · Dark home<span>every screen has both themes</span></div>
+      </div>
+
+      <div class="keynote"><b>Disconnects, now 5 minutes.</b> Your seat is held for five minutes, not
+        one — but the game does not sit frozen while everyone waits. AI plays your turns from the
+        moment you drop, and the instant you return you take the seat back mid-game, with the moves
+        made in your absence shown in the turn log.</div>
     </div>
   </div>
 
@@ -645,12 +903,15 @@
     boardChip(svg,7*C+C/2,3*C+C/2,36,col.g);
   })();
 
-  // ---- 6-player hexagon ----
-  (function(){
-    var svg=document.getElementById('b6'); if(!svg) return;
-    var C=30, CX=300, CY=300, LINE='#C9C1B2';
-    var cols=[P.p1,P.p2,P.p3,P.p4,P.p5,P.p6];
-    var R_OUT=6.9*C, YARD_R=200, YARD_S=1.5*C, PLATE=268;
+  // ---- 6-player hexagon (triangular yards, 4 slots) ----
+  var TH_L={plate:'#FDFBF7',cell:'#FFFFFF',line:'#C9C1B2',star:'#8a8478',yardIn:'#FFFFFF',slot:'rgba(0,0,0,.09)'};
+  var TH_D={plate:'#232830',cell:'#2E343F',line:'#4A5260',star:'#8E96A4',yardIn:'#1B1F26',slot:'rgba(255,255,255,.10)'};
+  function hexBoard(svg,opt){
+    if(!svg) return; opt=opt||{};
+    var TH=opt.dark?TH_D:TH_L;
+    var C=30, CX=300, CY=300, cols=[P.p1,P.p2,P.p3,P.p4,P.p5,P.p6];
+    var R_OUT=6.9*C, PLATE=268, Y_IN=110, Y_OUT=226, Y_W=68;
+    var SLOTS=[[163,0],[192,-24],[192,24],[206,0]];
     function pt(ang,rad,lat){var a=Math.PI/180*ang,ux=Math.cos(a),uy=Math.sin(a);
       return [CX+ux*rad+(-uy)*lat, CY+uy*rad+ux*lat]}
     function hexPts(r,rot){var o=[];for(var i=0;i<6;i++){var a=Math.PI/180*(60*i-90+(rot||0));
@@ -660,20 +921,24 @@
       var g=svgEl(svg,'g',{transform:'translate('+p[0].toFixed(2)+','+p[1].toFixed(2)+') rotate('+(ang+90)+')'});
       var r=document.createElementNS(NS,'rect');
       r.setAttribute('x',-C/2);r.setAttribute('y',-C/2);r.setAttribute('width',C);r.setAttribute('height',C);
-      r.setAttribute('fill',fill);r.setAttribute('stroke',LINE);r.setAttribute('stroke-width',1);
+      r.setAttribute('fill',fill);r.setAttribute('stroke',TH.line);r.setAttribute('stroke-width',1);
       g.appendChild(r); return p;
     }
     function starAt(p){var R=10,r=4.4,q=[];
       for(var i=0;i<10;i++){var a=Math.PI/5*i-Math.PI/2,rr=i%2?r:R;
         q.push((p[0]+rr*Math.cos(a)).toFixed(1)+','+(p[1]+rr*Math.sin(a)).toFixed(1))}
-      svgEl(svg,'polygon',{points:q.join(' '),fill:'none',stroke:'#8a8478','stroke-width':1.4,'stroke-linejoin':'round'})}
-    svgEl(svg,'polygon',{points:hexPts(PLATE,-30),fill:'#FDFBF7',stroke:LINE,'stroke-width':1.5,'stroke-linejoin':'round'});
+      svgEl(svg,'polygon',{points:q.join(' '),fill:'none',stroke:TH.star,'stroke-width':1.4,'stroke-linejoin':'round'})}
+    function shrink(t,f){var gx=(t[0][0]+t[1][0]+t[2][0])/3, gy=(t[0][1]+t[1][1]+t[2][1])/3;
+      return t.map(function(p){return [gx+(p[0]-gx)*f, gy+(p[1]-gy)*f]})}
+    function poly(t,a){a.points=t.map(function(p){return p[0].toFixed(1)+','+p[1].toFixed(1)}).join(' ');
+      return svgEl(svg,'polygon',a)}
+    svgEl(svg,'polygon',{points:hexPts(PLATE,-30),fill:TH.plate,stroke:TH.line,'stroke-width':1.5,'stroke-linejoin':'round'});
     for(var k=0;k<6;k++){
       var ang=-90+60*k, col=cols[k];
       for(var j=0;j<6;j++){
         var rad=R_OUT-j*C;
-        cellAt(ang,rad,-C,'#fff'); cellAt(ang,rad,C,'#fff');
-        cellAt(ang,rad,0, j===0?'#fff':col);
+        cellAt(ang,rad,-C,TH.cell); cellAt(ang,rad,C,TH.cell);
+        cellAt(ang,rad,0, j===0?TH.cell:col);
       }
       cellAt(ang,R_OUT,-C,col);
       starAt(pt(ang,R_OUT-3*C,C));
@@ -683,15 +948,16 @@
       svgEl(svg,'polygon',{points:CX+','+CY+' '+(CX+R*Math.cos(a0)).toFixed(1)+','+(CY+R*Math.sin(a0)).toFixed(1)
         +' '+(CX+R*Math.cos(a1)).toFixed(1)+','+(CY+R*Math.sin(a1)).toFixed(1), fill:cols[k]});
     }
-    svgEl(svg,'polygon',{points:hexPts(1.45*C,-30),fill:'none',stroke:LINE,'stroke-width':1.5});
-    var perYard=[1,2,1,2,1,2];
+    svgEl(svg,'polygon',{points:hexPts(1.45*C,-30),fill:'none',stroke:TH.line,'stroke-width':1.5});
+    var perYard=opt.perYard||[2,3,1,3,2,3];
     for(var k=0;k<6;k++){
-      var ya=-90+60*k-30, p=pt(ya,YARD_R,0), yc=cols[k];
-      svgEl(svg,'circle',{cx:p[0],cy:p[1],r:YARD_S,fill:yc,stroke:'rgba(0,0,0,.12)','stroke-width':2});
-      svgEl(svg,'circle',{cx:p[0],cy:p[1],r:YARD_S*0.72,fill:'#fff'});
-      var slots=[[-0.52,-0.34],[0.52,-0.34],[0,0.46]];
-      slots.forEach(function(o){svgEl(svg,'circle',{cx:p[0]+o[0]*C,cy:p[1]+o[1]*C,r:0.34*C,fill:'rgba(0,0,0,.07)'})});
-      for(var s=0;s<perYard[k];s++) boardChip(svg,p[0]+slots[s][0]*C,p[1]+slots[s][1]*C,23,yc);
+      var ya=-90+60*k-30, yc=cols[k];
+      var tri=[pt(ya,Y_IN,0), pt(ya,Y_OUT,-Y_W), pt(ya,Y_OUT,Y_W)];
+      poly(tri,{fill:yc,stroke:'rgba(0,0,0,.14)','stroke-width':2,'stroke-linejoin':'round'});
+      poly(shrink(tri,.80),{fill:TH.yardIn,'stroke-linejoin':'round'});
+      var pts=SLOTS.map(function(s){return pt(ya,s[0],s[1])});
+      pts.forEach(function(p){svgEl(svg,'circle',{cx:p[0],cy:p[1],r:11.5,fill:TH.slot})});
+      for(var s=0;s<Math.min(perYard[k],4);s++) boardChip(svg,pts[s][0],pts[s][1],24,yc);
     }
     var q;
     q=pt(-90,R_OUT,-C);      boardChip(svg,q[0],q[1],25,cols[0]);
@@ -701,6 +967,8 @@
     q=pt(150,R_OUT-1*C,C);   boardChip(svg,q[0],q[1],25,cols[4],'2');
     q=pt(-150,R_OUT-4*C,-C); boardChip(svg,q[0],q[1],25,cols[5]);
     q=pt(-90,R_OUT-4*C,C);   boardChip(svg,q[0],q[1],25,cols[2]);
-  })();
+  }
+  hexBoard(document.getElementById('b6'));
+  hexBoard(document.getElementById('b6d'),{dark:true});
 })();
 </script>
