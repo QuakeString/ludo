@@ -961,11 +961,17 @@
     })();
     boardChip(svg,1.9*C,1.9*C,34,col.r); boardChip(svg,4.1*C,1.9*C,34,col.r);
     boardChip(svg,(9+1.9)*C,1.9*C,34,col.g); boardChip(svg,(9+4.1)*C,1.9*C,34,col.g);
+    function ring4(cx,cy,r,color){
+      svgEl(svg,'circle',{cx:cx,cy:cy,r:r+6,fill:color,opacity:'.13'});
+      svgEl(svg,'circle',{cx:cx,cy:cy,r:r,fill:'none',stroke:color,'stroke-width':3.5,opacity:'.95'});
+    }
     boardChip(svg,4.5*C,6.5*C,36,col.r);
+    ring4(8.5*C,3.5*C,23,col.g);
     boardChip(svg,8.5*C,3.5*C,36,col.g);
     boardChip(svg,12.5*C,6.5*C,31,col.y); boardChip(svg,12.5*C,6.5*C,31,col.b);
     boardChip(svg,2.5*C,8.5*C,36,col.b,'2');
     boardChip(svg,7.5*C,11.5*C,36,col.b);
+    ring4(7*C+C/2,3*C+C/2,23,col.g);
     boardChip(svg,7*C+C/2,3*C+C/2,36,col.g);
   })();
 
@@ -975,7 +981,7 @@
   //   no collision: innermost inner edge 87 → arm half-angle atan(45/87)=27.4° < 30°
   //   hub       hexagon circumradius 100 (apothem 86.6, flat edge meets each arm)
   //   plate     12-gon circumradius 282, 6 edges facing the arms, 6 facing the yards
-  //   yards     triangle apex r=140 → base r=247, half-width 70
+  //   yards     triangle apex r=100 (on the hub corner) → base r=247, half-width 70
   //   dice      one slot per seat on its own yard axis at r=305
   var TH_L={plate:'#FDFBF7',cell:'#FFFFFF',line:'#C9C1B2',star:'#8a8478',
             yardIn:'#FFFFFF',slot:'rgba(0,0,0,.09)',hub:'#F1ECE1',
@@ -991,8 +997,8 @@
     var TH=opt.dark?TH_D:TH_L;
     var C=30, CX=330, CY=330;
     var R_OUT=252, HUB=100, PLATE=282;
-    var Y_IN=140, Y_OUT=247, Y_W=70;
-    var SLOTS=[[185,0],[213,-24],[213,24],[226,0]];
+    var Y_IN=100, Y_OUT=247, Y_W=70;   // apex sits ON the hub corner
+    var SLOTS=[[183,0],[211,-24],[211,24],[223,0]];
     var DIE_R=297;
     var cols=['#E14B4B','#3FA35C','#3B72D9','#E3B23C','#7E57C2','#EF8022'];
     var rad=Math.PI/180;
@@ -1096,16 +1102,23 @@
       }
     }
     if(opt.chips===false) return;
-    // --- chips out on the track ---
+    // --- chips out on the track; the on-turn seat's legal movers wear a ring ---
+    var live = opt.turn==null ? 2 : opt.turn;
+    function ringAt(cx,cy,r,color){
+      el('circle',{cx:cx,cy:cy,r:r+5,fill:color,opacity:'.13'});
+      el('circle',{cx:cx,cy:cy,r:r,fill:'none',stroke:color,'stroke-width':3.2,opacity:'.95'});
+    }
     var q;
     q=pt(-90, R_OUT, -C);      boardChip(svg,q[0],q[1],26,cols[0]);
     q=pt(-30, R_OUT-2*C, -C);  boardChip(svg,q[0],q[1],26,cols[1]);
-    q=pt(30,  R_OUT-3*C,  C);  boardChip(svg,q[0]-7,q[1]-2,23,cols[2]);
+    q=pt(30,  R_OUT-3*C,  C);  if(live===2) ringAt(q[0]-7,q[1]-2,15,cols[2]);
+                               boardChip(svg,q[0]-7,q[1]-2,23,cols[2]);
                                boardChip(svg,q[0]+7,q[1]+3,23,cols[4]);
     q=pt(90,  R_OUT-2*C,  0);  boardChip(svg,q[0],q[1],26,cols[3]);
     q=pt(150, R_OUT-1*C,  C);  boardChip(svg,q[0],q[1],26,cols[4],'2');
     q=pt(-150,R_OUT-4*C, -C);  boardChip(svg,q[0],q[1],26,cols[5]);
-    q=pt(-90, R_OUT-4*C,  C);  boardChip(svg,q[0],q[1],26,cols[2]);
+    q=pt(-90, R_OUT-4*C,  C);  if(live===2) ringAt(q[0],q[1],17,cols[2]);
+                               boardChip(svg,q[0],q[1],26,cols[2]);
   }
   // ---- seating & dice diagrams ----
   (function(){

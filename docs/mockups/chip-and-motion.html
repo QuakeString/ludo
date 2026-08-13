@@ -57,8 +57,9 @@
   .cellbox.safe::before{content:"★"; position:absolute; inset:0; display:grid; place-items:center;
     font-size:44px; color:rgba(0,0,0,.10); line-height:1}
   .cellbox.tinted{background:#F6E2E2}
-  .celldemo .cap{font-size:12px; margin-top:8px; font-weight:600}
-  .celldemo .sub{font-size:11.5px; color:var(--muted); display:block; font-weight:400}
+  .celldemo .cap,.st .cap{font-size:12px; margin-top:8px; font-weight:600}
+  .celldemo .sub,.st .sub{font-size:11.5px; color:var(--muted); display:block; font-weight:400;
+    margin-top:2px; line-height:1.35}
   .tok{position:absolute; left:50%; top:50%; transform-origin:50% 92%}
 
   /* states */
@@ -66,10 +67,12 @@
   .st{width:112px; text-align:center}
   .stbox{width:112px; height:118px; background:var(--cell); border:1.5px solid var(--cellline);
     border-radius:10px; position:relative}
-  .ring{position:absolute; left:50%; top:56%; width:78px; height:78px; margin:-39px 0 0 -39px;
-    border-radius:50%; border:3px solid var(--p2); opacity:0; }
-  .pulse .ring{animation:pulse 1.5s ease-out infinite}
-  @keyframes pulse{0%{transform:scale(.6);opacity:.9} 100%{transform:scale(1.15);opacity:0}}
+  .ring{position:absolute; left:50%; top:58%; width:72px; height:72px; margin:-36px 0 0 -36px;
+    border-radius:50%; border:3.5px solid var(--p2); background:rgba(63,163,92,.13)}
+  .halo{position:absolute; left:50%; top:58%; width:72px; height:72px; margin:-36px 0 0 -36px;
+    border-radius:50%; border:3px solid var(--p2); opacity:0}
+  .pulse .halo{animation:pulse 1.6s ease-out infinite}
+  @keyframes pulse{0%{transform:scale(1);opacity:.75} 100%{transform:scale(1.4);opacity:0}}
   .bob{animation:bob 1.5s ease-in-out infinite}
   @keyframes bob{0%,100%{transform:translate(-50%,-50%)} 50%{transform:translate(-50%,-58%)}}
   .lift{filter:drop-shadow(0 8px 10px rgba(0,0,0,.3))}
@@ -164,8 +167,10 @@
   <section>
     <div class="eyebrow">02 · Feedback</div>
     <h2>Chip states</h2>
-    <p class="lede">A player should never have to guess which chips they may move. Legal chips
-       announce themselves; everything else recedes.</p>
+    <p class="lede">A player should never have to guess which chips they may move. The moment the
+       dice lands, <b class="k">every chip of yours that has a legal move gets a ring</b> in your own
+       colour — so you can see at a glance where you have chips and which of them this roll can
+       actually move. Everything else recedes.</p>
     <div class="states" id="states"></div>
   </section>
 
@@ -391,7 +396,7 @@
     var host=document.getElementById('states');
     var defs=[
       {t:'Idle', s:'On the board, not your turn to act on it.', cls:'', extra:''},
-      {t:'Movable', s:'Legal move available — pulses and bobs.', cls:'pulse', extra:'ring'},
+      {t:'Movable', s:'A ring says: this chip can move now.', cls:'pulse', extra:'ring'},
       {t:'Selected', s:'Lifted, warm glow, destination previewed.', cls:'sel', extra:'glow'},
       {t:'Not yours', s:'Another seat’s chip during your turn.', cls:'dimmed', extra:''},
       {t:'In yard', s:'Waiting for a 6 — flat, no shadow lift.', cls:'yard', extra:''}
@@ -400,7 +405,10 @@
       var w=document.createElement('div'); w.className='st';
       var box=document.createElement('div'); box.className='stbox '+(d.cls==='pulse'?'pulse':'');
       if(d.extra==='glow'){var g=document.createElement('div'); g.className='glowsel'; box.appendChild(g);}
-      if(d.extra==='ring'){var r=document.createElement('div'); r.className='ring'; box.appendChild(r);}
+      if(d.extra==='ring'){
+        var h2=document.createElement('div'); h2.className='halo'; box.appendChild(h2);
+        var r=document.createElement('div'); r.className='ring'; box.appendChild(r);
+      }
       var t=place(box, '#3FA35C', 62, 0, 8);
       if(d.cls==='pulse') t.classList.add('bob');
       if(d.cls==='sel'){ t.classList.add('lift'); t.style.transform='translate(-31px,-36px)'; }
@@ -657,7 +665,7 @@
   //   no collision: innermost inner edge 87 → arm half-angle atan(45/87)=27.4° < 30°
   //   hub       hexagon circumradius 100 (apothem 86.6, flat edge meets each arm)
   //   plate     12-gon circumradius 282, 6 edges facing the arms, 6 facing the yards
-  //   yards     triangle apex r=140 → base r=247, half-width 70
+  //   yards     triangle apex r=100 (on the hub corner) → base r=247, half-width 70
   //   dice      one slot per seat on its own yard axis at r=305
   var TH_L={plate:'#FDFBF7',cell:'#FFFFFF',line:'#C9C1B2',star:'#8a8478',
             yardIn:'#FFFFFF',slot:'rgba(0,0,0,.09)',hub:'#F1ECE1',
@@ -673,8 +681,8 @@
     var TH=opt.dark?TH_D:TH_L;
     var C=30, CX=330, CY=330;
     var R_OUT=252, HUB=100, PLATE=282;
-    var Y_IN=140, Y_OUT=247, Y_W=70;
-    var SLOTS=[[185,0],[213,-24],[213,24],[226,0]];
+    var Y_IN=100, Y_OUT=247, Y_W=70;   // apex sits ON the hub corner
+    var SLOTS=[[183,0],[211,-24],[211,24],[223,0]];
     var DIE_R=297;
     var cols=['#E14B4B','#3FA35C','#3B72D9','#E3B23C','#7E57C2','#EF8022'];
     var rad=Math.PI/180;
@@ -778,16 +786,23 @@
       }
     }
     if(opt.chips===false) return;
-    // --- chips out on the track ---
+    // --- chips out on the track; the on-turn seat's legal movers wear a ring ---
+    var live = opt.turn==null ? 2 : opt.turn;
+    function ringAt(cx,cy,r,color){
+      el('circle',{cx:cx,cy:cy,r:r+5,fill:color,opacity:'.13'});
+      el('circle',{cx:cx,cy:cy,r:r,fill:'none',stroke:color,'stroke-width':3.2,opacity:'.95'});
+    }
     var q;
     q=pt(-90, R_OUT, -C);      boardChip(svg,q[0],q[1],26,cols[0]);
     q=pt(-30, R_OUT-2*C, -C);  boardChip(svg,q[0],q[1],26,cols[1]);
-    q=pt(30,  R_OUT-3*C,  C);  boardChip(svg,q[0]-7,q[1]-2,23,cols[2]);
+    q=pt(30,  R_OUT-3*C,  C);  if(live===2) ringAt(q[0]-7,q[1]-2,15,cols[2]);
+                               boardChip(svg,q[0]-7,q[1]-2,23,cols[2]);
                                boardChip(svg,q[0]+7,q[1]+3,23,cols[4]);
     q=pt(90,  R_OUT-2*C,  0);  boardChip(svg,q[0],q[1],26,cols[3]);
     q=pt(150, R_OUT-1*C,  C);  boardChip(svg,q[0],q[1],26,cols[4],'2');
     q=pt(-150,R_OUT-4*C, -C);  boardChip(svg,q[0],q[1],26,cols[5]);
-    q=pt(-90, R_OUT-4*C,  C);  boardChip(svg,q[0],q[1],26,cols[2]);
+    q=pt(-90, R_OUT-4*C,  C);  if(live===2) ringAt(q[0],q[1],17,cols[2]);
+                               boardChip(svg,q[0],q[1],26,cols[2]);
   }
   window.hexBoard=hexBoard;
   hexBoard(document.getElementById('board6'), {perYard:[3,4,2,4,1,3], turn:2});

@@ -216,7 +216,7 @@
   //   no collision: innermost inner edge 87 → arm half-angle atan(45/87)=27.4° < 30°
   //   hub       hexagon circumradius 100 (apothem 86.6, flat edge meets each arm)
   //   plate     12-gon circumradius 282, 6 edges facing the arms, 6 facing the yards
-  //   yards     triangle apex r=140 → base r=247, half-width 70
+  //   yards     triangle apex r=100 (on the hub corner) → base r=247, half-width 70
   //   dice      one slot per seat on its own yard axis at r=305
   var TH_L={plate:'#FDFBF7',cell:'#FFFFFF',line:'#C9C1B2',star:'#8a8478',
             yardIn:'#FFFFFF',slot:'rgba(0,0,0,.09)',hub:'#F1ECE1',
@@ -232,8 +232,8 @@
     var TH=opt.dark?TH_D:TH_L;
     var C=30, CX=330, CY=330;
     var R_OUT=252, HUB=100, PLATE=282;
-    var Y_IN=140, Y_OUT=247, Y_W=70;
-    var SLOTS=[[185,0],[213,-24],[213,24],[226,0]];
+    var Y_IN=100, Y_OUT=247, Y_W=70;   // apex sits ON the hub corner
+    var SLOTS=[[183,0],[211,-24],[211,24],[223,0]];
     var DIE_R=297;
     var cols=['#E14B4B','#3FA35C','#3B72D9','#E3B23C','#7E57C2','#EF8022'];
     var rad=Math.PI/180;
@@ -337,16 +337,23 @@
       }
     }
     if(opt.chips===false) return;
-    // --- chips out on the track ---
+    // --- chips out on the track; the on-turn seat's legal movers wear a ring ---
+    var live = opt.turn==null ? 2 : opt.turn;
+    function ringAt(cx,cy,r,color){
+      el('circle',{cx:cx,cy:cy,r:r+5,fill:color,opacity:'.13'});
+      el('circle',{cx:cx,cy:cy,r:r,fill:'none',stroke:color,'stroke-width':3.2,opacity:'.95'});
+    }
     var q;
     q=pt(-90, R_OUT, -C);      boardChip(svg,q[0],q[1],26,cols[0]);
     q=pt(-30, R_OUT-2*C, -C);  boardChip(svg,q[0],q[1],26,cols[1]);
-    q=pt(30,  R_OUT-3*C,  C);  boardChip(svg,q[0]-7,q[1]-2,23,cols[2]);
+    q=pt(30,  R_OUT-3*C,  C);  if(live===2) ringAt(q[0]-7,q[1]-2,15,cols[2]);
+                               boardChip(svg,q[0]-7,q[1]-2,23,cols[2]);
                                boardChip(svg,q[0]+7,q[1]+3,23,cols[4]);
     q=pt(90,  R_OUT-2*C,  0);  boardChip(svg,q[0],q[1],26,cols[3]);
     q=pt(150, R_OUT-1*C,  C);  boardChip(svg,q[0],q[1],26,cols[4],'2');
     q=pt(-150,R_OUT-4*C, -C);  boardChip(svg,q[0],q[1],26,cols[5]);
-    q=pt(-90, R_OUT-4*C,  C);  boardChip(svg,q[0],q[1],26,cols[2]);
+    q=pt(-90, R_OUT-4*C,  C);  if(live===2) ringAt(q[0],q[1],17,cols[2]);
+                               boardChip(svg,q[0],q[1],26,cols[2]);
   }
 
   // ---------- visual builders ----------
@@ -437,6 +444,24 @@
       });
       h.appendChild(w);
     },
+    rings:function(h){
+      var r=document.createElement('div'); r.className='cellrow';
+      function cd(cap,build){
+        var w=document.createElement('div'); w.className='cd';
+        var b=document.createElement('div'); b.className='cdbox'; build(b); w.appendChild(b);
+        w.insertAdjacentHTML('beforeend','<div class="cap">'+cap+'</div>'); r.appendChild(w);
+      }
+      function ring(b,color){
+        var e2=document.createElement('div');
+        e2.style.cssText='position:absolute;left:50%;top:56%;width:56px;height:56px;margin:-28px 0 0 -28px;'
+          +'border-radius:50%;border:3.5px solid '+color+';background:'+color+'22';
+        b.appendChild(e2);
+      }
+      cd('can move — ringed', function(b){ ring(b,'#3FA35C'); tok(b,P.p2,50,0,8) });
+      cd('no legal move', function(b){ tok(b,P.p2,50,0,8) });
+      cd('not your seat', function(b){ var t=tok(b,P.p1,50,0,8); t.style.opacity='.4' });
+      h.appendChild(r);
+    },
     themes:function(h){
       var r=document.createElement('div'); r.className='chiprow';
       [['Light','#F7F3EC','#FFFFFF','#C9C1B2','#2A2622'],
@@ -484,7 +509,7 @@
       {id:'sixseats', t:'Up to 6 players',
        d:'Seat counts 2 through 6, in every mode — solo with AI, pass and play, private rooms and quick match. Humans and AI can be mixed in any combination.'},
       {id:'hexboard', t:'The six-seat board — final', tag:'UPDATED',
-       d:'<b>Centre is back to six sides</b>, as you decided, and slightly larger so each arm still meets it on a flat edge. The <b>outer plate keeps its twelve sides</b> — six facing the arms, six facing the homes. Paths no longer collide (arms stop at radius 102, giving 27.4° of half-width against a 30° budget), home bases are <b>triangles with 4 slots</b>, and every home column carries a <b>coloured arrow</b> on its turn-in square.',
+       d:'<b>Corners now meet at a point.</b> Each home triangle reaches all the way in so its apex lands exactly on a corner of the centre hexagon — three corners converging on one point, six times around the board. Centre is six-sided; the <b>outer plate keeps its twelve sides</b>. Paths do not collide (arms stop at radius 102, 27.4° of half-width against a 30° budget), home bases are <b>triangles with 4 slots</b>, and every home column carries a <b>coloured arrow</b> on its turn-in square.',
        v:VIS.hex},
       {id:'chipcount', t:'3 or 4 chips — the player chooses', tag:'UPDATED',
        d:'<b>Changed per your note:</b> chips per player is now a selector on the rules screen at every seat count — 2, 3 or 4. Three keeps a six-seat round short, four is the traditional game. The yard is always drawn with four slots, so switching never changes the board.'},
@@ -553,12 +578,15 @@
     {g:'Build order', items:[
       {id:'firstbuild', t:'What gets built first',
        d:'Rules engine with tests, then the board and chips, then pass and play — a real game you can hold after phase 2, before any server exists. AI, custom rules, then online. Light/dark theming is now part of the board work, not a later phase.'},
+      {id:'movablering', t:'A ring on every chip you can move', tag:'NEW',
+       d:'<b>Added per your note.</b> The moment the dice lands, every chip of yours with a legal move gets a <b>ring in your own colour</b>. It answers both questions at once — where your chips are, and which of them this particular roll can actually move. Chips with no legal move stay plain. The ring carries a slow outward pulse so it reads even in a crowded corner, and it disappears the moment you move.',
+       v:VIS.rings},
       {id:'anything', t:'Anything missing?',
        d:'Modes, rules, screens, or details of how a chip should behave that have not come up yet. Write it here.'}
     ]}
   ];
 
-  var KEY='ludo-review-v5';
+  var KEY='ludo-review-v6';
   var state = {};
   try{ state = JSON.parse(localStorage.getItem(KEY)||'{}') }catch(e){ state={} }
   function save(){ try{ localStorage.setItem(KEY, JSON.stringify(state)) }catch(e){} }

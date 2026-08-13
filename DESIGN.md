@@ -249,8 +249,8 @@ count and radius change.
 | Arm clearance | inner edge 87 → half-angle `atan(45/87)` = 27.4° | Under 30°, so **adjacent arms cannot collide** |
 | Centre | **Hexagon**, circumradius **100** (apothem 86.6) | Flat edge meets each arm; large enough that the paths no longer collide |
 | Plate | 12-gon, circumradius **282** | Vertices at ±15° off each arm, so **6 edges face the arms and 6 face the homes** |
-| Yard | triangle, apex r=140 → base r=247, half-width 70 | Fits the wedge between two arms with clearance at every radius |
-| Yard slots | (185, 0) (213, ±24) (226, 0) | Four resting places, always drawn |
+| Yard | triangle, apex r=**100** → base r=247, half-width 70 | Apex lands **on a corner of the centre hexagon**, so three corners meet at one point |
+| Yard slots | (183, 0) (211, ±24) (223, 0) | Four resting places, always drawn |
 | Dice place | radius **297** on each yard axis | One per seat, just outside that seat's own corner |
 
 Each home column carries a **coloured arrow on its turn-in square**, pointing at the centre,
@@ -421,6 +421,11 @@ deficiency.
 token plus a count badge. Same-seat groups stack front-to-back; mixed seats sit side by side
 — *whose* tokens are there matters more than how many. Tapping a crowded square fans its
 tokens into an arc above the board so each is individually selectable.
+
+**Legal-move ring.** The moment the dice lands, **every token of the player on turn that has a
+legal move is ringed in that player's colour** — a 3.5 px ring with a soft tint and a slow
+outward pulse. It answers where your tokens are and which of them this roll can move, in one
+glance. Tokens with no legal move stay plain; the ring clears as soon as a move is made.
 
 **Movement.** One hop per pip — a roll of 5 is five separate ~150 ms arcs, so the move can
 be counted as it happens. Landing squashes 1.12 × 0.88 and recovers over 90 ms; the contact
