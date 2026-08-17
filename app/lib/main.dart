@@ -39,6 +39,7 @@ class _SetupScreenState extends State<SetupScreen> {
   int _tokens = 4;
   bool _teams = false;
   bool _pairMove = false;
+  bool _blockades = true;
 
   /// How many seats the computer takes, and how hard it plays. Seat 0 is
   /// always yours; the computer fills from the last seat backwards.
@@ -64,6 +65,7 @@ class _SetupScreenState extends State<SetupScreen> {
       tokensPerPlayer: _tokens,
       teams: teams,
       pairMove: _pairMove,
+      blockades: _blockades,
     );
   }
 
@@ -201,6 +203,17 @@ class _SetupScreenState extends State<SetupScreen> {
                               ? '3 v 3 — partners seated alternately'
                               : '2 v 2 — partners sit opposite'
                         : 'Needs 4 or 6 seats',
+                  ),
+                ),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  value: _blockades,
+                  onChanged: (v) => setState(() => _blockades = v),
+                  title: const Text('Blockades'),
+                  subtitle: const Text(
+                    'Two chips of one player on a square make a wall nobody '
+                    'can pass. Turn it off and chips travel through each '
+                    'other freely',
                   ),
                 ),
                 SwitchListTile(

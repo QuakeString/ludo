@@ -154,6 +154,26 @@ class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
 /// The die that can be tapped to roll, when there is one.
 const rollDieKey = ValueKey<String>('roll-die');
 
+/// The number a settled die actually shows when it has been rolled [value].
+///
+/// Exposed so a test can assert the one thing a die must never get wrong: the
+/// number you read off it is the number that was rolled. It got this wrong for
+/// 2 and 5 — the chip moved the right distance while the face showed the
+/// number on the opposite side.
+int faceShownFor(int value) {
+  final (rx, ry) = _CubePainter._restFor(value);
+  var best = 0;
+  var bestZ = double.negativeInfinity;
+  for (var f = 0; f < 6; f++) {
+    final z = _CubePainter._rotate(_CubePainter._normalOf(f), rx, ry)[2];
+    if (z > bestZ) {
+      bestZ = z;
+      best = f;
+    }
+  }
+  return _CubePainter._values[best];
+}
+
 /// The resting place of a seat that does not currently hold the die.
 class _EmptyPlace extends StatelessWidget {
   const _EmptyPlace({required this.size, required this.palette});
@@ -245,13 +265,17 @@ class _CubePainter extends CustomPainter {
   };
 
   /// The rotation that brings a given number to the front.
+  /// Screen y grows downward, so the face marked 2 sits at -Y and needs a
+  /// *negative* turn about X to come forward. Having those two signs the wrong
+  /// way round swapped 2 and 5 on the settled die: the chip moved the number
+  /// that was rolled while the die showed the number opposite it.
   static (double, double) _restFor(int v) => switch (v) {
     1 => (0, 0),
     6 => (0, math.pi),
     3 => (0, -math.pi / 2),
     4 => (0, math.pi / 2),
-    2 => (math.pi / 2, 0),
-    _ => (-math.pi / 2, 0),
+    2 => (-math.pi / 2, 0),
+    _ => (math.pi / 2, 0),
   };
 
   @override
