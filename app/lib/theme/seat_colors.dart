@@ -23,6 +23,15 @@ const seatNames = <String>[
   'Orange',
 ];
 
+/// The colour and name of a *place* on the board.
+///
+/// A Ludo board has its colours painted on before anyone sits down; a player
+/// takes the colour of the corner they play from. Keying off the seat index
+/// instead meant an unoccupied corner had no colour of its own — which is
+/// exactly the corner that needs one, because the board still has to show it.
+Color colourOfArm(int arm) => seatColors[arm % seatColors.length];
+String nameOfArm(int arm) => seatNames[arm % seatNames.length];
+
 /// Everything the board painter needs to draw in one theme.
 ///
 /// Dark is a real palette, not a filter over the light one: the surface, grid

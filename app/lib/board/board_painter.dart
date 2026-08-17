@@ -5,6 +5,7 @@ import 'package:ludo_engine/ludo_engine.dart';
 import 'package:ludo_geometry/ludo_geometry.dart';
 
 import '../theme/seat_colors.dart';
+import 'chip_layout.dart';
 import 'chip_painter.dart';
 import 'move_animation.dart';
 
@@ -78,7 +79,7 @@ class BoardPainter extends CustomPainter {
         canvas,
         px(m.ground),
         chipWidth,
-        seatColors[token.owner],
+        colourOfArm(state.armOf(token.owner)),
         lift: m.lift * chipWidth * 0.7,
         squash: m.squash,
         scale: m.scale,
@@ -228,7 +229,7 @@ class BoardPainter extends CustomPainter {
         Paint()
           ..color = seat == null
               ? palette.cell
-              : seatColors[seat].withValues(alpha: 0.9),
+              : colourOfArm(arm).withValues(alpha: 0.9),
       );
     }
   }
@@ -313,58 +314,41 @@ class BoardPainter extends CustomPainter {
     );
   }
 
-  /// The colour an arm wears.
-  ///
-  /// A seated arm takes its player's colour. An empty one is drawn in a muted
-  /// neutral: the board stays whole, and nobody has to work out whether that
-  /// green house belongs to a player who is not there.
-  Color _armColour(int arm) {
-    final seat = _seatOnArm(arm);
-    if (seat != null) return seatColors[seat];
-    return Color.lerp(palette.line, palette.plate, 0.45)!;
-  }
+  /// The colour an arm wears — its own, whether or not anybody is sitting
+  /// there. An empty corner of a Ludo board is still a coloured corner; what
+  /// marks it empty is that no chips are standing in it.
+  Color _armColour(int arm) => colourOfArm(arm);
 
   // --- chips ---------------------------------------------------------------
 
   void _paintChips(Canvas canvas, Offset Function(Pt) px, double cell) {
     final chipWidth = cell * (spec.arms == 4 ? 0.78 : 0.66);
     final movable = {for (final m in legalMoves) ...m.tokenIds};
+    final layout = chipLayout(state, geometry);
 
     // Group by where they stand, so a crowded square can be drawn as a group
     // rather than as overlapping singles.
     final groups = <String, List<Token>>{};
     for (final token in state.tokens) {
+      if (motions.containsKey(token.id)) continue; // in flight
       final arm = state.armOf(token.owner);
       final key = token.inYard
           ? 'yard-${token.owner}'
           : spec.isFinished(token.progress)
           ? 'home-${token.owner}'
           : 'p-$arm-${token.progress}';
-      if (motions.containsKey(token.id)) continue; // in flight
       groups.putIfAbsent(key, () => []).add(token);
     }
 
     for (final group in groups.values) {
-      final first = group.first;
-      final arm = state.armOf(first.owner);
-
-      if (first.inYard) {
+      if (group.first.inYard) {
         // Idle chips sit in their own resting places, never stacked.
-        final slots = geometry.yardSlots(arm);
-        for (var i = 0; i < group.length; i++) {
-          _chip(
-            canvas,
-            px(slots[i % slots.length]),
-            chipWidth,
-            group[i],
-            movable,
-            cell,
-          );
+        for (final token in group) {
+          _chip(canvas, px(layout[token.id]!), chipWidth, token, movable, cell);
         }
         continue;
       }
-
-      final at = px(geometry.tokenAt(arm, first.progress));
+      final at = px(layout[group.first.id]!);
       _paintGroup(canvas, at, chipWidth, group, movable, cell);
     }
   }
@@ -464,7 +448,7 @@ class BoardPainter extends CustomPainter {
     int? badge,
     bool ghost = false,
   }) {
-    final colour = seatColors[token.owner];
+    final colour = colourOfArm(state.armOf(token.owner));
     if (movable.contains(token.id) && !ghost) {
       ChipArt.paintLegalRing(canvas, ground, width, colour, pulse: pulse);
     }

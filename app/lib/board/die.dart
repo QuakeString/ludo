@@ -16,7 +16,7 @@ class DieFace extends StatefulWidget {
   const DieFace({
     super.key,
     required this.value,
-    required this.seat,
+    required this.arm,
     this.size = 42,
     this.live = false,
     this.onTap,
@@ -25,7 +25,9 @@ class DieFace extends StatefulWidget {
 
   /// The number showing, or null when this seat has not rolled.
   final int? value;
-  final int seat;
+
+  /// The board position this die belongs to.
+  final int arm;
   final double size;
 
   /// Whether this seat is the one on turn.
@@ -125,7 +127,7 @@ class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
         size: Size.square(widget.size),
         painter: _CubePainter(
           value: _showing,
-          colour: seatColors[widget.seat],
+          colour: colourOfArm(widget.arm),
           face: palette.die,
           pip: palette.pip,
           t: _roll.value,
@@ -258,14 +260,15 @@ class _CubePainter extends CustomPainter {
     final half = s * 0.31;
     final centre = Offset(size.width / 2, size.height / 2);
 
-    // A die seen face-on looks like a square, which is the thing we are trying
-    // not to draw. The resting pose is tilted so three faces always show.
-    const tiltX = -0.52, tiltY = 0.62;
+    // The throw tumbles in three dimensions, and then the die lands square to
+    // the camera. A number read off a corner-on cube is a number you have to
+    // work out; the point of the roll is the answer, so the answer is shown
+    // flat. The 3D is in the throw, not in the result.
     final (restX, restY) = _restFor(value);
 
     final settle = Curves.easeOutCubic.transform(t.clamp(0.0, 1.0));
-    final rx = _lerp(fromX - spin * math.pi * 2, restX + tiltX, settle);
-    final ry = _lerp(fromY + spin * math.pi * 2, restY + tiltY, settle);
+    final rx = _lerp(fromX - spin * math.pi * 2, restX, settle);
+    final ry = _lerp(fromY + spin * math.pi * 2, restY, settle);
 
     // A throw arcs: the die lifts and drops back onto its place.
     final hop = math.sin(math.pi * t.clamp(0.0, 1.0)) * s * 0.17;

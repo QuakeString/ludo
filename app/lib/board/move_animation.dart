@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:ludo_engine/ludo_engine.dart';
 import 'package:ludo_geometry/ludo_geometry.dart';
 
+import 'chip_layout.dart';
+
 /// Where a chip is drawn mid-move, and how it is deformed.
 class ChipMotion {
   const ChipMotion({
@@ -62,12 +64,11 @@ class MoveAnimation {
     final arm = s.armOf(owner);
     if (move.kind == MoveKind.enter) {
       final token = s.tokens[move.tokenId];
-      final slot = s
-          .tokensOf(owner)
-          .where((t) => t.inYard)
-          .toList()
-          .indexWhere((t) => t.id == token.id);
-      return [g.tokenAt(arm, -1, slot: slot < 0 ? 0 : slot), g.tokenAt(arm, 0)];
+      // The chip leaves from the place it was actually sitting in.
+      return [
+        g.tokenAt(arm, -1, slot: yardSlotOf(s, token)),
+        g.tokenAt(arm, 0),
+      ];
     }
     return [
       for (var p = move.fromProgress; p <= move.toProgress; p++)
@@ -132,7 +133,9 @@ class MoveAnimation {
     final home = geometry.tokenAt(
       before.armOf(token.owner),
       -1,
-      slot: tokenId % 4,
+      // Its own resting place, not id-modulo-four: token ids are global, so
+      // that only lined up while every player had exactly four chips.
+      slot: yardSlotOf(before, token),
     );
     return ChipMotion(
       ground: Pt(

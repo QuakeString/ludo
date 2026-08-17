@@ -15,7 +15,7 @@ import 'die.dart';
 class SeatPanel extends StatelessWidget {
   const SeatPanel({
     super.key,
-    required this.seat,
+    required this.arm,
     required this.name,
     required this.home,
     required this.total,
@@ -30,7 +30,8 @@ class SeatPanel extends StatelessWidget {
     this.compact = false,
   });
 
-  final int seat;
+  /// The arm this seat plays from — which is what decides its colour.
+  final int arm;
   final String name;
 
   /// Chips finished, out of [total].
@@ -65,10 +66,10 @@ class SeatPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
-    final colour = seatColors[seat];
+    final colour = colourOfArm(arm);
     final die = DieFace(
       value: dice,
-      seat: seat,
+      arm: arm,
       size: compact ? 38 : 46,
       live: onTurn,
       // The die is the roll button. There is no second one anywhere else.
@@ -94,7 +95,7 @@ class SeatPanel extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            _Avatar(seat: seat, compact: compact, robot: isComputer),
+            _Avatar(arm: arm, compact: compact, robot: isComputer),
             SizedBox(width: compact ? 6 : 8),
             // Flexible, so a long name gives way rather than overflowing when
             // three panels share a phone's width at six seats.
@@ -209,12 +210,12 @@ class _RollPointerState extends State<_RollPointer>
 /// initial, which is still a face rather than a blank.
 class _Avatar extends StatelessWidget {
   const _Avatar({
-    required this.seat,
+    required this.arm,
     required this.compact,
     required this.robot,
   });
 
-  final int seat;
+  final int arm;
   final bool compact;
   final bool robot;
 
@@ -223,7 +224,7 @@ class _Avatar extends StatelessWidget {
     final r = compact ? 12.0 : 14.0;
     return CircleAvatar(
       radius: r,
-      backgroundColor: seatColors[seat],
+      backgroundColor: colourOfArm(arm),
       child: Icon(
         robot ? Icons.smart_toy : Icons.person,
         size: r * 1.05,

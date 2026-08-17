@@ -6,6 +6,7 @@ import 'package:ludo_geometry/ludo_geometry.dart';
 import 'package:ludo_protocol/ludo_protocol.dart';
 
 import '../board/board_painter.dart';
+import '../board/chip_layout.dart';
 import '../board/move_animation.dart';
 import '../board/seat_panel.dart';
 import '../net/online_session.dart';
@@ -304,11 +305,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final side = size.shortestSide;
     final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
 
+    // Ask where the chips are actually drawn. Working it out separately from
+    // the painter is what made every chip in a yard share one hit target.
+    final layout = chipLayout(_state, _geometry);
+
     Move? best;
     var bestDistance = double.infinity;
     for (final move in moves) {
-      final token = _state.tokens[move.tokenId];
-      final at = _geometry.tokenAt(_state.armOf(token.owner), token.progress);
+      final at = layout[move.tokenId];
+      if (at == null) continue;
       final d = (origin + Offset(at.x * side, at.y * side) - local).distance;
       if (d < bestDistance) {
         bestDistance = d;
@@ -369,7 +374,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // people say out loud — "green is winning", never "the normal computer is
     // winning". The robot on its avatar is what marks it as not a person, and
     // it costs no width, which matters when six panels share a phone.
-    return seatNames[seat];
+    return nameOfArm(_state.armOf(seat));
   }
 
   Widget _seatRow({required bool top}) {
@@ -390,55 +395,62 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
     return Padding(
       padding: EdgeInsets.fromLTRB(10, top ? 4 : 8, 10, top ? 8 : 4),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          for (final seat in seats) ...[
-            if (seat != seats.first) const SizedBox(width: 7),
-            fit(
-              SeatPanel(
-                seat: seat,
-                name: _nameOf(seat),
-                isComputer:
-                    widget.aiSeats.containsKey(seat) ||
-                    (_session?.room?.seats.length ?? 0) > seat &&
-                        (_session?.room?.seats[seat].isComputer ?? false),
-                home: _state
-                    .tokensOf(seat)
-                    .where((t) => _state.board.isFinished(t.progress))
-                    .length,
-                total: rules.tokensPerPlayer,
-                onTurn: seat == _state.turn && !_state.isOver,
-                // Only the seat on turn holds the die, and only once it has been
-                // rolled — an unrolled die shows an empty face, not a stale one.
-                dice: seat == _state.turn ? _state.dice : null,
-                timerDots: rules.turnTimerDots,
-                dotsLit: (left == null || limit <= 0)
-                    ? rules.turnTimerDots
-                    : (left * rules.turnTimerDots / limit).ceil().clamp(
-                        0,
-                        rules.turnTimerDots,
-                      ),
-                connected: session == null
-                    ? true
-                    : (session.room?.seats.length ?? 0) > seat
-                    ? session.room!.seats[seat].connected
-                    : true,
-                // The die is the roll button for whoever may roll.
-                onRoll: (seat == _state.turn && _myMove && _state.awaitingRoll)
-                    ? _roll
-                    : null,
-                // The pointer shows for whoever has to roll, whether or not
-                // this device is the one that may tap.
-                awaitingRoll:
-                    seat == _state.turn &&
-                    _state.awaitingRoll &&
-                    !_state.isOver,
-                compact: rules.players > 4,
+      // A fixed height. Everything between the two seat rows is the board, so
+      // anything that changes height here changes the board's size — and a
+      // board that resizes mid-roll flickers.
+      child: SizedBox(
+        height: rules.players > 4 ? 54 : 64,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            for (final seat in seats) ...[
+              if (seat != seats.first) const SizedBox(width: 7),
+              fit(
+                SeatPanel(
+                  arm: _state.armOf(seat),
+                  name: _nameOf(seat),
+                  isComputer:
+                      widget.aiSeats.containsKey(seat) ||
+                      (_session?.room?.seats.length ?? 0) > seat &&
+                          (_session?.room?.seats[seat].isComputer ?? false),
+                  home: _state
+                      .tokensOf(seat)
+                      .where((t) => _state.board.isFinished(t.progress))
+                      .length,
+                  total: rules.tokensPerPlayer,
+                  onTurn: seat == _state.turn && !_state.isOver,
+                  // Only the seat on turn holds the die, and only once it has been
+                  // rolled — an unrolled die shows an empty face, not a stale one.
+                  dice: seat == _state.turn ? _state.dice : null,
+                  timerDots: rules.turnTimerDots,
+                  dotsLit: (left == null || limit <= 0)
+                      ? rules.turnTimerDots
+                      : (left * rules.turnTimerDots / limit).ceil().clamp(
+                          0,
+                          rules.turnTimerDots,
+                        ),
+                  connected: session == null
+                      ? true
+                      : (session.room?.seats.length ?? 0) > seat
+                      ? session.room!.seats[seat].connected
+                      : true,
+                  // The die is the roll button for whoever may roll.
+                  onRoll:
+                      (seat == _state.turn && _myMove && _state.awaitingRoll)
+                      ? _roll
+                      : null,
+                  // The pointer shows for whoever has to roll, whether or not
+                  // this device is the one that may tap.
+                  awaitingRoll:
+                      seat == _state.turn &&
+                      _state.awaitingRoll &&
+                      !_state.isOver,
+                  compact: rules.players > 4,
+                ),
               ),
-            ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
@@ -570,7 +582,7 @@ class _TurnBar extends StatelessWidget {
       if (name != null && name.isNotEmpty) return name;
     }
     if (aiSeats.containsKey(seat)) return 'Computer (${aiSeats[seat]!.name})';
-    return seatNames[seat];
+    return nameOfArm(state.armOf(seat));
   }
 
   @override
@@ -595,7 +607,7 @@ class _TurnBar extends StatelessWidget {
             width: 13,
             height: 13,
             decoration: BoxDecoration(
-              color: seatColors[seat],
+              color: colourOfArm(state.armOf(seat)),
               shape: BoxShape.circle,
             ),
           ),
@@ -665,33 +677,39 @@ class _Controls extends StatelessWidget {
     final palette = BoardPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // The seat panels carry who is who and how many chips are home, so
-          // this bar is only ever about what to do next.
-          const Spacer(),
-          if (state.isOver)
-            const Text(
-              'Game over',
-              style: TextStyle(fontWeight: FontWeight.w700),
-            )
-          else if (busy || isComputerTurn)
-            const Text('Thinking…', style: TextStyle(fontSize: 12.5))
-          else if (state.awaitingRoll)
-            // No button: the die in the seat's own place is what you tap.
-            Text(
-              'Tap the die to roll',
-              style: TextStyle(fontSize: 12.5, color: palette.faint),
-            )
-          else if (moves.isEmpty)
-            OutlinedButton(onPressed: onPass, child: const Text('Pass'))
-          else
-            Text(
-              '${moves.length} move${moves.length == 1 ? '' : 's'} — tap a chip',
-              style: const TextStyle(fontSize: 12.5),
-            ),
-        ],
+      // Fixed, for the same reason as the seat rows: this bar swaps a line of
+      // text for a Pass button as the turn goes on, and a button is taller
+      // than a line of text.
+      child: SizedBox(
+        height: 40,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // The seat panels carry who is who and how many chips are home, so
+            // this bar is only ever about what to do next.
+            const Spacer(),
+            if (state.isOver)
+              const Text(
+                'Game over',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              )
+            else if (busy || isComputerTurn)
+              const Text('Thinking…', style: TextStyle(fontSize: 12.5))
+            else if (state.awaitingRoll)
+              // No button: the die in the seat's own place is what you tap.
+              Text(
+                'Tap the die to roll',
+                style: TextStyle(fontSize: 12.5, color: palette.faint),
+              )
+            else if (moves.isEmpty)
+              OutlinedButton(onPressed: onPass, child: const Text('Pass'))
+            else
+              Text(
+                '${moves.length} move${moves.length == 1 ? '' : 's'} — tap a chip',
+                style: const TextStyle(fontSize: 12.5),
+              ),
+          ],
+        ),
       ),
     );
   }
