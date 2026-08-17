@@ -40,10 +40,18 @@ jobs:
         # 404s. --no-web-resources-cdn keeps CanvasKit in the deployment
         # instead of fetching it from gstatic, so the game still loads on a
         # network that blocks Google's CDN.
+        #
+        # --pwa-strategy=none turns off the service worker. With it on, the
+        # first visit after a deploy serves the *previous* build from cache and
+        # only picks up the new one on a later load — so a successful deploy
+        # still looks like nothing changed. While the game is being reviewed
+        # every few minutes, seeing the current build matters more than
+        # offline caching, which is really the native builds' job anyway.
         run: |
           flutter pub get
           flutter build web --release \
             --no-web-resources-cdn \
+            --pwa-strategy=none \
             --base-href "/${GITHUB_REPOSITORY#*/}/"
 
       - name: Serve the same page for deep links
@@ -58,7 +66,20 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
+      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
     steps:
+      # Pages hands out a 503 now and then. The build is already done and
+      # uploaded by this point, so a transient failure here throws away a good
+      # artifact and leaves the site a commit behind — worth one retry rather
+      # than a re-run somebody has to notice and click.
       - id: deployment
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - name: Wait, in case Pages is having a moment
+        if: steps.deployment.outcome == 'failure'
+        run: sleep 45
+
+      - id: retry
+        if: steps.deployment.outcome == 'failure'
         uses: actions/deploy-pages@v4
