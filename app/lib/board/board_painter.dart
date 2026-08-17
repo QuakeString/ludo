@@ -22,6 +22,7 @@ class BoardPainter extends CustomPainter {
     required this.legalMoves,
     this.pulse = 0,
     this.motions = const {},
+    this.glowSeat,
   });
 
   final GameState state;
@@ -32,6 +33,10 @@ class BoardPainter extends CustomPainter {
   /// 0..1, drives the ring's outward pulse.
   final double pulse;
 
+  /// The seat whose house should glow — set only while they still have to
+  /// roll, so the board asks for a roll and then stops asking.
+  final int? glowSeat;
+
   /// Tokens in flight, keyed by token id. These are lifted out of the static
   /// layout and drawn last, so a hopping chip passes over the board rather
   /// than under whatever it is hopping towards.
@@ -39,11 +44,16 @@ class BoardPainter extends CustomPainter {
 
   BoardSpec get spec => state.board;
 
+  /// The projector for the paint currently running, so helpers below can map
+  /// board coordinates without every one of them taking it as an argument.
+  Offset Function(Pt)? _lastPx;
+
   @override
   void paint(Canvas canvas, Size size) {
     final side = math.min(size.width, size.height);
     final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
     Offset px(Pt p) => origin + Offset(p.x * side, p.y * side);
+    _lastPx = px;
     final cell = geometry.cellSize * side;
 
     _paintPlate(canvas, px, side);
@@ -119,24 +129,25 @@ class BoardPainter extends CustomPainter {
     for (var i = 0; i < spec.trackLength; i++) {
       _paintCell(canvas, geometry.ringCell(i), px, cell, palette.cell);
     }
-    // A seat's start square wears its colour.
-    for (var p = 0; p < state.rules.players; p++) {
-      final arm = state.armOf(p);
+    // A seat's start square wears its colour. Every arm is drawn, seated or
+    // not: a two-player game is still played on a four-armed board, and a board
+    // missing two of its arms looks broken rather than empty.
+    for (var arm = 0; arm < spec.arms; arm++) {
       _paintCell(
         canvas,
         geometry.ringCell(spec.startRing(arm)),
         px,
         cell,
-        seatColors[p],
+        _armColour(arm),
       );
     }
   }
 
   void _paintHomeColumns(Canvas canvas, Offset Function(Pt) px, double cell) {
-    for (var p = 0; p < state.rules.players; p++) {
-      final arm = state.armOf(p);
+    for (var arm = 0; arm < spec.arms; arm++) {
+      final colour = _armColour(arm);
       for (var i = 0; i < spec.homeColumn; i++) {
-        _paintCell(canvas, geometry.homeCell(arm, i), px, cell, seatColors[p]);
+        _paintCell(canvas, geometry.homeCell(arm, i), px, cell, colour);
       }
     }
   }
@@ -164,9 +175,12 @@ class BoardPainter extends CustomPainter {
   }
 
   /// The arrow on each turn-in square, pointing the way into that seat's home.
+  ///
+  /// Drawn as a line and a chevron rather than a filled wedge: it is a
+  /// direction sign on a square a chip has to stand on, so it should read at a
+  /// glance and then get out of the way.
   void _paintTurnInArrows(Canvas canvas, Offset Function(Pt) px, double cell) {
-    for (var p = 0; p < state.rules.players; p++) {
-      final arm = state.armOf(p);
+    for (var arm = 0; arm < spec.arms; arm++) {
       final turnIn = geometry.turnInCell(arm);
       final from = px(turnIn.centre);
       final to = px(geometry.homeCell(arm, 0).centre);
@@ -176,32 +190,30 @@ class BoardPainter extends CustomPainter {
       final unit = dir / len;
       final normal = Offset(-unit.dy, unit.dx);
 
-      final tip = from + unit * (cell * 0.26);
-      final backA = from - unit * (cell * 0.10) + normal * (cell * 0.26);
-      final backB = from - unit * (cell * 0.10) - normal * (cell * 0.26);
-      final path = Path()
-        ..moveTo(tip.dx, tip.dy)
-        ..lineTo(backA.dx, backA.dy)
-        ..lineTo(backB.dx, backB.dy)
-        ..close();
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = palette.cell
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = cell * 0.09
-          ..strokeJoin = StrokeJoin.round,
-      );
-      canvas.drawPath(path, Paint()..color = seatColors[p]);
+      final tip = from + unit * (cell * 0.30);
+      final tail = from - unit * (cell * 0.30);
+      final wing = cell * 0.17;
 
-      final tail = from - unit * (cell * 0.34);
-      canvas.drawLine(
-        tail,
-        from - unit * (cell * 0.08),
-        Paint()
-          ..color = seatColors[p]
-          ..strokeWidth = cell * 0.14
-          ..strokeCap = StrokeCap.round,
+      final paint = Paint()
+        ..color = _armColour(arm)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cell * 0.055
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round;
+
+      canvas.drawLine(tail, tip, paint);
+      canvas.drawPath(
+        Path()
+          ..moveTo(
+            tip.dx - unit.dx * wing + normal.dx * wing,
+            tip.dy - unit.dy * wing + normal.dy * wing,
+          )
+          ..lineTo(tip.dx, tip.dy)
+          ..lineTo(
+            tip.dx - unit.dx * wing - normal.dx * wing,
+            tip.dy - unit.dy * wing - normal.dy * wing,
+          ),
+        paint,
       );
     }
   }
@@ -222,29 +234,25 @@ class BoardPainter extends CustomPainter {
   }
 
   void _paintYards(Canvas canvas, Offset Function(Pt) px, double cell) {
-    for (var p = 0; p < state.rules.players; p++) {
-      final arm = state.armOf(p);
-      final colour = seatColors[p];
+    for (var arm = 0; arm < spec.arms; arm++) {
+      final colour = _armColour(arm);
+      final seat = _seatOnArm(arm);
+      final glowing = seat != null && seat == glowSeat;
 
       if (geometry is CrossGeometry) {
         final (tl, br) = (geometry as CrossGeometry).yardSquare(arm);
         final rect = Rect.fromPoints(px(tl), px(br));
-        final rr = RRect.fromRectAndRadius(rect, Radius.circular(cell * 0.35));
-        canvas.drawRRect(rr, Paint()..color = colour);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            rect.deflate(cell),
-            Radius.circular(cell * 0.28),
-          ),
+        canvas.drawRect(rect, Paint()..color = colour);
+        canvas.drawRect(
+          rect.deflate(cell),
           Paint()..color = palette.homeInterior,
         );
+        if (glowing) _glow(canvas, Path()..addRect(rect), colour, cell);
       } else {
         final tri = geometry.yardShape(arm);
         final outer = [px(tri.a), px(tri.b), px(tri.c)];
-        canvas.drawPath(
-          Path()..addPolygon(outer, true),
-          Paint()..color = colour,
-        );
+        final path = Path()..addPolygon(outer, true);
+        canvas.drawPath(path, Paint()..color = colour);
         final centroid = Offset(
           outer.map((o) => o.dx).reduce((a, b) => a + b) / 3,
           outer.map((o) => o.dy).reduce((a, b) => a + b) / 3,
@@ -255,14 +263,65 @@ class BoardPainter extends CustomPainter {
           ], true),
           Paint()..color = palette.homeInterior,
         );
+        if (glowing) _glow(canvas, path, colour, cell);
       }
 
       // Four resting places, always drawn — switching between three and four
-      // chips must never change the board.
+      // chips must never change the board, and an unseated arm still shows
+      // where its chips would stand.
       for (final slot in geometry.yardSlots(arm)) {
         canvas.drawCircle(px(slot), cell * 0.38, Paint()..color = palette.slot);
       }
     }
+  }
+
+  /// A breathing outline round the house of whoever has to roll.
+  ///
+  /// Only while they are still to roll: once the dice are down the thing that
+  /// needs attention is a chip on the board, not the house.
+  void _glow(Canvas canvas, Path path, Color colour, double cell) {
+    final breath = 0.5 + 0.5 * math.sin(pulse * math.pi * 2);
+
+    // Clipped to the board. A halo is drawn by stroking outward, and a house
+    // sits on the board's edge — unclipped it spills onto the page and reads
+    // as a rendering fault rather than as a light.
+    final plate = Path()
+      ..addPolygon([
+        for (final p in geometry.plateOutline()) _lastPx!(p),
+      ], true);
+    canvas.save();
+    canvas.clipPath(plate);
+    for (var i = 2; i >= 1; i--) {
+      canvas.drawPath(
+        path,
+        Paint()
+          ..color = colour.withValues(alpha: 0.14 * breath / i)
+          ..style = PaintingStyle.stroke
+          ..strokeWidth = cell * (0.20 + 0.28 * breath) * i,
+      );
+    }
+    canvas.restore();
+
+    // A crisp lit edge just inside the house, so it reads as the house lighting
+    // up rather than as a smudge near it.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = Colors.white.withValues(alpha: 0.30 + 0.40 * breath)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = cell * 0.09,
+    );
+  }
+
+  /// The colour an arm wears.
+  ///
+  /// A seated arm takes its player's colour. An empty one is drawn in a muted
+  /// neutral: the board stays whole, and nobody has to work out whether that
+  /// green house belongs to a player who is not there.
+  Color _armColour(int arm) {
+    final seat = _seatOnArm(arm);
+    if (seat != null) return seatColors[seat];
+    return Color.lerp(palette.line, palette.plate, 0.45)!;
   }
 
   // --- chips ---------------------------------------------------------------
@@ -431,6 +490,7 @@ class BoardPainter extends CustomPainter {
       old.state != state ||
       old.palette != palette ||
       old.pulse != pulse ||
+      old.glowSeat != glowSeat ||
       old.legalMoves.length != legalMoves.length ||
       !identical(old.motions, motions) ||
       old.motions.length != motions.length;

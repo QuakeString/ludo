@@ -174,6 +174,10 @@ class ChipArt {
   /// Drawn under the chip in the seat's own colour, so a glance answers both
   /// questions at once: where your chips are, and which of them this roll can
   /// actually move.
+  /// The ring round a chip that can move: a dashed circle, turning.
+  ///
+  /// Movement is what the eye catches. A ring that only pulses can be mistaken
+  /// for a highlight; one that revolves is unmistakably saying "this one, now".
   static void paintLegalRing(
     Canvas canvas,
     Offset ground,
@@ -181,29 +185,28 @@ class ChipArt {
     Color color, {
     double pulse = 0,
   }) {
-    final r = width * 0.66;
+    final r = width * 0.68;
+
+    // A soft disc underneath lifts the ring off a busy square.
     canvas.drawCircle(
       ground,
-      r + width * 0.14,
+      r + width * 0.16,
       Paint()..color = color.withValues(alpha: 0.13),
     );
-    canvas.drawCircle(
-      ground,
-      r,
-      Paint()
-        ..color = color
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width * 0.09,
-    );
-    if (pulse > 0) {
-      canvas.drawCircle(
-        ground,
-        r * (1 + 0.4 * pulse),
-        Paint()
-          ..color = color.withValues(alpha: 0.75 * (1 - pulse))
-          ..style = PaintingStyle.stroke
-          ..strokeWidth = width * 0.08,
-      );
+
+    const dashes = 10;
+    final sweep = math.pi * 2 / dashes;
+    final gap = sweep * 0.42;
+    final turn = pulse * math.pi * 2 / dashes; // one dash per cycle, endless
+    final rect = Rect.fromCircle(center: ground, radius: r);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width * 0.10
+      ..strokeCap = StrokeCap.round;
+
+    for (var i = 0; i < dashes; i++) {
+      canvas.drawArc(rect, turn + i * sweep, sweep - gap, false, paint);
     }
   }
 }

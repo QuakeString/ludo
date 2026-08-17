@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ludo_app/board/die.dart';
 import 'package:ludo_app/board/board_painter.dart';
 import 'package:ludo_app/board/move_animation.dart';
 import 'package:ludo_app/main.dart';
@@ -96,11 +97,14 @@ void main() {
     await tester.pump();
 
     expect(find.textContaining('roll the dice'), findsOneWidget);
-    expect(find.text('Roll'), findsOneWidget);
+    // The die in the seat's own place is the roll control — there is no
+    // separate button anywhere on the screen.
+    expect(find.byKey(rollDieKey), findsOneWidget);
+    expect(find.widgetWithText(FilledButton, 'Roll'), findsNothing);
 
     // Roll until a six comes up and a chip can actually come out.
     for (var i = 0; i < 40; i++) {
-      final roll = find.text('Roll');
+      final roll = find.byKey(rollDieKey);
       if (roll.evaluate().isEmpty) break;
       await tester.tap(roll);
       await tester.pump();

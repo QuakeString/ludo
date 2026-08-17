@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme/seat_colors.dart';
@@ -23,6 +25,7 @@ class SeatPanel extends StatelessWidget {
     this.timerDots = 0,
     this.dotsLit = 0,
     this.connected = true,
+    this.awaitingRoll = false,
     this.onRoll,
     this.compact = false,
   });
@@ -47,6 +50,11 @@ class SeatPanel extends StatelessWidget {
   final int dotsLit;
   final bool connected;
 
+  /// This seat still has to roll. Drives the pointer at the die — and stops
+  /// once the dice are down, because from then on the thing to do is move a
+  /// chip, not roll again.
+  final bool awaitingRoll;
+
   /// Set when this seat may roll right now — the die itself is the button,
   /// which is the shortest path between "it is my turn" and doing something.
   final VoidCallback? onRoll;
@@ -59,10 +67,12 @@ class SeatPanel extends StatelessWidget {
     final palette = BoardPalette.of(context);
     final colour = seatColors[seat];
     final die = DieFace(
-      value: dice ?? 0,
+      value: dice,
       seat: seat,
-      size: compact ? 34 : 42,
+      size: compact ? 38 : 46,
       live: onTurn,
+      // The die is the roll button. There is no second one anywhere else.
+      onTap: onRoll,
     );
 
     return Opacity(
@@ -135,16 +145,62 @@ class SeatPanel extends StatelessWidget {
               ),
             ),
             SizedBox(width: compact ? 6 : 9),
-            onRoll == null
-                ? die
-                : GestureDetector(
-                    onTap: onRoll,
-                    behavior: HitTestBehavior.opaque,
-                    child: die,
-                  ),
+            if (awaitingRoll) _RollPointer(colour: colour, compact: compact),
+            die,
           ],
         ),
       ),
+    );
+  }
+}
+
+/// A chevron nudging toward the die of whoever has to roll.
+///
+/// It travels rather than blinks: a moving thing is found by the eye without
+/// being looked for, which is the whole job of "it is your turn".
+class _RollPointer extends StatefulWidget {
+  const _RollPointer({required this.colour, required this.compact});
+
+  final Color colour;
+  final bool compact;
+
+  @override
+  State<_RollPointer> createState() => _RollPointerState();
+}
+
+class _RollPointerState extends State<_RollPointer>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _nudge = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 900),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _nudge.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AnimatedBuilder(
+      animation: _nudge,
+      builder: (context, _) {
+        final t = Curves.easeInOut.transform(
+          (math.sin(_nudge.value * math.pi * 2) + 1) / 2,
+        );
+        return Padding(
+          padding: EdgeInsets.only(right: widget.compact ? 1 : 2),
+          child: Transform.translate(
+            offset: Offset(t * 4 - 2, 0),
+            child: Icon(
+              Icons.play_arrow_rounded,
+              size: widget.compact ? 16 : 19,
+              color: widget.colour.withValues(alpha: 0.55 + 0.45 * t),
+            ),
+          ),
+        );
+      },
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ludo_app/board/die.dart';
 import 'package:ludo_app/screens/game_screen.dart';
 import 'package:ludo_engine/ludo_engine.dart';
 
@@ -25,16 +26,9 @@ void main() {
 
   /// Taps whatever the controls currently offer, then lets timers run.
   Future<void> takeATurn(WidgetTester tester) async {
-    final roll = find.text('Roll');
+    final roll = find.byKey(rollDieKey);
     if (roll.evaluate().isNotEmpty) {
-      final button = find.ancestor(
-        of: roll,
-        matching: find.byType(FilledButton),
-      );
-      if (button.evaluate().isNotEmpty) {
-        final widget = tester.widget<FilledButton>(button.first);
-        if (widget.onPressed != null) await tester.tap(button.first);
-      }
+      if (roll.evaluate().isNotEmpty) await tester.tap(roll.first);
     }
     // Long enough for the auto-pass (900ms), the computer's beat (600ms) and
     // any move it plays out.
@@ -77,10 +71,7 @@ void main() {
     // until that happens.
     var sawTheDeadRoll = false;
     for (var i = 0; i < 10 && !sawTheDeadRoll; i++) {
-      final button = find.ancestor(
-        of: find.text('Roll'),
-        matching: find.byType(FilledButton),
-      );
+      final button = find.byKey(rollDieKey);
       if (button.evaluate().isEmpty) break;
       await tester.tap(button.first);
       await tester.pump(const Duration(milliseconds: 30));

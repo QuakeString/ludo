@@ -332,26 +332,29 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   /// Which seats sit above the board and which below.
   ///
-  /// You are always on the bottom row, because the die is a thing you reach
-  /// for — it belongs under your thumb, not across the table. Everyone else is
-  /// dealt out from the seat after yours so the order round the screen matches
-  /// the order of play.
+  /// A seat's panel goes on the same side as its house, and in the same
+  /// left-to-right order. Anything else is a small lie the player has to
+  /// decode every turn — red's house top-left with red's die at the bottom of
+  /// the screen reads as two different players.
   (List<int>, List<int>) _seatRows() {
     final n = _state.rules.players;
-    final me = _session?.yourSeat ?? 0;
-    final order = [for (var i = 0; i < n; i++) (me + i) % n];
 
-    // Two players face each other; otherwise split the table in half, with the
-    // seats that play soonest after you nearest to you.
-    final belowCount = switch (n) {
-      2 => 1,
-      3 => 1,
-      4 => 2,
-      5 => 2,
-      _ => 3,
-    };
-    final below = order.take(belowCount).toList();
-    final above = order.skip(belowCount).toList().reversed.toList();
+    Pt houseOf(int seat) {
+      final slots = _geometry.yardSlots(_state.armOf(seat));
+      final x = slots.map((p) => p.x).reduce((a, b) => a + b) / slots.length;
+      final y = slots.map((p) => p.y).reduce((a, b) => a + b) / slots.length;
+      return Pt(x, y);
+    }
+
+    final houses = {for (var seat = 0; seat < n; seat++) seat: houseOf(seat)};
+    final above = [
+      for (var seat = 0; seat < n; seat++)
+        if (houses[seat]!.y < 0.5) seat,
+    ]..sort((a, b) => houses[a]!.x.compareTo(houses[b]!.x));
+    final below = [
+      for (var seat = 0; seat < n; seat++)
+        if (houses[seat]!.y >= 0.5) seat,
+    ]..sort((a, b) => houses[a]!.x.compareTo(houses[b]!.x));
     return (above, below);
   }
 
@@ -425,6 +428,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 onRoll: (seat == _state.turn && _myMove && _state.awaitingRoll)
                     ? _roll
                     : null,
+                // The pointer shows for whoever has to roll, whether or not
+                // this device is the one that may tap.
+                awaitingRoll:
+                    seat == _state.turn &&
+                    _state.awaitingRoll &&
+                    !_state.isOver,
                 compact: rules.players > 4,
               ),
             ),
@@ -504,6 +513,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                               palette: palette,
                               legalMoves: moves,
                               pulse: _pulse.value,
+                              // The house asks for a roll, then stops asking.
+                              glowSeat: _state.awaitingRoll && !_state.isOver
+                                  ? _state.turn
+                                  : null,
                               motions: _motions(),
                             ),
                           ),
@@ -523,7 +536,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               // player's seat, and a seat being covered for — all of them mean
               // the same thing to these buttons: wait.
               isComputerTurn: !_myMove && !_state.isOver,
-              onRoll: _roll,
               onPass: () => session == null ? _passLocal() : session.pass(),
             ),
           ],
@@ -639,7 +651,6 @@ class _Controls extends StatelessWidget {
     required this.moves,
     required this.busy,
     required this.isComputerTurn,
-    required this.onRoll,
     required this.onPass,
   });
 
@@ -647,11 +658,11 @@ class _Controls extends StatelessWidget {
   final List<Move> moves;
   final bool busy;
   final bool isComputerTurn;
-  final VoidCallback onRoll;
   final VoidCallback onPass;
 
   @override
   Widget build(BuildContext context) {
+    final palette = BoardPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
       child: Row(
@@ -668,14 +679,10 @@ class _Controls extends StatelessWidget {
           else if (busy || isComputerTurn)
             const Text('Thinking…', style: TextStyle(fontSize: 12.5))
           else if (state.awaitingRoll)
-            FilledButton.icon(
-              onPressed: onRoll,
-              icon: const Icon(Icons.casino_outlined),
-              label: const Text('Roll'),
-              style: FilledButton.styleFrom(
-                backgroundColor: seatColors[state.turn],
-                foregroundColor: Colors.white,
-              ),
+            // No button: the die in the seat's own place is what you tap.
+            Text(
+              'Tap the die to roll',
+              style: TextStyle(fontSize: 12.5, color: palette.faint),
             )
           else if (moves.isEmpty)
             OutlinedButton(onPressed: onPass, child: const Text('Pass'))
