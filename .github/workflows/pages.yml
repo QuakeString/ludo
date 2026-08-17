@@ -66,20 +66,29 @@ jobs:
     runs-on: ubuntu-latest
     environment:
       name: github-pages
-      url: ${{ steps.deployment.outputs.page_url || steps.retry.outputs.page_url }}
+      url: ${{ steps.deploy1.outputs.page_url || steps.deploy2.outputs.page_url || steps.deploy3.outputs.page_url }}
     steps:
-      # Pages hands out a 503 now and then. The build is already done and
-      # uploaded by this point, so a transient failure here throws away a good
-      # artifact and leaves the site a commit behind — worth one retry rather
-      # than a re-run somebody has to notice and click.
-      - id: deployment
+      # Pages has been handing out 503s in windows lasting minutes, not
+      # seconds — one deploy got through while the next failed. The build is
+      # already done and uploaded by this point, so a failure here throws away
+      # a good artifact and leaves the site a commit behind. Three attempts
+      # spread over about four minutes rides out a blip of that length; a real
+      # outage still fails the job, which is what should happen.
+      - id: deploy1
         continue-on-error: true
         uses: actions/deploy-pages@v4
 
-      - name: Wait, in case Pages is having a moment
-        if: steps.deployment.outcome == 'failure'
-        run: sleep 45
+      - if: steps.deploy1.outcome == 'failure'
+        run: sleep 60
 
-      - id: retry
-        if: steps.deployment.outcome == 'failure'
+      - id: deploy2
+        if: steps.deploy1.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/deploy-pages@v4
+
+      - if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
+        run: sleep 180
+
+      - id: deploy3
+        if: steps.deploy1.outcome == 'failure' && steps.deploy2.outcome == 'failure'
         uses: actions/deploy-pages@v4
