@@ -245,6 +245,58 @@ void main() {
       }
     });
 
+    test('chips in a house stand in the shape of the house', () {
+      for (var arm = 0; arm < 6; arm++) {
+        final tri = g.yardShape(arm);
+        final centroid = Pt((tri.a.x + tri.b.x + tri.c.x) / 3,
+            (tri.a.y + tri.b.y + tri.c.y) / 3);
+
+        for (var count = 1; count <= 4; count++) {
+          final slots = g.yardSlots(arm, count: count);
+          expect(slots, hasLength(count), reason: '$count chips, $arm');
+          expect(slots.toSet(), hasLength(count), reason: 'two chips overlap');
+          for (final s in slots) {
+            expect(_inside(tri, s), isTrue,
+                reason: '$count chips: one stands outside its house');
+          }
+        }
+
+        double gap(Pt a, Pt b) => (b - a).length / g.cellSize * 30;
+
+        // Three make a triangle: equal sides, none of them in the middle.
+        final three = g.yardSlots(arm, count: 3);
+        final sides = [
+          gap(three[0], three[1]),
+          gap(three[1], three[2]),
+          gap(three[2], three[0]),
+        ];
+        expect(sides.reduce((a, b) => a > b ? a : b) -
+                sides.reduce((a, b) => a < b ? a : b),
+            lessThan(0.1),
+            reason: 'the three do not make an equilateral triangle');
+        for (final s in three) {
+          expect(gap(s, centroid), greaterThan(30),
+              reason: 'a chip of three sits in the middle');
+        }
+
+        // Four are those three plus one in the middle.
+        final four = g.yardSlots(arm, count: 4);
+        expect(four.take(3), three);
+        expect(gap(four.last, centroid), lessThan(0.1),
+            reason: 'the fourth chip is not in the middle');
+
+        // Two stand side by side: same distance out, mirrored across the
+        // house's axis, and near enough to read as a pair.
+        final two = g.yardSlots(arm, count: 2);
+        expect(gap(two[0], centroid), closeTo(gap(two[1], centroid), 0.01));
+        final mid = Pt((two[0].x + two[1].x) / 2, (two[0].y + two[1].y) / 2);
+        expect(gap(mid, centroid), lessThan(0.1),
+            reason: 'the pair is not centred in the house');
+        expect(gap(two[0], two[1]), closeTo(56, 1),
+            reason: 'the pair is not side by side');
+      }
+    });
+
     test('the plate is short across a path and long across a house', () {
       final v = g.plateOutline();
       // Even edges face an arm, odd edges face a house — see plateOutline.

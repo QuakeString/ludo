@@ -69,6 +69,19 @@ void main() {
         BoardPalette.light,
       ),
       ('2-seat-light', const RuleConfig(players: 2), BoardPalette.light),
+      // Three counts side by side, because the chips in a house are arranged
+      // to suit how many there are and that is only checkable by eye. The
+      // six-seat preset above is already the three-chip case.
+      (
+        '6-seat-4-chips',
+        const RuleConfig(players: 6, tokensPerPlayer: 4),
+        BoardPalette.light
+      ),
+      (
+        '6-seat-2-chips',
+        const RuleConfig(players: 6, tokensPerPlayer: 2),
+        BoardPalette.light
+      ),
     ]) {
       final (name, rules, palette) = variant;
 

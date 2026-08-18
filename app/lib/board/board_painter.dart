@@ -282,10 +282,14 @@ class BoardPainter extends CustomPainter {
         );
       }
 
-      // Four resting places, always drawn — switching between three and four
-      // chips must never change the board, and an unseated arm still shows
-      // where its chips would stand.
-      for (final slot in geometry.yardSlots(arm)) {
+      // One resting place per chip this game gives a seat, drawn whether or
+      // not anybody is sitting there — an unseated arm still shows where its
+      // chips would stand. The arrangement follows the count, so three chips
+      // make a triangle rather than a square with a corner missing.
+      for (final slot in geometry.yardSlots(
+        arm,
+        count: state.rules.tokensPerPlayer,
+      )) {
         canvas.drawCircle(px(slot), cell * 0.38, Paint()..color = palette.slot);
       }
     }

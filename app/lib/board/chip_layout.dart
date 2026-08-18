@@ -27,7 +27,7 @@ Map<int, Pt> chipLayout(GameState state, BoardGeometry geometry) {
     final first = group.first;
     final arm = state.armOf(first.owner);
     if (first.inYard) {
-      final slots = geometry.yardSlots(arm);
+      final slots = geometry.yardSlots(arm, count: state.rules.tokensPerPlayer);
       for (final token in group) {
         out[token.id] = slots[yardSlotOf(state, token) % slots.length];
       }

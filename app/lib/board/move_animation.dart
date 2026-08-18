@@ -86,7 +86,8 @@ class MoveAnimation {
       final token = s.tokens[move.tokenId];
       // The chip leaves from the place it was actually sitting in.
       return [
-        g.tokenAt(arm, -1, slot: yardSlotOf(s, token)),
+        g.tokenAt(arm, -1,
+            slot: yardSlotOf(s, token), yardCount: s.rules.tokensPerPlayer),
         g.tokenAt(arm, 0),
       ];
     }
@@ -143,7 +144,9 @@ class MoveAnimation {
     final arm = before.armOf(token.owner);
     final path = <Pt>[
       for (var p = token.progress; p >= 0; p--) geometry.tokenAt(arm, p),
-      geometry.tokenAt(arm, -1, slot: yardSlotOf(before, token)),
+      geometry.tokenAt(arm, -1,
+          slot: yardSlotOf(before, token),
+          yardCount: before.rules.tokensPerPlayer),
     ];
     return path;
   }

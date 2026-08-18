@@ -71,7 +71,7 @@ abstract class BoardGeometry {
 
   /// Where a token sits, for any progress value including -1 (its yard).
   /// [slot] picks which of the four yard places an idle token rests in.
-  Pt tokenAt(int arm, int progress, {int slot = 0});
+  Pt tokenAt(int arm, int progress, {int slot = 0, int yardCount = 4});
 
   /// The square at a ring index, for drawing the track.
   CellShape ringCell(int ringIndex);
@@ -83,8 +83,14 @@ abstract class BoardGeometry {
   /// carrying the arrow.
   CellShape turnInCell(int arm);
 
-  /// Where a seat's idle tokens wait. Always four, whatever the token count.
-  List<Pt> yardSlots(int arm);
+  /// Where a seat's idle chips wait, arranged for however many it has.
+  ///
+  /// The arrangement is the point, not the count: chips in a house stand in
+  /// the shape of the house. Four make a triangle with one in the middle,
+  /// three make the triangle alone, two stand side by side. Laying out three
+  /// in four fixed places leaves a hole where the missing chip was, which
+  /// reads as a chip already gone rather than as a seat that plays with three.
+  List<Pt> yardSlots(int arm, {int count = 4});
 
   /// Outline of the home base a seat's yard sits in.
   Tri yardShape(int arm);
@@ -193,8 +199,11 @@ class CrossGeometry implements BoardGeometry {
       ringCell((spec.startRing(arm) + spec.trackLength - 2) % spec.trackLength);
 
   @override
-  Pt tokenAt(int arm, int progress, {int slot = 0}) {
-    if (progress < 0) return yardSlots(arm)[slot % 4];
+  Pt tokenAt(int arm, int progress, {int slot = 0, int yardCount = 4}) {
+    if (progress < 0) {
+      final slots = yardSlots(arm, count: yardCount);
+      return slots[slot % slots.length];
+    }
     if (spec.isFinished(progress)) return homeRest(this, arm);
     final home = spec.homeIndex(progress);
     if (home != null) return homeCell(arm, home).centre;
@@ -202,16 +211,33 @@ class CrossGeometry implements BoardGeometry {
   }
 
   @override
-  List<Pt> yardSlots(int arm) {
+  List<Pt> yardSlots(int arm, {int count = 4}) {
     final o = yardOrigins[arm];
+    // In the block's own six-by-six grid. A square house has no apex to build
+    // a triangle on, so four sit in a square and the smaller counts borrow the
+    // same idea: a triangle for three, a level pair for two.
+    final places = switch (count) {
+      <= 1 => const [
+          [3.0, 3.0],
+        ],
+      2 => const [
+          [1.9, 3.0],
+          [4.1, 3.0],
+        ],
+      3 => const [
+          [3.0, 1.85],
+          [1.85, 4.1],
+          [4.15, 4.1],
+        ],
+      _ => const [
+          [1.9, 1.9],
+          [4.1, 1.9],
+          [1.9, 4.1],
+          [4.1, 4.1],
+        ],
+    };
     return [
-      for (final d in const [
-        [1.9, 1.9],
-        [4.1, 1.9],
-        [1.9, 4.1],
-        [4.1, 4.1],
-      ])
-        Pt((o[0] + d[0]) / grid, (o[1] + d[1]) / grid)
+      for (final d in places) Pt((o[0] + d[0]) / grid, (o[1] + d[1]) / grid)
     ];
   }
 
@@ -295,17 +321,25 @@ class HexGeometry implements BoardGeometry {
   static const _rimOut = _rOut + _c / 2; // 259
   static const _rimSide = _c * 1.5; // 45
 
-  /// (radius, lateral offset) of the four resting places in a home base.
+  /// (radius, lateral offset) of a chip's resting place in a home base.
   ///
-  /// A diamond down the house's axis, sized for the equilateral triangle the
-  /// house now is: the base line is at 246.8 and the painted interior stops
-  /// short of that again, so the outermost chip sits at 224 rather than being
-  /// pushed against a wall it cannot see.
-  static const _slots = [
-    [158.0, 0.0],
-    [196.0, -34.0],
-    [196.0, 34.0],
-    [224.0, 0.0],
+  /// The house is an equilateral triangle 181 across, sitting between radius
+  /// 90 and 246.8, so its centroid is at 194.53 and each of its three points
+  /// is 104.53 away from that. The chips stand halfway out to those points,
+  /// which is far enough to make the triangle obvious and still leaves a
+  /// chip's edge about 15 units clear of the painted border.
+  static const _slotMiddle = [194.53, 0.0];
+  static const _slotPoints = [
+    [142.26, 0.0], // toward the apex, pointing at the middle of the board
+    [220.67, -45.26], // and toward each corner of the base
+    [220.67, 45.26],
+  ];
+
+  /// Two chips stand across the house rather than on two of its three points,
+  /// which would read as a triangle with a piece missing.
+  static const _slotPair = [
+    [194.53, -28.0],
+    [194.53, 28.0],
   ];
 
   @override
@@ -382,8 +416,11 @@ class HexGeometry implements BoardGeometry {
   }
 
   @override
-  Pt tokenAt(int arm, int progress, {int slot = 0}) {
-    if (progress < 0) return yardSlots(arm)[slot % 4];
+  Pt tokenAt(int arm, int progress, {int slot = 0, int yardCount = 4}) {
+    if (progress < 0) {
+      final slots = yardSlots(arm, count: yardCount);
+      return slots[slot % slots.length];
+    }
     if (spec.isFinished(progress)) return homeRest(this, arm);
     final home = spec.homeIndex(progress);
     if (home != null) return homeCell(arm, home).centre;
@@ -391,9 +428,15 @@ class HexGeometry implements BoardGeometry {
   }
 
   @override
-  List<Pt> yardSlots(int arm) {
+  List<Pt> yardSlots(int arm, {int count = 4}) {
     final ya = _yardAngle(arm);
-    return [for (final s in _slots) _pt(ya, s[0], s[1])];
+    final places = switch (count) {
+      <= 1 => const [_slotMiddle],
+      2 => _slotPair,
+      3 => _slotPoints,
+      _ => [..._slotPoints, _slotMiddle],
+    };
+    return [for (final s in places) _pt(ya, s[0], s[1])];
   }
 
   @override
