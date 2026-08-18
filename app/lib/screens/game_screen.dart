@@ -491,24 +491,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   ],
                 ],
               )
-            // Four seats or fewer: a house occupies half the board's width, so
-            // half the rail per house puts every panel over its own corner.
-            // Sharing the rail equally instead left a lone panel in the middle
-            // of the screen and, on a wide window, put a player's die nowhere
-            // near the house it belongs to.
-            : Row(
+            // Four seats or fewer: each panel goes over its own house and
+            // nowhere else. Halving the rail was the first attempt and it was
+            // still wrong — a house sits a fifth of the way across the board,
+            // not a quarter, so every panel came out a little to the inside.
+            : Stack(
                 children: [
-                  for (final half in [0, 1])
-                    Expanded(
-                      child: Center(
-                        child: () {
-                          final mine = seats.where(
-                            (s) => (_houseOf(s).x < 0.5) == (half == 0),
-                          );
-                          return mine.isEmpty
-                              ? const SizedBox.shrink()
-                              : _panelFor(mine.first);
-                        }(),
+                  for (final seat in seats)
+                    Positioned.fill(
+                      child: CustomSingleChildLayout(
+                        delegate: _OverHouse(_houseOf(seat).x),
+                        child: _panelFor(seat),
                       ),
                     ),
                 ],
@@ -708,6 +701,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                   width: side,
                                   height: side,
                                   child: Stack(
+                                    // A chip is taller than the square it
+                                    // stands on — it is a piece, not a
+                                    // counter — so one on the outside row
+                                    // has its head over the board's edge.
+                                    // Stack clips to its bounds by default,
+                                    // which sliced that head flat.
+                                    clipBehavior: Clip.none,
                                     children: [
                                       RepaintBoundary(
                                         child: CustomPaint(
@@ -932,4 +932,34 @@ class _Controls extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Puts a seat's panel directly over its house.
+///
+/// A delegate rather than an Align, because Align's fractional placement is a
+/// compromise between "at this fraction" and "inside the parent": it slides
+/// the child inward as the child grows, so a panel is only truly centred when
+/// it has no width. Here the measured size is in hand, so the middle of the
+/// panel can go exactly where the middle of the house is, and be clamped only
+/// when the panel would otherwise leave the rail.
+class _OverHouse extends SingleChildLayoutDelegate {
+  const _OverHouse(this.fraction);
+
+  /// Where the middle of the house is, across the board.
+  final double fraction;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints c) => c.loosen();
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    final free = math.max(0.0, size.width - childSize.width);
+    return Offset(
+      (size.width * fraction - childSize.width / 2).clamp(0.0, free),
+      (size.height - childSize.height) / 2,
+    );
+  }
+
+  @override
+  bool shouldRelayout(_OverHouse old) => old.fraction != fraction;
 }
