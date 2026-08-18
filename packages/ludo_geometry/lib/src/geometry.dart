@@ -285,15 +285,17 @@ class HexGeometry implements BoardGeometry {
   static const _hub = 90.0; // centre hexagon circumradius
   static const _plate = 282.0; // twelve-gon circumradius
   static const _yardIn = 90.0; // apex — sits exactly on a hub corner
-  static const _yardOut = 247.0;
-  static const _yardHalfWidth = 70.0;
 
   /// (radius, lateral offset) of the four resting places in a home base.
+  ///
+  /// Pushed out to suit the full-size base: the triangle now runs from the
+  /// hub all the way to the plate's rim, so chips parked at the old radii
+  /// huddled in its narrow inner half with a field of empty colour above them.
   static const _slots = [
-    [183.0, 0.0],
-    [211.0, -24.0],
-    [211.0, 24.0],
-    [223.0, 0.0],
+    [205.0, 0.0],
+    [233.0, -26.0],
+    [233.0, 26.0],
+    [246.0, 0.0],
   ];
 
   @override
@@ -386,11 +388,16 @@ class HexGeometry implements BoardGeometry {
 
   @override
   Tri yardShape(int arm) {
-    final ya = _yardAngle(arm);
+    // The base is the plate's own edge — the two plate corners either side of
+    // this arm's home base, taken verbatim rather than a radius that happens
+    // to come close. It used to stop at radius 247 while the edge facing it
+    // sits at 272, which left a band of bare board between every house and the
+    // rim of the board. Built from plateOutline, the two cannot drift apart.
+    final plate = plateOutline();
     return Tri(
-      _pt(ya, _yardIn),
-      _pt(ya, _yardOut, -_yardHalfWidth),
-      _pt(ya, _yardOut, _yardHalfWidth),
+      _pt(_yardAngle(arm), _yardIn),
+      plate[(1 + 2 * arm) % 12],
+      plate[(2 + 2 * arm) % 12],
     );
   }
 

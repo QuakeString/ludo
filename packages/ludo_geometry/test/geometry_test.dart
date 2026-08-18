@@ -194,6 +194,43 @@ void main() {
       }
     });
 
+    test('each home base reaches the rim of the plate', () {
+      final plate = g.plateOutline();
+      for (var arm = 0; arm < 6; arm++) {
+        final tri = g.yardShape(arm);
+        // The base is two adjacent corners of the plate, so the house runs
+        // corner to corner along the board's own edge with nothing left over.
+        for (final corner in [tri.b, tri.c]) {
+          final nearest = plate
+              .map((c) => (c - corner).length / g.cellSize)
+              .reduce((a, b) => a < b ? a : b);
+          expect(nearest, lessThan(0.001),
+              reason: 'arm $arm does not reach the plate edge');
+        }
+        expect(tri.b, isNot(tri.c));
+      }
+    });
+
+    test('a home base never runs over the track', () {
+      for (var arm = 0; arm < 6; arm++) {
+        final tri = g.yardShape(arm);
+        for (var i = 0; i < BoardSpec.hexagon.trackLength; i++) {
+          expect(_inside(tri, g.ringCell(i).centre), isFalse,
+              reason: 'arm $arm home base swallows track square $i');
+        }
+      }
+    });
+
+    test('every chip in a home base stands inside it', () {
+      for (var arm = 0; arm < 6; arm++) {
+        final tri = g.yardShape(arm);
+        for (final slot in g.yardSlots(arm)) {
+          expect(_inside(tri, slot), isTrue,
+              reason: 'arm $arm has a resting place outside its own house');
+        }
+      }
+    });
+
     test('the plate has twelve sides', () {
       expect(g.plateOutline(), hasLength(12));
     });
