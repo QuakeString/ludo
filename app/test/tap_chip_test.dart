@@ -67,7 +67,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 30));
       final (_, during) = boardRect(tester);
       expect(during, before, reason: 'the board changed size mid-roll');
-      await settle(tester, 12);
+      await settle(tester, 24);
       final (_, after) = boardRect(tester);
       expect(after, before, reason: 'the board changed size after the roll');
     }
@@ -92,7 +92,7 @@ void main() {
       await tester.tap(die.first);
       await tester.pump(const Duration(milliseconds: 30));
       rolled = currentState(tester).dice == 6;
-      if (!rolled) await settle(tester, 12);
+      if (!rolled) await settle(tester, 24);
     }
     expect(rolled, isTrue, reason: 'sixty rolls without a six is not a die');
 

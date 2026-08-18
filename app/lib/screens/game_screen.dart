@@ -8,6 +8,7 @@ import 'package:ludo_protocol/ludo_protocol.dart';
 
 import '../board/board_painter.dart';
 import '../board/chip_layout.dart';
+import '../board/die.dart';
 import '../board/move_animation.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
@@ -46,6 +47,15 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   static const engine = LudoEngine();
+
+  /// How long a settled die is left on show before the game moves itself on.
+  ///
+  /// It has to clear the tumble first — the number is not readable until the
+  /// cube stops — and then stay up long enough to actually be read. The old
+  /// value was 900ms in total against a 780ms tumble, so the face you were
+  /// meant to be looking at was up for a tenth of a second and the turn
+  /// appeared to skip without ever showing a number.
+  static const _readDieMillis = dieRollMillis + 850;
 
   late GameState _state;
   late BoardGeometry _geometry;
@@ -165,6 +175,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ? 'Time ran out — played automatically'
             : null;
       });
+      _autoAdvance();
       return;
     }
 
@@ -193,15 +204,47 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
     _apply(const RollDice());
     if (_state.isOver) return;
-
-    if (!_state.awaitingRoll && engine.legalMoves(_state).isEmpty) {
-      // A roll with nothing to play is not a puzzle for the player to work
-      // out — say so, then move the game on.
-      setState(() => _flash = 'Rolled ${_state.dice} — no legal move');
-      _after(900, _passLocal);
-      return;
-    }
+    if (_autoAdvance()) return;
     _maybeTakeComputerTurn();
+  }
+
+  /// Carries the turn on by itself when the roll left nothing to decide.
+  ///
+  /// Two cases, and they are the same case: a roll with no legal move, and a
+  /// roll with exactly one. Neither asks the player a question, so neither
+  /// should wait for an answer — hunting for the single chip that happens to
+  /// be movable is busywork, and tapping Pass to acknowledge a dead roll is
+  /// worse than busywork.
+  ///
+  /// The pause before acting is the point of the thing rather than a delay to
+  /// be trimmed: the player has to see the number that caused it. It runs from
+  /// the moment the die is thrown, so it covers the tumble and then leaves the
+  /// face standing for the better part of a second.
+  ///
+  /// Returns whether it took the turn over.
+  bool _autoAdvance() {
+    if (!_myMove || _state.awaitingRoll) return false;
+    final moves = _legalMoves;
+    if (moves.length > 1) return false;
+
+    setState(() {
+      _flash = moves.isEmpty
+          ? 'Rolled ${_state.dice} — no legal move'
+          : 'Rolled ${_state.dice} — only one move';
+    });
+    _after(_readDieMillis, () {
+      // Re-checked rather than remembered: online the server may have moved
+      // the game on while the die was on show.
+      if (!_myMove || _state.awaitingRoll) return;
+      final now = _legalMoves;
+      if (now.isEmpty) {
+        final session = _session;
+        session == null ? _passLocal() : session.pass();
+      } else if (now.length == 1) {
+        _play(now.single);
+      }
+    });
+    return true;
   }
 
   /// Ends a local turn and hands over.
@@ -257,6 +300,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       if (_queued.isNotEmpty) {
         final next = _queued.removeAt(0);
         _serverSaid(next);
+      } else {
+        _autoAdvance();
       }
       return;
     }
@@ -265,7 +310,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _playing = null;
       _state = engine.apply(_state, PlayMove(animation.move));
     });
-    if (!_state.isOver) _maybeTakeComputerTurn();
+    if (_state.isOver) return;
+    if (_autoAdvance()) return;
+    _maybeTakeComputerTurn();
   }
 
   /// If a computer sits at the seat on turn, play it — with a beat first, so a
@@ -287,10 +334,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       }
       final move = ai.chooseMove(_state);
       if (move == null) {
-        _apply(const PassTurn());
-        _maybeTakeComputerTurn();
+        // Same rule as for a person: the number that ended the turn has to be
+        // on show long enough to be read. Passing the instant the AI decides
+        // meant the computer's die tumbled and the turn was gone before it
+        // settled, which is why a computer's turn could look like nothing
+        // happened at all.
+        setState(() => _flash = 'Rolled ${_state.dice} — no legal move');
+        _after(_readDieMillis, () {
+          _apply(const PassTurn());
+          _maybeTakeComputerTurn();
+        });
       } else {
-        _after(350, () => _play(move));
+        // Long enough for the die to stop; the chip walking then says the
+        // rest, so it does not need the full reading pause.
+        _after(dieRollMillis + 250, () => _play(move));
       }
     });
   }

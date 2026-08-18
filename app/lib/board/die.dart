@@ -6,6 +6,13 @@ import 'package:flutter/material.dart';
 
 import '../theme/seat_colors.dart';
 
+/// How long a die tumbles before it settles.
+///
+/// Shared rather than private because the turn flow has to outlast it: a roll
+/// that decides nothing still has to show its number, and a hold shorter than
+/// the tumble shows no number at all.
+const int dieRollMillis = 780;
+
 /// A real die: a cube, projected, not a square with dots on it.
 ///
 /// The eight corners are carried in 3D and rotated properly, so the roll is an
@@ -46,7 +53,7 @@ class DieFace extends StatefulWidget {
 class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
   late final AnimationController _roll = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 780),
+    duration: const Duration(milliseconds: dieRollMillis),
   );
 
   AudioPlayer? _player;
