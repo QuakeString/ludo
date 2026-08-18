@@ -46,10 +46,12 @@ class MoveAnimation {
   static const hopMillis = 150;
   static const landMillis = 90;
 
-  /// How long a captured chip takes per square of its walk home.
-  static const captureStepMillis = 26;
-  static const captureMinMillis = 420;
-  static const captureMaxMillis = 1300;
+  /// How long a captured chip takes per square of its walk home. Slow enough
+  /// to follow with your eyes — the whole point of walking it back is that you
+  /// can see how much ground was taken off you, which a blur does not show.
+  static const captureStepMillis = 55;
+  static const captureMinMillis = 700;
+  static const captureMaxMillis = 2600;
 
   /// The whole retreat, sized to how far the chip has to come back.
   int get captureMillis {

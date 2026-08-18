@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:ludo_engine/ludo_engine.dart';
@@ -9,6 +10,7 @@ import '../board/board_painter.dart';
 import '../board/chip_layout.dart';
 import '../board/move_animation.dart';
 import '../board/seat_panel.dart';
+import '../board/turning_ring.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
@@ -48,12 +50,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   late GameState _state;
   late BoardGeometry _geometry;
 
-  /// Drives the turning ring. A stepped timer, not a ticker: on the web a
-  /// repaint costs the whole surface, so sixty frames a second to rotate a
-  /// dashed circle costs a CPU core. Twelve steps a second still turns.
-  Timer? _pulseTimer;
-  double _pulse = 0;
-
+  /// Turns the rings. Smooth, because it drives a rotation of a cached layer
+  /// rather than a repaint — see [TurningRing].
+  late final AnimationController _spin;
   late final AnimationController _mover;
 
   /// The move currently playing out. While it runs, [_state] is still the
@@ -79,6 +78,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _state =
         session?.state ?? GameState.newGame(widget.rules, seed: widget.seed);
     _geometry = BoardGeometry.forSpec(_state.board);
+    _spin = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2500),
+    );
     _mover = AnimationController(vsync: this, duration: Duration.zero)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) _settle();
@@ -97,7 +100,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _scheduled?.cancel();
     _matchSub?.cancel();
     _session?.removeListener(_sessionChanged);
-    _pulseTimer?.cancel();
+    _spin.dispose();
     _mover.dispose();
     super.dispose();
   }
@@ -465,14 +468,40 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// through all of that repainted the board sixty times a second to show a
   /// still picture.
   void _setPulse({required bool needed}) {
-    if (needed && _pulseTimer == null) {
-      _pulseTimer = Timer.periodic(const Duration(milliseconds: 83), (_) {
-        if (mounted) setState(() => _pulse = (_pulse + 1 / 12) % 1);
-      });
-    } else if (!needed && _pulseTimer != null) {
-      _pulseTimer!.cancel();
-      _pulseTimer = null;
+    if (needed && !_spin.isAnimating) {
+      _spin.repeat();
+    } else if (!needed && _spin.isAnimating) {
+      _spin.stop();
     }
+  }
+
+  /// A turning ring over every chip that can move.
+  List<Widget> _rings(Size size) {
+    final moves = _myMove ? _legalMoves : const <Move>[];
+    if (moves.isEmpty) return const [];
+
+    final side = math.min(size.width, size.height);
+    final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
+    final cell = _geometry.cellSize * side;
+    final chipWidth = cell * (_state.board.arms == 4 ? 0.78 : 0.66);
+    final diameter = chipWidth * 2.0;
+
+    final layout = chipLayout(_state, _geometry);
+    final movable = {for (final m in moves) ...m.tokenIds};
+
+    return [
+      for (final id in movable)
+        if (layout[id] != null)
+          Positioned(
+            left: origin.dx + layout[id]!.x * side - diameter / 2,
+            top: origin.dy + layout[id]!.y * side - diameter / 2,
+            child: TurningRing(
+              diameter: diameter,
+              colour: colourOfArm(_state.armOf(_state.tokens[id].owner)),
+              turns: _spin,
+            ),
+          ),
+    ];
   }
 
   @override
@@ -542,7 +571,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                         geometry: _geometry,
                         palette: palette,
                         legalMoves: moves,
-                        pulse: _pulse,
                         glowSeat: glowSeat,
                         motions: _motions(),
                         layer: which,
@@ -564,10 +592,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                 painter: layer(BoardLayer.furniture),
                               ),
                             ),
-                            CustomPaint(
-                              size: size,
-                              painter: layer(BoardLayer.rings),
+                            RepaintBoundary(
+                              child: CustomPaint(
+                                size: size,
+                                painter: layer(BoardLayer.glow),
+                              ),
                             ),
+                            ..._rings(size),
                             RepaintBoundary(
                               child: CustomPaint(
                                 size: size,

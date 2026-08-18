@@ -195,11 +195,12 @@ class _RollPointer extends StatefulWidget {
 }
 
 class _RollPointerState extends State<_RollPointer> {
-  // Stepped by a timer rather than tweened by a ticker. A ticker means a frame
-  // every 16ms for as long as it is somebody's turn to roll, and on the web
-  // that costs a whole CPU core whether or not the thing being animated is
-  // small — measured, not assumed. Seven steps a second still reads as a
-  // moving arrow and costs almost nothing.
+  // Stepped by a timer, and measured rather than reasoned about. The obvious
+  // improvement — a SlideTransition, which moves a cached layer and should
+  // cost the compositor almost nothing — measured at a full CPU core here,
+  // while stepping a repaint seven times a second measured at a fifth of one.
+  // Whatever the engine is doing on the web, frames are charged for, and the
+  // cheapest animation is the one that asks for fewest.
   static const _steps = 6;
   Timer? _timer;
   int _phase = 0;
@@ -220,7 +221,6 @@ class _RollPointerState extends State<_RollPointer> {
 
   @override
   Widget build(BuildContext context) {
-    // A there-and-back nudge across the steps.
     final t = _phase <= _steps / 2
         ? _phase / (_steps / 2)
         : 2 - _phase / (_steps / 2);
@@ -229,8 +229,6 @@ class _RollPointerState extends State<_RollPointer> {
       offset: Offset(2 - t * 5, 0),
       child: Icon(
         Icons.arrow_left_rounded,
-        // The glyph fills well under half its box, so the number here is
-        // roughly double the arrow you actually see.
         size: widget.compact ? 42 : 54,
         color: widget.colour.withValues(alpha: 0.6 + 0.4 * t),
       ),

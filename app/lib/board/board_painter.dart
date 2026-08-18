@@ -14,7 +14,7 @@ import 'move_animation.dart';
 /// Split so the still parts can sit inside RepaintBoundaries and the moving
 /// parts cannot force them to be drawn again. Caching the *drawing commands*
 /// is not enough — replaying them still rasterises every square, every frame.
-enum BoardLayer { furniture, rings, chips, motions }
+enum BoardLayer { furniture, glow, chips, motions }
 
 /// Draws a whole board from engine state plus geometry.
 ///
@@ -76,9 +76,8 @@ class BoardPainter extends CustomPainter {
         _paintTurnInArrows(canvas, px, cell);
         _paintCentre(canvas, px);
         _paintYards(canvas, px, cell);
-      case BoardLayer.rings:
+      case BoardLayer.glow:
         _paintGlow(canvas, px, cell);
-        _paintLegalRings(canvas, px, cell);
       case BoardLayer.chips:
         _paintChips(canvas, px, cell);
       case BoardLayer.motions:
@@ -318,26 +317,6 @@ class BoardPainter extends CustomPainter {
     }
   }
 
-  /// The turning ring on every chip that can move.
-  void _paintLegalRings(Canvas canvas, Offset Function(Pt) px, double cell) {
-    if (legalMoves.isEmpty) return;
-    final chipWidth = cell * (spec.arms == 4 ? 0.78 : 0.66);
-    final layout = chipLayout(state, geometry);
-    final movable = {for (final m in legalMoves) ...m.tokenIds};
-    for (final id in movable) {
-      if (motions.containsKey(id)) continue;
-      final at = layout[id];
-      if (at == null) continue;
-      ChipArt.paintLegalRing(
-        canvas,
-        px(at),
-        chipWidth,
-        colourOfArm(state.armOf(state.tokens[id].owner)),
-        pulse: pulse,
-      );
-    }
-  }
-
   /// A breathing outline round the house of whoever has to roll.
   ///
   /// Only while they are still to roll: once the dice are down the thing that
@@ -538,10 +517,7 @@ class BoardPainter extends CustomPainter {
     return switch (layer) {
       BoardLayer.furniture => false,
       BoardLayer.chips => old.motions.length != motions.length,
-      BoardLayer.rings =>
-        old.pulse != pulse ||
-            old.glowSeat != glowSeat ||
-            old.legalMoves.length != legalMoves.length,
+      BoardLayer.glow => old.glowSeat != glowSeat,
       BoardLayer.motions => true,
     };
   }
