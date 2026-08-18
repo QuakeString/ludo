@@ -12,10 +12,11 @@ import 'dart:math' as math;
 import 'package:ludo_engine/ludo_engine.dart';
 import 'package:ludo_geometry/ludo_geometry.dart';
 
-/// The geometry works in 0..1; everything here is scaled back up to the 600
-/// units the constants are written in, so the two can be read against each
-/// other.
-const u = 600.0;
+/// The geometry works in 0..1. Everything here is scaled back up into the
+/// units the constants are actually written in — read off the board rather
+/// than assumed, because the two boards do not share a reference and the
+/// hexagon's changed once already. A square is 30 units on both.
+double unitOf(BoardGeometry g) => 30 / g.cellSize;
 
 const seatColours = [
   '#E14B4B', // red
@@ -27,7 +28,6 @@ const seatColours = [
 ];
 
 String f(double v) => v.toStringAsFixed(2);
-String xy(Pt p) => '${f(p.x * u)},${f(p.y * u)}';
 
 /// The four corners of a cell, in order.
 List<Pt> cellCorners(CellShape c) {
@@ -39,22 +39,23 @@ List<Pt> cellCorners(CellShape c) {
   ];
 }
 
-String polygon(List<Pt> pts, String attrs) =>
-    '<polygon points="${pts.map(xy).join(' ')}" $attrs/>';
+String polygon(List<Pt> pts, String attrs, double u) =>
+    '<polygon points="${pts.map((p) => '${f(p.x * u)},${f(p.y * u)}').join(' ')}" $attrs/>';
 
 String svgFor(BoardSpec spec,
     {required bool guides, bool measure = false}) {
   final g = BoardGeometry.forSpec(spec);
+  final u = unitOf(g);
   final out = StringBuffer();
 
   out.writeln('<svg xmlns="http://www.w3.org/2000/svg" '
-      'viewBox="0 0 $u $u" width="900" height="900">');
-  out.writeln('<rect width="$u" height="$u" fill="#F2EFE7"/>');
+      'viewBox="0 0 ${f(u)} ${f(u)}" width="900" height="900">');
+  out.writeln('<rect width="${f(u)}" height="${f(u)}" fill="#F2EFE7"/>');
 
   // --- the plate ----------------------------------------------------------
   out.writeln('<g id="plate">');
   out.writeln(polygon(g.plateOutline(),
-      'fill="#FBFAF6" stroke="#CFCABA" stroke-width="1.5"'));
+      'fill="#FBFAF6" stroke="#CFCABA" stroke-width="1.5"', u));
   out.writeln('</g>');
 
   // --- the shared track ---------------------------------------------------
@@ -67,7 +68,7 @@ String svgFor(BoardSpec spec,
     final owner = starts[i];
     final fill = owner == null ? '#FFFFFF' : seatColours[owner % 6];
     out.writeln('  ${polygon(cellCorners(g.ringCell(i)), 'fill="$fill"'
-        '${owner == null ? '' : ' id="start-$owner"'}')}');
+        '${owner == null ? '' : ' id="start-$owner"'}', u)}');
   }
   out.writeln('</g>');
 
@@ -77,7 +78,7 @@ String svgFor(BoardSpec spec,
     out.writeln('  <g id="home-column-$arm">');
     for (var i = 0; i < spec.homeColumn; i++) {
       out.writeln('    ${polygon(cellCorners(g.homeCell(arm, i)),
-          'fill="${seatColours[arm % 6]}"')}');
+          'fill="${seatColours[arm % 6]}"', u)}');
     }
     out.writeln('  </g>');
   }
@@ -108,8 +109,8 @@ String svgFor(BoardSpec spec,
           Pt(cx + (p.x - cx) * 0.80, cy + (p.y - cy) * 0.80)
       ];
       out.writeln('  <g id="house-$arm">');
-      out.writeln('    ${polygon(pts, 'fill="$colour"')}');
-      out.writeln('    ${polygon(inner, 'fill="#FBFAF6"')}');
+      out.writeln('    ${polygon(pts, 'fill="$colour"', u)}');
+      out.writeln('    ${polygon(inner, 'fill="#FBFAF6"', u)}');
       out.writeln('  </g>');
     }
     out.writeln('  <g id="house-slots-$arm" fill="#E6E2D6">');
@@ -126,7 +127,7 @@ String svgFor(BoardSpec spec,
   for (var k = 0; k < wedges.length; k++) {
     final w = wedges[k];
     out.writeln('  ${polygon([w.a, w.b, w.c],
-        'fill="${seatColours[k % 6]}" id="wedge-$k"')}');
+        'fill="${seatColours[k % 6]}" id="wedge-$k"', u)}');
   }
   out.writeln('</g>');
 
@@ -174,7 +175,7 @@ String svgFor(BoardSpec spec,
     out.writeln('<!-- Delete this group once you are done marking it up. -->');
     out.writeln('<g id="guides" fill="none" stroke="#00000055" '
         'stroke-width="0.8" stroke-dasharray="4 4">');
-    for (final r in [90.0, 244.0, 272.42, 282.0]) {
+    for (final r in [90.0, 244.0, 246.8, 259.0]) {
       out.writeln('  <circle cx="${u / 2}" cy="${u / 2}" r="${f(r)}"/>');
       out.writeln('  <text x="${f(u / 2 + 4)}" y="${f(u / 2 - r + 12)}" '
           'font-family="monospace" font-size="11" fill="#00000099" '

@@ -275,7 +275,11 @@ class HexGeometry implements BoardGeometry {
   // It was 660, which left a ring of empty space outside the plate for the
   // seats' dice to sit in. The dice moved off the board into the seat panels,
   // so that ring is now just margin, and the board takes it back.
-  static const _u = 600.0;
+  // 560 rather than 600 because the plate is no longer a fat regular twelve-gon
+  // reaching 282: its corners now sit on the track at 262.9. Everything here is
+  // in board units where a square is 30 across, so shrinking the reference
+  // simply scales the whole board back up to fill the space it is given.
+  static const _u = 560.0;
   static const _c = 30.0; // cell edge
   static const _centre = _u / 2;
 
@@ -283,19 +287,25 @@ class HexGeometry implements BoardGeometry {
   /// the track continuous — see the note on [_armSlotFor].
   static const _rOut = 244.0;
   static const _hub = 90.0; // centre hexagon circumradius
-  static const _plate = 282.0; // twelve-gon circumradius
   static const _yardIn = 90.0; // apex — sits exactly on a hub corner
+
+  /// The outer corner of an outermost track square: half a square past the
+  /// last row, and one and a half squares off the arm's axis. The plate's
+  /// corners are exactly these, which is what makes everything else land.
+  static const _rimOut = _rOut + _c / 2; // 259
+  static const _rimSide = _c * 1.5; // 45
 
   /// (radius, lateral offset) of the four resting places in a home base.
   ///
-  /// Pushed out to suit the full-size base: the triangle now runs from the
-  /// hub all the way to the plate's rim, so chips parked at the old radii
-  /// huddled in its narrow inner half with a field of empty colour above them.
+  /// A diamond down the house's axis, sized for the equilateral triangle the
+  /// house now is: the base line is at 246.8 and the painted interior stops
+  /// short of that again, so the outermost chip sits at 224 rather than being
+  /// pushed against a wall it cannot see.
   static const _slots = [
-    [205.0, 0.0],
-    [233.0, -26.0],
-    [233.0, 26.0],
-    [246.0, 0.0],
+    [158.0, 0.0],
+    [196.0, -34.0],
+    [196.0, 34.0],
+    [224.0, 0.0],
   ];
 
   @override
@@ -388,11 +398,11 @@ class HexGeometry implements BoardGeometry {
 
   @override
   Tri yardShape(int arm) {
-    // The base is the plate's own edge — the two plate corners either side of
-    // this arm's home base, taken verbatim rather than a radius that happens
-    // to come close. It used to stop at radius 247 while the edge facing it
-    // sits at 272, which left a band of bare board between every house and the
-    // rim of the board. Built from plateOutline, the two cannot drift apart.
+    // Apex on a hub corner, base on the plate's own long edge — the two plate
+    // corners either side of this house. Because those corners are the track's
+    // own outer corners, the two long sides of the triangle lie exactly along
+    // the outer edge of the lane on each side: no gap to the board's rim, and
+    // no white wedge between a house and the path beside it.
     final plate = plateOutline();
     return Tri(
       _pt(_yardAngle(arm), _yardIn),
@@ -403,9 +413,22 @@ class HexGeometry implements BoardGeometry {
 
   @override
   List<Pt> plateOutline() => [
-        // Twelve sides: vertices every 30 degrees, offset so six edges face
-        // the arms and six face the home bases.
-        for (var i = 0; i < 12; i++) _pt(-105 + 30.0 * i, _plate)
+        // Twelve sides, deliberately not equal. Each corner is the outer
+        // corner of an outermost track square, which gives six short sides —
+        // one across the end of each arm, exactly as wide as the three squares
+        // behind it — and six long ones, each spanning a house.
+        //
+        // A regular twelve-gon was the mistake. It forced every house onto a
+        // 146-wide base while the arm it sat beside only ever filled 90 of its
+        // own, so the houses read as bigger than the paths, and a house long
+        // enough to reach the hub came out as a sliver. Built this way a house
+        // is 181 across, its sides run flush along the outer edge of the track
+        // lanes either side of it, and the triangle falls out equilateral to
+        // within a fortieth of a unit — without anybody having to solve for it.
+        for (var a = 0; a < 6; a++) ...[
+          _pt(_armAngle(a), _rimOut, -_rimSide),
+          _pt(_armAngle(a), _rimOut, _rimSide),
+        ]
       ];
 
   /// The centre hexagon's corners — each one is also a home base's apex.

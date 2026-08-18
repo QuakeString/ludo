@@ -235,6 +235,36 @@ void main() {
       expect(g.plateOutline(), hasLength(12));
     });
 
+    test('a house is an equilateral triangle', () {
+      for (var arm = 0; arm < 6; arm++) {
+        final sides = _sides(g.yardShape(arm), g);
+        final longest = sides.reduce((a, b) => a > b ? a : b);
+        final shortest = sides.reduce((a, b) => a < b ? a : b);
+        expect(longest - shortest, lessThan(0.1),
+            reason: 'arm $arm is not equilateral: $sides');
+      }
+    });
+
+    test('the plate is short across a path and long across a house', () {
+      final v = g.plateOutline();
+      // Even edges face an arm, odd edges face a house — see plateOutline.
+      final path = <double>[], house = <double>[];
+      for (var i = 0; i < 12; i++) {
+        final len = (v[(i + 1) % 12] - v[i]).length / g.cellSize * 30;
+        (i.isEven ? path : house).add(len);
+      }
+      // A path side is exactly the three squares behind it, no more.
+      for (final p in path) {
+        expect(p, closeTo(90, 0.01), reason: 'a path side is not three wide');
+      }
+      // And a house side is half as wide again, which is what lets the house
+      // be a proper triangle rather than a spike.
+      for (final h in house) {
+        expect(h, closeTo(181.03, 0.05));
+      }
+      expect(house.first / path.first, greaterThan(1.9));
+    });
+
     test('everything stays inside the board', () {
       for (var i = 0; i < BoardSpec.hexagon.trackLength; i++) {
         final p = g.ringCell(i).centre;
@@ -260,3 +290,10 @@ bool _inside(Tri t, Pt p) {
   final anyPos = d1 > 0 || d2 > 0 || d3 > 0;
   return !(anyNeg && anyPos);
 }
+
+/// The length of a triangle's three sides, in board units of the given board.
+List<double> _sides(Tri t, BoardGeometry g) => [
+      (t.b - t.a).length / g.cellSize * 30,
+      (t.c - t.b).length / g.cellSize * 30,
+      (t.a - t.c).length / g.cellSize * 30,
+    ];
