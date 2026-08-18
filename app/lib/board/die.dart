@@ -161,6 +161,12 @@ class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
 /// The die that can be tapped to roll, when there is one.
 const rollDieKey = ValueKey<String>('roll-die');
 
+/// How big the die is drawn part-way through a throw, for a box [size] across.
+///
+/// Exposed for the same reason [faceShownFor] is: the throw makes a claim that
+/// is easy to break by accident and impossible to see in a still.
+double dieHalfEdge(double size, double t) => _CubePainter.halfFor(size, t);
+
 /// The number a settled die actually shows when it has been rolled [value].
 ///
 /// Exposed so a test can assert the one thing a die must never get wrong: the
@@ -271,6 +277,14 @@ class _CubePainter extends CustomPainter {
     _ => ink,
   };
 
+  /// Half the cube's edge, part-way through a throw.
+  ///
+  /// The growth is the whole of "it left the table": a thrown die comes toward
+  /// the eye and goes back down, and one that only slides up the screen reads
+  /// as being pushed rather than thrown.
+  static double halfFor(double s, double t) =>
+      s * 0.33 * (1 + 0.22 * math.sin(math.pi * t.clamp(0.0, 1.0)));
+
   /// The rotation that brings a given number to the front.
   /// Screen y grows downward, so the face marked 2 sits at -Y and needs a
   /// *negative* turn about X to come forward. Having those two signs the wrong
@@ -288,8 +302,15 @@ class _CubePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final s = size.shortestSide;
-    final half = s * 0.31;
     final centre = Offset(size.width / 2, size.height / 2);
+
+    // How far through the arc of the throw we are: 0 on the table at each end,
+    // 1 at the top. The die grows on the way up and shrinks back down, which
+    // is the whole of "it came off the table and fell back" — a thrown die
+    // gets nearer the eye, and a die that only moves up the screen reads as
+    // sliding rather than being thrown.
+    final lift = math.sin(math.pi * t.clamp(0.0, 1.0));
+    final half = halfFor(s, t);
 
     // The throw tumbles in three dimensions, and then the die lands square to
     // the camera. A number read off a corner-on cube is a number you have to
@@ -302,7 +323,7 @@ class _CubePainter extends CustomPainter {
     final ry = _lerp(fromY + spin * math.pi * 2, restY, settle);
 
     // A throw arcs: the die lifts and drops back onto its place.
-    final hop = math.sin(math.pi * t.clamp(0.0, 1.0)) * s * 0.17;
+    final hop = lift * s * 0.15;
 
     Offset project(List<double> v) {
       final p = _rotate(v, rx, ry);
@@ -315,8 +336,9 @@ class _CubePainter extends CustomPainter {
     final projected = [for (final c in _corners) project(c)];
 
     // Contact shadow, so the die sits on its place rather than floating over
-    // it. It tightens as the die comes down.
-    final drop = 1 - math.sin(math.pi * t.clamp(0.0, 1.0));
+    // it. It spreads and fades as the die rises, and tightens as it comes
+    // down — the other half of the illusion, and the half that sells it.
+    final drop = 1 - lift;
     canvas.drawOval(
       Rect.fromCenter(
         center: centre + Offset(s * 0.03, half * 0.98),
@@ -331,7 +353,17 @@ class _CubePainter extends CustomPainter {
     // The silhouette, rounded, in the bright tone the edges catch.
     final hull = _convexHull(projected);
     final body = _rounded(hull, half * 0.30);
-    canvas.drawPath(body, Paint()..color = _lighten(face, 0.5));
+    final bodyBounds = body.getBounds();
+    canvas.drawPath(
+      body,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_lighten(face, 0.62), _lighten(face, 0.44), face],
+          stops: const [0.0, 0.5, 1.0],
+        ).createShader(bodyBounds),
+    );
 
     final visible = <int>[];
     for (var f = 0; f < 6; f++) {
@@ -343,9 +375,23 @@ class _CubePainter extends CustomPainter {
       final quad = [for (final i in _faces[f]) projected[i]];
       final normal = _rotate(_normalOf(f), rx, ry);
       final inset = _shrink(quad, half * 0.16);
+      final path = _rounded(inset, half * 0.22);
+
+      // Each face is graded, not filled flat. A real die's face is never one
+      // tone: it catches more light along the edge facing the window and
+      // falls away across to the far corner. Painted flat, the die read as a
+      // paper cut-out of a die however correct the geometry underneath was.
+      final tone = _shade(face, normal);
+      final bounds = path.getBounds();
       canvas.drawPath(
-        _rounded(inset, half * 0.22),
-        Paint()..color = _shade(face, normal),
+        path,
+        Paint()
+          ..shader = LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [_lighten(tone, 0.38), tone, _deepen(tone, 0.26)],
+            stops: const [0.0, 0.52, 1.0],
+          ).createShader(bounds),
       );
       _pips(canvas, inset, _values[f], normal);
     }
@@ -449,6 +495,11 @@ class _CubePainter extends CustomPainter {
 
   static Color _lighten(Color base, double amount) =>
       Color.lerp(base, Colors.white, amount)!;
+
+  /// Toward a warm grey rather than black, for the same reason [_shade] does:
+  /// ivory in shadow is still ivory.
+  static Color _deepen(Color base, double amount) =>
+      Color.lerp(base, const Color(0xFF6E655A), amount)!;
 
   // --- geometry --------------------------------------------------------------
 

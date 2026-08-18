@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ludo_app/board/board_painter.dart';
 import 'package:ludo_app/board/die.dart';
 import 'package:ludo_app/screens/game_screen.dart';
 import 'package:ludo_engine/ludo_engine.dart';
@@ -11,6 +12,15 @@ import 'package:ludo_engine/ludo_engine.dart';
 /// allow. Neither is a decision. But the screen must still *show* the number
 /// that caused it — the first attempt passed 900ms after a throw that tumbles
 /// for 780, so the face nobody could read was the face the whole turn hung on.
+/// The position the board is actually drawing.
+GameState boardState(WidgetTester tester) {
+  final finder = find.byWidgetPredicate(
+    (w) => w is CustomPaint && w.painter is BoardPainter,
+  );
+  return (tester.widget<CustomPaint>(finder.first).painter as BoardPainter)
+      .state;
+}
+
 void main() {
   Future<void> openGame(
     WidgetTester tester, {
@@ -74,6 +84,36 @@ void main() {
       await tester.pump(const Duration(milliseconds: 120));
     }
     expect(find.byType(GameScreen), findsOneWidget);
+  });
+
+  testWidgets('four spellings of one move is not a choice either', (
+    tester,
+  ) async {
+    // Every chip starts in the yard, so a six offers one move per chip — four
+    // entries in the list, one thing that can actually happen, because a
+    // player's chips are interchangeable. Being asked to pick between them is
+    // a quiz, not a decision.
+    await openGame(tester, ai: const {});
+    await tester.pump();
+
+    var out = false;
+    for (var i = 0; i < 40 && !out; i++) {
+      final die = find.byKey(rollDieKey);
+      if (die.evaluate().isNotEmpty) await tester.tap(die.first);
+      for (var j = 0; j < 26; j++) {
+        await tester.pump(const Duration(milliseconds: 120));
+      }
+      // Nothing above ever touches the board — only the die.
+      out = boardState(tester).tokens.any((t) => !t.inYard);
+    }
+
+    expect(
+      out,
+      isTrue,
+      reason:
+          'a six with a full yard sat waiting for a tap that is not a '
+          'choice anybody can make wrongly',
+    );
   });
 
   testWidgets('the only move plays itself — nobody taps a chip', (

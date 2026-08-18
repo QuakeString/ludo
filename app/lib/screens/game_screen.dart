@@ -9,6 +9,7 @@ import 'package:ludo_protocol/ludo_protocol.dart';
 import '../board/board_painter.dart';
 import '../board/chip_layout.dart';
 import '../board/die.dart';
+import '../board/house_flush.dart';
 import '../board/move_animation.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
@@ -225,7 +226,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   bool _autoAdvance() {
     if (!_myMove || _state.awaitingRoll) return false;
     final moves = _legalMoves;
-    if (moves.length > 1) return false;
+    if (!_nothingToChoose(moves)) return false;
 
     setState(() {
       _flash = moves.isEmpty
@@ -240,11 +241,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       if (now.isEmpty) {
         final session = _session;
         session == null ? _passLocal() : session.pass();
-      } else if (now.length == 1) {
-        _play(now.single);
+      } else if (_nothingToChoose(now)) {
+        _play(now.first);
       }
     });
     return true;
+  }
+
+  /// Whether the roll leaves the player nothing to decide.
+  ///
+  /// Not just "one legal move". Chips of the same player are interchangeable,
+  /// so two of them standing on one square with the same square to go to are
+  /// one move offered twice — pick either and the board ends up identical.
+  /// The commonest case is a full yard and a six: four chips, four listed
+  /// moves, one thing that can happen. Making somebody choose between four
+  /// spellings of the same move is not a choice, it is a quiz.
+  bool _nothingToChoose(List<Move> moves) {
+    if (moves.length <= 1) return true;
+    String outcome(Move m) {
+      final owner = _state.tokens[m.tokenId].owner;
+      return '$owner:${m.fromProgress}>${m.toProgress}';
+    }
+
+    final first = outcome(moves.first);
+    return moves.every((m) => outcome(m) == first);
   }
 
   /// Ends a local turn and hands over.
@@ -397,6 +417,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     };
   }
 
+  /// The middle of a seat's house, in board coordinates.
+  Pt _houseOf(int seat) {
+    final slots = _geometry.yardSlots(_state.armOf(seat));
+    final x = slots.map((p) => p.x).reduce((a, b) => a + b) / slots.length;
+    final y = slots.map((p) => p.y).reduce((a, b) => a + b) / slots.length;
+    return Pt(x, y);
+  }
+
   /// Which seats sit above the board and which below.
   ///
   /// A seat's panel goes on the same side as its house, and in the same
@@ -406,14 +434,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   (List<int>, List<int>) _seatRows() {
     final n = _state.rules.players;
 
-    Pt houseOf(int seat) {
-      final slots = _geometry.yardSlots(_state.armOf(seat));
-      final x = slots.map((p) => p.x).reduce((a, b) => a + b) / slots.length;
-      final y = slots.map((p) => p.y).reduce((a, b) => a + b) / slots.length;
-      return Pt(x, y);
-    }
-
-    final houses = {for (var seat = 0; seat < n; seat++) seat: houseOf(seat)};
+    final houses = {for (var seat = 0; seat < n; seat++) seat: _houseOf(seat)};
     final above = [
       for (var seat = 0; seat < n; seat++)
         if (houses[seat]!.y < 0.5) seat,
@@ -439,81 +460,106 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return nameOfArm(_state.armOf(seat));
   }
 
+  /// How tall a seat rail is, including its padding.
+  ///
+  /// Fixed, and used to work out the board's square before either is laid
+  /// out — everything between the two rails is the board, so a rail that
+  /// changes height changes the board's size, and a board that resizes
+  /// mid-roll flickers.
+  static double _seatBandHeight(RuleConfig rules) =>
+      (rules.players > 4 ? 54.0 : 64.0) + 12;
+
   Widget _seatRow({required bool top}) {
     final (above, below) = _seatRows();
     final seats = top ? above : below;
-    if (seats.isEmpty) return const SizedBox.shrink();
+    final rules = _state.rules;
+    if (seats.isEmpty) return SizedBox(height: _seatBandHeight(rules));
 
+    return Padding(
+      padding: EdgeInsets.fromLTRB(0, top ? 4 : 8, 0, top ? 8 : 4),
+      child: SizedBox(
+        height: rules.players > 4 ? 54 : 64,
+        child: rules.players > 4
+            // Six panels, three to a rail: they share the width, because
+            // three of them centred over three houses would not fit a phone.
+            ? Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  for (final seat in seats) ...[
+                    if (seat != seats.first) const SizedBox(width: 7),
+                    Expanded(child: _panelFor(seat)),
+                  ],
+                ],
+              )
+            // Four seats or fewer: a house occupies half the board's width, so
+            // half the rail per house puts every panel over its own corner.
+            // Sharing the rail equally instead left a lone panel in the middle
+            // of the screen and, on a wide window, put a player's die nowhere
+            // near the house it belongs to.
+            : Row(
+                children: [
+                  for (final half in [0, 1])
+                    Expanded(
+                      child: Center(
+                        child: () {
+                          final mine = seats.where(
+                            (s) => (_houseOf(s).x < 0.5) == (half == 0),
+                          );
+                          return mine.isEmpty
+                              ? const SizedBox.shrink()
+                              : _panelFor(mine.first);
+                        }(),
+                      ),
+                    ),
+                ],
+              ),
+      ),
+    );
+  }
+
+  Widget _panelFor(int seat) {
     final rules = _state.rules;
     final session = _session;
     final limit = rules.turnSeconds;
     final left = session?.secondsLeft;
 
-    // A row, not a wrap: panels share the width so they always fit on one
-    // line. Wrapping cost the board a chunk of height at four seats and more
-    // at six, which is the wrong thing to spend space on.
-    Widget fit(Widget panel) =>
-        seats.length == 1 ? panel : Expanded(child: panel);
-
-    return Padding(
-      padding: EdgeInsets.fromLTRB(10, top ? 4 : 8, 10, top ? 8 : 4),
-      // A fixed height. Everything between the two seat rows is the board, so
-      // anything that changes height here changes the board's size — and a
-      // board that resizes mid-roll flickers.
-      child: SizedBox(
-        height: rules.players > 4 ? 54 : 64,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (final seat in seats) ...[
-              if (seat != seats.first) const SizedBox(width: 7),
-              fit(
-                SeatPanel(
-                  arm: _state.armOf(seat),
-                  name: _nameOf(seat),
-                  isComputer:
-                      widget.aiSeats.containsKey(seat) ||
-                      (_session?.room?.seats.length ?? 0) > seat &&
-                          (_session?.room?.seats[seat].isComputer ?? false),
-                  home: _state
-                      .tokensOf(seat)
-                      .where((t) => _state.board.isFinished(t.progress))
-                      .length,
-                  total: rules.tokensPerPlayer,
-                  onTurn: seat == _state.turn && !_state.isOver,
-                  // Only the seat on turn holds the die, and only once it has been
-                  // rolled — an unrolled die shows an empty face, not a stale one.
-                  dice: seat == _state.turn ? _state.dice : null,
-                  timerDots: rules.turnTimerDots,
-                  dotsLit: (left == null || limit <= 0)
-                      ? rules.turnTimerDots
-                      : (left * rules.turnTimerDots / limit).ceil().clamp(
-                          0,
-                          rules.turnTimerDots,
-                        ),
-                  connected: session == null
-                      ? true
-                      : (session.room?.seats.length ?? 0) > seat
-                      ? session.room!.seats[seat].connected
-                      : true,
-                  // The die is the roll button for whoever may roll.
-                  onRoll:
-                      (seat == _state.turn && _myMove && _state.awaitingRoll)
-                      ? _roll
-                      : null,
-                  // The pointer shows for whoever has to roll, whether or not
-                  // this device is the one that may tap.
-                  awaitingRoll:
-                      seat == _state.turn &&
-                      _state.awaitingRoll &&
-                      !_state.isOver,
-                  compact: rules.players > 4,
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
+    return SeatPanel(
+      arm: _state.armOf(seat),
+      name: _nameOf(seat),
+      isComputer:
+          widget.aiSeats.containsKey(seat) ||
+          (_session?.room?.seats.length ?? 0) > seat &&
+              (_session?.room?.seats[seat].isComputer ?? false),
+      home: _state
+          .tokensOf(seat)
+          .where((t) => _state.board.isFinished(t.progress))
+          .length,
+      total: rules.tokensPerPlayer,
+      onTurn: seat == _state.turn && !_state.isOver,
+      // Only the seat on turn holds the die, and only once it has been
+      // rolled — an unrolled die shows an empty face, not a stale one.
+      dice: seat == _state.turn ? _state.dice : null,
+      timerDots: rules.turnTimerDots,
+      dotsLit: (left == null || limit <= 0)
+          ? rules.turnTimerDots
+          : (left * rules.turnTimerDots / limit).ceil().clamp(
+              0,
+              rules.turnTimerDots,
+            ),
+      connected: session == null
+          ? true
+          : (session.room?.seats.length ?? 0) > seat
+          ? session.room!.seats[seat].connected
+          : true,
+      // The die is the roll button for whoever may roll.
+      onRoll: (seat == _state.turn && _myMove && _state.awaitingRoll)
+          ? _roll
+          : null,
+      // The pointer shows for whoever has to roll, whether or not this device
+      // is the one that may tap.
+      awaitingRoll:
+          seat == _state.turn && _state.awaitingRoll && !_state.isOver,
+      compact: rules.players > 4,
     );
   }
 
@@ -571,9 +617,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final moves = _myMove ? _legalMoves : const <Move>[];
     final session = _session;
     final glowSeat = _state.awaitingRoll && !_state.isOver ? _state.turn : null;
-    // Only the rings turn now, and only while there is something to move —
-    // the glow is steady, so waiting to roll costs no frames at all.
-    _setPulse(needed: moves.isNotEmpty);
+    // The rings turn and the house on turn flushes; both are boundaried
+    // overlays, so the ticker costs frames for them and never for the board.
+    _setPulse(needed: moves.isNotEmpty || glowSeat != null);
 
     return Scaffold(
       backgroundColor: palette.felt,
@@ -615,69 +661,104 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     'Lost the connection. Your seat is held for five '
                     'minutes — the table plays on meanwhile.',
               ),
-            _seatRow(top: true),
             Expanded(
-              child: Center(
-                child: AspectRatio(
-                  aspectRatio: 1,
-                  child: LayoutBuilder(
-                    builder: (context, constraints) {
-                      final size = constraints.biggest;
-                      BoardPainter layer(BoardLayer which) => BoardPainter(
-                        state: _state,
-                        geometry: _geometry,
-                        palette: palette,
-                        legalMoves: moves,
-                        glowSeat: glowSeat,
-                        motions: _motions(),
-                        layer: which,
-                      );
+              child: LayoutBuilder(
+                builder: (context, outer) {
+                  // The board and its two seat rails are laid out together and
+                  // share one width. Left to itself the rail took the whole
+                  // window, which on anything wider than a phone put a
+                  // player's die most of a screen away from the house it
+                  // belongs to.
+                  final band = _seatBandHeight(rules);
+                  final side = math.max(
+                    160.0,
+                    math.min(outer.maxWidth, outer.maxHeight - band * 2),
+                  );
+                  return Center(
+                    child: SizedBox(
+                      width: side,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _seatRow(top: true),
+                          Builder(
+                            builder: (context) {
+                              final size = Size(side, side);
+                              BoardPainter layer(BoardLayer which) =>
+                                  BoardPainter(
+                                    state: _state,
+                                    geometry: _geometry,
+                                    palette: palette,
+                                    legalMoves: moves,
+                                    glowSeat: glowSeat,
+                                    motions: _motions(),
+                                    layer: which,
+                                  );
 
-                      // Four layers, and only two of them ever repaint. The
-                      // board and the chips sit inside RepaintBoundaries so
-                      // Flutter keeps them as finished pictures; the ring and
-                      // the moving chip are drawn over the top. Painting the
-                      // whole board every frame to turn a ring was costing a
-                      // full CPU core.
-                      return GestureDetector(
-                        onTapDown: (d) => _tapBoard(d.localPosition, size),
-                        child: Stack(
-                          children: [
-                            RepaintBoundary(
-                              child: CustomPaint(
-                                size: size,
-                                painter: layer(BoardLayer.furniture),
-                              ),
-                            ),
-                            RepaintBoundary(
-                              child: CustomPaint(
-                                size: size,
-                                painter: layer(BoardLayer.glow),
-                              ),
-                            ),
-                            ..._rings(size),
-                            RepaintBoundary(
-                              child: CustomPaint(
-                                size: size,
-                                painter: layer(BoardLayer.chips),
-                              ),
-                            ),
-                            AnimatedBuilder(
-                              animation: _mover,
-                              builder: (context, _) => CustomPaint(
-                                size: size,
-                                painter: layer(BoardLayer.motions),
-                              ),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
-                  ),
-                ),
+                              // Four layers, and only two of them ever repaint. The
+                              // board and the chips sit inside RepaintBoundaries so
+                              // Flutter keeps them as finished pictures; the ring and
+                              // the moving chip are drawn over the top. Painting the
+                              // whole board every frame to turn a ring was costing a
+                              // full CPU core.
+                              return GestureDetector(
+                                onTapDown: (d) =>
+                                    _tapBoard(d.localPosition, size),
+                                child: SizedBox(
+                                  width: side,
+                                  height: side,
+                                  child: Stack(
+                                    children: [
+                                      RepaintBoundary(
+                                        child: CustomPaint(
+                                          size: size,
+                                          painter: layer(BoardLayer.furniture),
+                                        ),
+                                      ),
+                                      RepaintBoundary(
+                                        child: CustomPaint(
+                                          size: size,
+                                          painter: layer(BoardLayer.glow),
+                                        ),
+                                      ),
+                                      if (glowSeat != null)
+                                        HouseFlush(
+                                          geometry: _geometry,
+                                          arm: _state.armOf(glowSeat),
+                                          colour: colourOfArm(
+                                            _state.armOf(glowSeat),
+                                          ),
+                                          side: side,
+                                          beat: _spin,
+                                        ),
+                                      ..._rings(size),
+                                      RepaintBoundary(
+                                        child: CustomPaint(
+                                          size: size,
+                                          painter: layer(BoardLayer.chips),
+                                        ),
+                                      ),
+                                      AnimatedBuilder(
+                                        animation: _mover,
+                                        builder: (context, _) => CustomPaint(
+                                          size: size,
+                                          painter: layer(BoardLayer.motions),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              );
+                            },
+                          ),
+                          _seatRow(top: false),
+                        ],
+                      ),
+                    ),
+                  );
+                },
               ),
             ),
-            _seatRow(top: false),
             _Controls(
               state: _state,
               moves: moves,

@@ -75,12 +75,12 @@ void main() {
       (
         '6-seat-4-chips',
         const RuleConfig(players: 6, tokensPerPlayer: 4),
-        BoardPalette.light
+        BoardPalette.light,
       ),
       (
         '6-seat-2-chips',
         const RuleConfig(players: 6, tokensPerPlayer: 2),
-        BoardPalette.light
+        BoardPalette.light,
       ),
     ]) {
       final (name, rules, palette) = variant;

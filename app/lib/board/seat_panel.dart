@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
 import '../theme/seat_colors.dart';
@@ -71,7 +69,7 @@ class SeatPanel extends StatelessWidget {
       child: DieFace(
         value: dice,
         arm: arm,
-        size: compact ? 38 : 46,
+        size: compact ? 44 : 54,
         live: onTurn,
         // The die is the roll button. There is no second one anywhere else.
         onTap: onRoll,
@@ -114,33 +112,41 @@ class SeatPanel extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 1),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      '$home/$total',
-                      style: TextStyle(
-                        fontSize: compact ? 10 : 11,
-                        color: palette.faint,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                    if (onTurn && timerDots > 0) ...[
-                      const SizedBox(width: 6),
-                      for (var i = 0; i < timerDots; i++)
-                        Container(
-                          margin: const EdgeInsets.only(right: 2.5),
-                          width: 5,
-                          height: 5,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: i < dotsLit
-                                ? colour
-                                : colour.withValues(alpha: 0.2),
-                          ),
+                // Shrunk rather than overflowed. The chips-home count and the
+                // turn clock are a fixed width, so a bigger die or a narrower
+                // panel pushed them off the end — and an overflow stripe is
+                // the one thing on screen worse than small text.
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: Alignment.centerLeft,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        '$home/$total',
+                        style: TextStyle(
+                          fontSize: compact ? 10 : 11,
+                          color: palette.faint,
+                          fontFeatures: const [FontFeature.tabularFigures()],
                         ),
+                      ),
+                      if (onTurn && timerDots > 0) ...[
+                        const SizedBox(width: 6),
+                        for (var i = 0; i < timerDots; i++)
+                          Container(
+                            margin: const EdgeInsets.only(right: 2.5),
+                            width: 5,
+                            height: 5,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: i < dotsLit
+                                  ? colour
+                                  : colour.withValues(alpha: 0.2),
+                            ),
+                          ),
+                      ],
                     ],
-                  ],
+                  ),
                 ),
               ],
             ),
@@ -164,7 +170,7 @@ class SeatPanel extends StatelessWidget {
           panel,
           if (awaitingRoll)
             Positioned(
-              right: compact ? -26.0 : -32.0,
+              right: compact ? -34.0 : -44.0,
               // Boundaried, and this is not a micro-optimisation. Without it a
               // repaint of this one small icon travels up to the nearest
               // boundary — the whole screen — and re-rasterises the entire
@@ -194,44 +200,48 @@ class _RollPointer extends StatefulWidget {
   State<_RollPointer> createState() => _RollPointerState();
 }
 
-class _RollPointerState extends State<_RollPointer> {
-  // Stepped by a timer, and measured rather than reasoned about. The obvious
-  // improvement — a SlideTransition, which moves a cached layer and should
-  // cost the compositor almost nothing — measured at a full CPU core here,
-  // while stepping a repaint seven times a second measured at a fifth of one.
-  // Whatever the engine is doing on the web, frames are charged for, and the
-  // cheapest animation is the one that asks for fewest.
-  static const _steps = 6;
-  Timer? _timer;
-  int _phase = 0;
+class _RollPointerState extends State<_RollPointer>
+    with SingleTickerProviderStateMixin {
+  // Stepped seven times a second by a timer once, to save CPU. That was a bad
+  // trade made on a bad measurement: the browser it was measured in renders
+  // through SwiftShader, a software rasteriser, where every animated frame
+  // costs a core no matter how little of the screen changes or how carefully
+  // it is fenced behind a RepaintBoundary. On a machine with a GPU that work
+  // is not on the CPU at all. So the number said "animation is ruinous" when
+  // what it meant was "this container has no graphics card", and a visible
+  // stutter was shipped to buy back nothing.
+  //
+  // A real sixty-frame slide, then. It runs only while somebody actually has
+  // to roll, which is the honest saving — an idle screen animates nothing.
+  late final AnimationController _travel = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 820),
+  )..repeat(reverse: true);
 
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(milliseconds: 140), (_) {
-      if (mounted) setState(() => _phase = (_phase + 1) % _steps);
-    });
-  }
+  late final Animation<double> _t = CurvedAnimation(
+    parent: _travel,
+    curve: Curves.easeInOut,
+  );
 
   @override
   void dispose() {
-    _timer?.cancel();
+    _travel.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final t = _phase <= _steps / 2
-        ? _phase / (_steps / 2)
-        : 2 - _phase / (_steps / 2);
-    return Transform.translate(
-      // Travels toward the die, which is to its left.
-      offset: Offset(2 - t * 5, 0),
-      child: Icon(
-        Icons.arrow_left_rounded,
-        size: widget.compact ? 42 : 54,
-        color: widget.colour.withValues(alpha: 0.6 + 0.4 * t),
+    final size = widget.compact ? 58.0 : 74.0;
+    return AnimatedBuilder(
+      animation: _t,
+      builder: (context, child) => Transform.translate(
+        // Travels toward the die, which is to its left.
+        offset: Offset(3 - _t.value * 9, 0),
+        child: Opacity(opacity: 0.62 + 0.38 * _t.value, child: child),
       ),
+      // Built once and carried through every frame: the icon does not change,
+      // only where it is and how strongly it shows.
+      child: Icon(Icons.arrow_left_rounded, size: size, color: widget.colour),
     );
   }
 }
