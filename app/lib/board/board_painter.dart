@@ -9,6 +9,13 @@ import 'chip_layout.dart';
 import 'chip_painter.dart';
 import 'move_animation.dart';
 
+/// Which slice of the board a painter draws.
+///
+/// Split so the still parts can sit inside RepaintBoundaries and the moving
+/// parts cannot force them to be drawn again. Caching the *drawing commands*
+/// is not enough — replaying them still rasterises every square, every frame.
+enum BoardLayer { furniture, rings, chips, motions }
+
 /// Draws a whole board from engine state plus geometry.
 ///
 /// The painter knows nothing about rules — it asks the engine what is legal and
@@ -24,6 +31,7 @@ class BoardPainter extends CustomPainter {
     this.pulse = 0,
     this.motions = const {},
     this.glowSeat,
+    this.layer = BoardLayer.furniture,
   });
 
   final GameState state;
@@ -43,6 +51,8 @@ class BoardPainter extends CustomPainter {
   /// than under whatever it is hopping towards.
   final Map<int, ChipMotion> motions;
 
+  final BoardLayer layer;
+
   BoardSpec get spec => state.board;
 
   /// The projector for the paint currently running, so helpers below can map
@@ -57,15 +67,23 @@ class BoardPainter extends CustomPainter {
     _lastPx = px;
     final cell = geometry.cellSize * side;
 
-    _paintPlate(canvas, px, side);
-    _paintTrack(canvas, px, cell);
-    _paintHomeColumns(canvas, px, cell);
-    _paintStars(canvas, px, cell);
-    _paintTurnInArrows(canvas, px, cell);
-    _paintCentre(canvas, px);
-    _paintYards(canvas, px, cell);
-    _paintChips(canvas, px, cell);
-    _paintMotions(canvas, px, cell);
+    switch (layer) {
+      case BoardLayer.furniture:
+        _paintPlate(canvas, px, side);
+        _paintTrack(canvas, px, cell);
+        _paintHomeColumns(canvas, px, cell);
+        _paintStars(canvas, px, cell);
+        _paintTurnInArrows(canvas, px, cell);
+        _paintCentre(canvas, px);
+        _paintYards(canvas, px, cell);
+      case BoardLayer.rings:
+        _paintGlow(canvas, px, cell);
+        _paintLegalRings(canvas, px, cell);
+      case BoardLayer.chips:
+        _paintChips(canvas, px, cell);
+      case BoardLayer.motions:
+        _paintMotions(canvas, px, cell);
+    }
   }
 
   /// Chips mid-move, drawn above everything else.
@@ -222,14 +240,14 @@ class BoardPainter extends CustomPainter {
   void _paintCentre(Canvas canvas, Offset Function(Pt) px) {
     final wedges = geometry.centreWedges();
     for (var arm = 0; arm < wedges.length; arm++) {
-      final seat = _seatOnArm(arm);
       final tri = wedges[arm];
+      // Every wedge wears its arm's colour, seated or not. This was the last
+      // place still keyed off "is somebody sitting here", which left the
+      // middle of the board with white quarters while the houses and columns
+      // around them were coloured.
       canvas.drawPath(
         Path()..addPolygon([px(tri.a), px(tri.b), px(tri.c)], true),
-        Paint()
-          ..color = seat == null
-              ? palette.cell
-              : colourOfArm(arm).withValues(alpha: 0.9),
+        Paint()..color = colourOfArm(arm).withValues(alpha: 0.9),
       );
     }
   }
@@ -237,8 +255,6 @@ class BoardPainter extends CustomPainter {
   void _paintYards(Canvas canvas, Offset Function(Pt) px, double cell) {
     for (var arm = 0; arm < spec.arms; arm++) {
       final colour = _armColour(arm);
-      final seat = _seatOnArm(arm);
-      final glowing = seat != null && seat == glowSeat;
 
       if (geometry is CrossGeometry) {
         final (tl, br) = (geometry as CrossGeometry).yardSquare(arm);
@@ -248,12 +264,13 @@ class BoardPainter extends CustomPainter {
           rect.deflate(cell),
           Paint()..color = palette.homeInterior,
         );
-        if (glowing) _glow(canvas, Path()..addRect(rect), colour, cell);
       } else {
         final tri = geometry.yardShape(arm);
         final outer = [px(tri.a), px(tri.b), px(tri.c)];
-        final path = Path()..addPolygon(outer, true);
-        canvas.drawPath(path, Paint()..color = colour);
+        canvas.drawPath(
+          Path()..addPolygon(outer, true),
+          Paint()..color = colour,
+        );
         final centroid = Offset(
           outer.map((o) => o.dx).reduce((a, b) => a + b) / 3,
           outer.map((o) => o.dy).reduce((a, b) => a + b) / 3,
@@ -264,7 +281,6 @@ class BoardPainter extends CustomPainter {
           ], true),
           Paint()..color = palette.homeInterior,
         );
-        if (glowing) _glow(canvas, path, colour, cell);
       }
 
       // Four resting places, always drawn — switching between three and four
@@ -276,12 +292,62 @@ class BoardPainter extends CustomPainter {
     }
   }
 
+  /// The breathing outline round the house of whoever has to roll.
+  void _paintGlow(Canvas canvas, Offset Function(Pt) px, double cell) {
+    final seat = glowSeat;
+    if (seat == null) return;
+    final arm = state.armOf(seat);
+    final colour = _armColour(arm);
+
+    if (geometry is CrossGeometry) {
+      final (tl, br) = (geometry as CrossGeometry).yardSquare(arm);
+      _glow(
+        canvas,
+        Path()..addRect(Rect.fromPoints(px(tl), px(br))),
+        colour,
+        cell,
+      );
+    } else {
+      final tri = geometry.yardShape(arm);
+      _glow(
+        canvas,
+        Path()..addPolygon([px(tri.a), px(tri.b), px(tri.c)], true),
+        colour,
+        cell,
+      );
+    }
+  }
+
+  /// The turning ring on every chip that can move.
+  void _paintLegalRings(Canvas canvas, Offset Function(Pt) px, double cell) {
+    if (legalMoves.isEmpty) return;
+    final chipWidth = cell * (spec.arms == 4 ? 0.78 : 0.66);
+    final layout = chipLayout(state, geometry);
+    final movable = {for (final m in legalMoves) ...m.tokenIds};
+    for (final id in movable) {
+      if (motions.containsKey(id)) continue;
+      final at = layout[id];
+      if (at == null) continue;
+      ChipArt.paintLegalRing(
+        canvas,
+        px(at),
+        chipWidth,
+        colourOfArm(state.armOf(state.tokens[id].owner)),
+        pulse: pulse,
+      );
+    }
+  }
+
   /// A breathing outline round the house of whoever has to roll.
   ///
   /// Only while they are still to roll: once the dice are down the thing that
   /// needs attention is a chip on the board, not the house.
   void _glow(Canvas canvas, Path path, Color colour, double cell) {
-    final breath = 0.5 + 0.5 * math.sin(pulse * math.pi * 2);
+    // Steady, not breathing. A pulsing glow needs a frame every 16ms for as
+    // long as somebody has to roll, which is most of a game — and on the web
+    // that is a CPU core spent on a slow throb nobody asked for. The house
+    // lighting up is the signal; it does not have to move.
+    const breath = 0.75;
 
     // Clipped to the board. A halo is drawn by stroking outward, and a house
     // sits on the board's edge — unclipped it spills onto the page and reads
@@ -448,10 +514,9 @@ class BoardPainter extends CustomPainter {
     int? badge,
     bool ghost = false,
   }) {
+    // The ring is drawn by _paintLegalRings, between the board and the chips,
+    // because it turns and this layer is recorded once and replayed.
     final colour = colourOfArm(state.armOf(token.owner));
-    if (movable.contains(token.id) && !ghost) {
-      ChipArt.paintLegalRing(canvas, ground, width, colour, pulse: pulse);
-    }
     ChipArt.paint(
       canvas,
       ground,
@@ -461,21 +526,23 @@ class BoardPainter extends CustomPainter {
     );
   }
 
-  /// Which seat, if any, plays from a given arm.
-  int? _seatOnArm(int arm) {
-    for (var p = 0; p < state.rules.players; p++) {
-      if (state.armOf(p) == arm) return p;
-    }
-    return null;
-  }
-
   @override
-  bool shouldRepaint(BoardPainter old) =>
-      old.state != state ||
-      old.palette != palette ||
-      old.pulse != pulse ||
-      old.glowSeat != glowSeat ||
-      old.legalMoves.length != legalMoves.length ||
-      !identical(old.motions, motions) ||
-      old.motions.length != motions.length;
+  bool shouldRepaint(BoardPainter old) {
+    if (old.layer != layer ||
+        old.palette != palette ||
+        !identical(old.state, state)) {
+      return true;
+    }
+    // The still layers must not repaint for an animation frame; that is the
+    // whole point of splitting them out.
+    return switch (layer) {
+      BoardLayer.furniture => false,
+      BoardLayer.chips => old.motions.length != motions.length,
+      BoardLayer.rings =>
+        old.pulse != pulse ||
+            old.glowSeat != glowSeat ||
+            old.legalMoves.length != legalMoves.length,
+      BoardLayer.motions => true,
+    };
+  }
 }

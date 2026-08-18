@@ -197,14 +197,28 @@ class ChipArt {
     const dashes = 10;
     final sweep = math.pi * 2 / dashes;
     final gap = sweep * 0.42;
-    final turn = pulse * math.pi * 2 / dashes; // one dash per cycle, endless
+    // Three dashes per cycle rather than one: the ring has to read as turning
+    // at a glance, and one dash-width per cycle is a crawl.
+    final turn = pulse * math.pi * 2 / dashes * 3;
     final rect = Rect.fromCircle(center: ground, radius: r);
+
+    // A white dash under the coloured one. A blue ring on a blue house is the
+    // right colour and invisible; the pale outline is what makes it show up on
+    // a chip standing on its own colour.
+    final halo = Paint()
+      ..color = Colors.white.withValues(alpha: 0.9)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = width * 0.165
+      ..strokeCap = StrokeCap.round;
     final paint = Paint()
       ..color = color
       ..style = PaintingStyle.stroke
       ..strokeWidth = width * 0.10
       ..strokeCap = StrokeCap.round;
 
+    for (var i = 0; i < dashes; i++) {
+      canvas.drawArc(rect, turn + i * sweep, sweep - gap, false, halo);
+    }
     for (var i = 0; i < dashes; i++) {
       canvas.drawArc(rect, turn + i * sweep, sweep - gap, false, paint);
     }

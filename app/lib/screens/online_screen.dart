@@ -142,6 +142,8 @@ class _OnlineScreenState extends State<OnlineScreen> {
             [for (var p = 1; p < _players; p += 2) p],
           ]
         : null,
+    // Off by default, matching the local setup screen.
+    blockades: false,
     // Online, a turn that never ends is a table everyone else has to sit
     // and wait at, so the clock is on by default here: six dots of five
     // seconds each.

@@ -215,31 +215,55 @@ void animationTests() {
       expect(a.hops, 1);
     });
 
-    test('a captured chip flies home and arrives in its own yard', () {
-      var s = GameState.newGame(const RuleConfig());
-      final b = s.board;
-      final victim =
-          (3 - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
-      final tokens = [...s.tokens];
-      tokens[0] = tokens[0].copyWith(progress: 2);
-      tokens[4] = tokens[4].copyWith(progress: victim);
-      s = s.copyWith(tokens: tokens, dice: 1);
+    test(
+      'a captured chip walks back down its own track, not over the board',
+      () {
+        var s = GameState.newGame(const RuleConfig());
+        final b = s.board;
+        final victim =
+            (3 - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
+        final tokens = [...s.tokens];
+        tokens[0] = tokens[0].copyWith(progress: 2);
+        tokens[4] = tokens[4].copyWith(progress: victim);
+        s = s.copyWith(tokens: tokens, dice: 1);
 
-      final move = engine.legalMoves(s).firstWhere((m) => m.isCapture);
-      final a = MoveAnimation(move: move, before: s, geometry: geometry);
-      expect(
-        a.duration.inMilliseconds,
-        greaterThan(MoveAnimation.captureMillis),
-        reason: 'the flight home needs its own time',
-      );
+        final move = engine.legalMoves(s).firstWhere((m) => m.isCapture);
+        final a = MoveAnimation(move: move, before: s, geometry: geometry);
+        expect(
+          a.duration.inMilliseconds,
+          greaterThan(a.captureMillis),
+          reason: 'the walk home needs its own time on top of the move',
+        );
 
-      final landed = a.capturedAt(1, 4)!;
-      final yard = geometry.yardSlots(s.armOf(1));
-      final nearest = yard
-          .map((p) => (p - landed.ground).length)
-          .reduce((x, y) => x < y ? x : y);
-      expect(nearest, lessThan(1e-6), reason: 'it must end in its own yard');
-      expect(landed.scale, lessThan(1), reason: 'it shrinks as it goes');
-    });
+        // Sample the retreat and add up the ground actually covered.
+        final from = geometry.tokenAt(s.armOf(1), victim);
+        var travelled = 0.0;
+        var previous = from;
+        Pt? last;
+        for (var i = 0; i <= 200; i++) {
+          final at = a.capturedAt(i / 200, 4)?.ground;
+          if (at == null) continue;
+          travelled += (at - previous).length;
+          previous = at;
+          last = at;
+        }
+
+        final yard = geometry.yardSlots(s.armOf(1));
+        final nearest = yard
+            .map((p) => (p - last!).length)
+            .reduce((x, y) => x < y ? x : y);
+        expect(nearest, lessThan(1e-6), reason: 'it must end in its own yard');
+
+        // A chip flying straight home covers the direct distance. One retracing
+        // its route covers a good deal more, because the route bends round the
+        // board — that difference is the whole point of the change.
+        final direct = (yard.first - from).length;
+        expect(
+          travelled,
+          greaterThan(direct * 1.5),
+          reason: 'it went straight there instead of back along the track',
+        );
+      },
+    );
   });
 }

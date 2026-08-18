@@ -47,7 +47,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   late GameState _state;
   late BoardGeometry _geometry;
-  late final AnimationController _pulse;
+
+  /// Drives the turning ring. A stepped timer, not a ticker: on the web a
+  /// repaint costs the whole surface, so sixty frames a second to rotate a
+  /// dashed circle costs a CPU core. Twelve steps a second still turns.
+  Timer? _pulseTimer;
+  double _pulse = 0;
+
   late final AnimationController _mover;
 
   /// The move currently playing out. While it runs, [_state] is still the
@@ -73,10 +79,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _state =
         session?.state ?? GameState.newGame(widget.rules, seed: widget.seed);
     _geometry = BoardGeometry.forSpec(_state.board);
-    _pulse = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 1600),
-    )..repeat();
     _mover = AnimationController(vsync: this, duration: Duration.zero)
       ..addStatusListener((status) {
         if (status == AnimationStatus.completed) _settle();
@@ -95,7 +97,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _scheduled?.cancel();
     _matchSub?.cancel();
     _session?.removeListener(_sessionChanged);
-    _pulse.dispose();
+    _pulseTimer?.cancel();
     _mover.dispose();
     super.dispose();
   }
@@ -455,6 +457,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
+  /// Runs the shared ticker only while something on the board is moving.
+  ///
+  /// The rings and the house glow are the only things that animate on their
+  /// own, and both are often absent — the computer's turn, a finished game, a
+  /// player still to roll with nothing highlighted. Leaving the ticker running
+  /// through all of that repainted the board sixty times a second to show a
+  /// still picture.
+  void _setPulse({required bool needed}) {
+    if (needed && _pulseTimer == null) {
+      _pulseTimer = Timer.periodic(const Duration(milliseconds: 83), (_) {
+        if (mounted) setState(() => _pulse = (_pulse + 1 / 12) % 1);
+      });
+    } else if (!needed && _pulseTimer != null) {
+      _pulseTimer!.cancel();
+      _pulseTimer = null;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
@@ -464,6 +484,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // somebody else's turn.
     final moves = _myMove ? _legalMoves : const <Move>[];
     final session = _session;
+    final glowSeat = _state.awaitingRoll && !_state.isOver ? _state.turn : null;
+    // Only the rings turn now, and only while there is something to move —
+    // the glow is steady, so waiting to roll costs no frames at all.
+    _setPulse(needed: moves.isNotEmpty);
 
     return Scaffold(
       backgroundColor: palette.felt,
@@ -513,25 +537,51 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   child: LayoutBuilder(
                     builder: (context, constraints) {
                       final size = constraints.biggest;
+                      BoardPainter layer(BoardLayer which) => BoardPainter(
+                        state: _state,
+                        geometry: _geometry,
+                        palette: palette,
+                        legalMoves: moves,
+                        pulse: _pulse,
+                        glowSeat: glowSeat,
+                        motions: _motions(),
+                        layer: which,
+                      );
+
+                      // Four layers, and only two of them ever repaint. The
+                      // board and the chips sit inside RepaintBoundaries so
+                      // Flutter keeps them as finished pictures; the ring and
+                      // the moving chip are drawn over the top. Painting the
+                      // whole board every frame to turn a ring was costing a
+                      // full CPU core.
                       return GestureDetector(
                         onTapDown: (d) => _tapBoard(d.localPosition, size),
-                        child: AnimatedBuilder(
-                          animation: Listenable.merge([_pulse, _mover]),
-                          builder: (context, _) => CustomPaint(
-                            size: size,
-                            painter: BoardPainter(
-                              state: _state,
-                              geometry: _geometry,
-                              palette: palette,
-                              legalMoves: moves,
-                              pulse: _pulse.value,
-                              // The house asks for a roll, then stops asking.
-                              glowSeat: _state.awaitingRoll && !_state.isOver
-                                  ? _state.turn
-                                  : null,
-                              motions: _motions(),
+                        child: Stack(
+                          children: [
+                            RepaintBoundary(
+                              child: CustomPaint(
+                                size: size,
+                                painter: layer(BoardLayer.furniture),
+                              ),
                             ),
-                          ),
+                            CustomPaint(
+                              size: size,
+                              painter: layer(BoardLayer.rings),
+                            ),
+                            RepaintBoundary(
+                              child: CustomPaint(
+                                size: size,
+                                painter: layer(BoardLayer.chips),
+                              ),
+                            ),
+                            AnimatedBuilder(
+                              animation: _mover,
+                              builder: (context, _) => CustomPaint(
+                                size: size,
+                                painter: layer(BoardLayer.motions),
+                              ),
+                            ),
+                          ],
                         ),
                       );
                     },

@@ -39,7 +39,10 @@ class _SetupScreenState extends State<SetupScreen> {
   int _tokens = 4;
   bool _teams = false;
   bool _pairMove = false;
-  bool _blockades = true;
+  // Off by default. Two chips of one player walling a square is a real Ludo
+  // variant, but it is not what this table expects — a chip that cannot pass
+  // reads as a broken game rather than as a rule.
+  bool _blockades = false;
 
   /// How many seats the computer takes, and how hard it plays. Seat 0 is
   /// always yours; the computer fills from the last seat backwards.

@@ -1,4 +1,4 @@
-import 'dart:math' as math;
+import 'dart:async';
 
 import 'package:flutter/material.dart';
 
@@ -67,89 +67,114 @@ class SeatPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
     final colour = colourOfArm(arm);
-    final die = DieFace(
-      value: dice,
-      arm: arm,
-      size: compact ? 38 : 46,
-      live: onTurn,
-      // The die is the roll button. There is no second one anywhere else.
-      onTap: onRoll,
+    final die = RepaintBoundary(
+      child: DieFace(
+        value: dice,
+        arm: arm,
+        size: compact ? 38 : 46,
+        live: onTurn,
+        // The die is the roll button. There is no second one anywhere else.
+        onTap: onRoll,
+      ),
+    );
+
+    final panel = AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      padding: EdgeInsets.symmetric(
+        horizontal: compact ? 6 : 9,
+        vertical: compact ? 5 : 7,
+      ),
+      decoration: BoxDecoration(
+        color: onTurn ? colour.withValues(alpha: 0.13) : palette.panel,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: onTurn ? colour : palette.panelEdge,
+          width: onTurn ? 1.6 : 1,
+        ),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _Avatar(arm: arm, compact: compact, robot: isComputer),
+          SizedBox(width: compact ? 6 : 8),
+          // Flexible, so a long name gives way rather than overflowing when
+          // three panels share a phone's width at six seats.
+          Flexible(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  name,
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
+                  style: TextStyle(
+                    fontSize: compact ? 11 : 12.5,
+                    fontWeight: onTurn ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 1),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '$home/$total',
+                      style: TextStyle(
+                        fontSize: compact ? 10 : 11,
+                        color: palette.faint,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                    if (onTurn && timerDots > 0) ...[
+                      const SizedBox(width: 6),
+                      for (var i = 0; i < timerDots; i++)
+                        Container(
+                          margin: const EdgeInsets.only(right: 2.5),
+                          width: 5,
+                          height: 5,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: i < dotsLit
+                                ? colour
+                                : colour.withValues(alpha: 0.2),
+                          ),
+                        ),
+                    ],
+                  ],
+                ),
+              ],
+            ),
+          ),
+          SizedBox(width: compact ? 6 : 9),
+          die,
+        ],
+      ),
     );
 
     return Opacity(
       opacity: connected ? 1 : 0.45,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 220),
-        padding: EdgeInsets.symmetric(
-          horizontal: compact ? 6 : 9,
-          vertical: compact ? 5 : 7,
-        ),
-        decoration: BoxDecoration(
-          color: onTurn ? colour.withValues(alpha: 0.13) : palette.panel,
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: onTurn ? colour : palette.panelEdge,
-            width: onTurn ? 1.6 : 1,
-          ),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _Avatar(arm: arm, compact: compact, robot: isComputer),
-            SizedBox(width: compact ? 6 : 8),
-            // Flexible, so a long name gives way rather than overflowing when
-            // three panels share a phone's width at six seats.
-            Flexible(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    name,
-                    overflow: TextOverflow.ellipsis,
-                    maxLines: 1,
-                    style: TextStyle(
-                      fontSize: compact ? 11 : 12.5,
-                      fontWeight: onTurn ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: 1),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$home/$total',
-                        style: TextStyle(
-                          fontSize: compact ? 10 : 11,
-                          color: palette.faint,
-                          fontFeatures: const [FontFeature.tabularFigures()],
-                        ),
-                      ),
-                      if (onTurn && timerDots > 0) ...[
-                        const SizedBox(width: 6),
-                        for (var i = 0; i < timerDots; i++)
-                          Container(
-                            margin: const EdgeInsets.only(right: 2.5),
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: i < dotsLit
-                                  ? colour
-                                  : colour.withValues(alpha: 0.2),
-                            ),
-                          ),
-                      ],
-                    ],
-                  ),
-                ],
+      // The pointer sits outside the panel, in a stack that does not clip, so
+      // it can appear and disappear without the panel changing size. Inside the
+      // row it pushed the contents about every time the turn changed, and a
+      // panel that grows and shrinks under your eye looks broken.
+      child: Stack(
+        clipBehavior: Clip.none,
+        alignment: Alignment.centerRight,
+        children: [
+          panel,
+          if (awaitingRoll)
+            Positioned(
+              right: compact ? -26.0 : -32.0,
+              // Boundaried, and this is not a micro-optimisation. Without it a
+              // repaint of this one small icon travels up to the nearest
+              // boundary — the whole screen — and re-rasterises the entire
+              // board sixty times a second. Measured: one full CPU core for an
+              // arrow, and nothing at all once it is fenced off.
+              child: RepaintBoundary(
+                child: _RollPointer(colour: colour, compact: compact),
               ),
             ),
-            SizedBox(width: compact ? 6 : 9),
-            if (awaitingRoll) _RollPointer(colour: colour, compact: compact),
-            die,
-          ],
-        ),
+        ],
       ),
     );
   }
@@ -169,39 +194,46 @@ class _RollPointer extends StatefulWidget {
   State<_RollPointer> createState() => _RollPointerState();
 }
 
-class _RollPointerState extends State<_RollPointer>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _nudge = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat();
+class _RollPointerState extends State<_RollPointer> {
+  // Stepped by a timer rather than tweened by a ticker. A ticker means a frame
+  // every 16ms for as long as it is somebody's turn to roll, and on the web
+  // that costs a whole CPU core whether or not the thing being animated is
+  // small — measured, not assumed. Seven steps a second still reads as a
+  // moving arrow and costs almost nothing.
+  static const _steps = 6;
+  Timer? _timer;
+  int _phase = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _timer = Timer.periodic(const Duration(milliseconds: 140), (_) {
+      if (mounted) setState(() => _phase = (_phase + 1) % _steps);
+    });
+  }
 
   @override
   void dispose() {
-    _nudge.dispose();
+    _timer?.cancel();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedBuilder(
-      animation: _nudge,
-      builder: (context, _) {
-        final t = Curves.easeInOut.transform(
-          (math.sin(_nudge.value * math.pi * 2) + 1) / 2,
-        );
-        return Padding(
-          padding: EdgeInsets.only(right: widget.compact ? 1 : 2),
-          child: Transform.translate(
-            offset: Offset(t * 4 - 2, 0),
-            child: Icon(
-              Icons.play_arrow_rounded,
-              size: widget.compact ? 16 : 19,
-              color: widget.colour.withValues(alpha: 0.55 + 0.45 * t),
-            ),
-          ),
-        );
-      },
+    // A there-and-back nudge across the steps.
+    final t = _phase <= _steps / 2
+        ? _phase / (_steps / 2)
+        : 2 - _phase / (_steps / 2);
+    return Transform.translate(
+      // Travels toward the die, which is to its left.
+      offset: Offset(2 - t * 5, 0),
+      child: Icon(
+        Icons.arrow_left_rounded,
+        // The glyph fills well under half its box, so the number here is
+        // roughly double the arrow you actually see.
+        size: widget.compact ? 42 : 54,
+        color: widget.colour.withValues(alpha: 0.6 + 0.4 * t),
+      ),
     );
   }
 }

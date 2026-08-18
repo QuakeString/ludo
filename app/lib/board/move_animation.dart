@@ -45,7 +45,25 @@ class MoveAnimation {
 
   static const hopMillis = 150;
   static const landMillis = 90;
-  static const captureMillis = 700;
+
+  /// How long a captured chip takes per square of its walk home.
+  static const captureStepMillis = 26;
+  static const captureMinMillis = 420;
+  static const captureMaxMillis = 1300;
+
+  /// The whole retreat, sized to how far the chip has to come back.
+  int get captureMillis {
+    if (!move.isCapture) return 0;
+    var longest = 0;
+    for (final id in move.capturedTokenIds) {
+      final steps = _retreatPath(id).length;
+      if (steps > longest) longest = steps;
+    }
+    return (longest * captureStepMillis).clamp(
+      captureMinMillis,
+      captureMaxMillis,
+    );
+  }
 
   int get hops => math.max(0, _waypoints.length - 1);
 
@@ -113,7 +131,22 @@ class MoveAnimation {
     return ChipMotion(ground: to, squash: squash);
   }
 
-  /// A captured chip's flight back to its yard: up, spinning, shrinking.
+  /// The way a captured chip goes home: back along the squares it came by.
+  ///
+  /// A chip that flies over the board tells you nothing. Walking it back down
+  /// its own track shows the player exactly how much ground was just taken off
+  /// them, which is the whole meaning of the capture.
+  List<Pt> _retreatPath(int tokenId) {
+    final token = before.tokens[tokenId];
+    final arm = before.armOf(token.owner);
+    final path = <Pt>[
+      for (var p = token.progress; p >= 0; p--) geometry.tokenAt(arm, p),
+      geometry.tokenAt(arm, -1, slot: yardSlotOf(before, token)),
+    ];
+    return path;
+  }
+
+  /// A captured chip's walk back to its yard.
   ChipMotion? capturedAt(double t, int tokenId) {
     if (!move.isCapture || !move.capturedTokenIds.contains(tokenId)) {
       return null;
@@ -127,25 +160,24 @@ class MoveAnimation {
       );
     }
     final p = ((elapsed - travelMillis) / captureMillis).clamp(0.0, 1.0);
+    final path = _retreatPath(tokenId);
+    if (path.length < 2) return ChipMotion(ground: path.first);
 
-    final token = before.tokens[tokenId];
-    final from = geometry.tokenAt(before.armOf(token.owner), token.progress);
-    final home = geometry.tokenAt(
-      before.armOf(token.owner),
-      -1,
-      // Its own resting place, not id-modulo-four: token ids are global, so
-      // that only lined up while every player had exactly four chips.
-      slot: yardSlotOf(before, token),
-    );
+    // Slide along the retreat, easing out at the end so it settles rather than
+    // stops dead. No hop per square: this is a chip being dragged back, not one
+    // making its way forward.
+    final eased = 1 - math.pow(1 - p, 2.2).toDouble();
+    final span = (path.length - 1) * eased;
+    final i = span.floor().clamp(0, path.length - 2);
+    final f = span - i;
+    final a = path[i], b = path[i + 1];
+
     return ChipMotion(
-      ground: Pt(
-        from.x + (home.x - from.x) * p,
-        from.y + (home.y - from.y) * p,
-      ),
-      lift: math.sin(math.pi * p) * 2.2,
-      spin: p * 2 * math.pi,
-      scale: 1 - 0.35 * p,
-      fade: 1 - 0.15 * p,
+      ground: Pt(a.x + (b.x - a.x) * f, a.y + (b.y - a.y) * f),
+      // A little smaller while travelling, back to full size on arrival —
+      // enough to read as "removed" without leaving the board.
+      scale: 1 - 0.18 * math.sin(math.pi * p),
+      fade: 1 - 0.25 * math.sin(math.pi * p),
     );
   }
 }
