@@ -288,14 +288,19 @@ void main() {
         expect(gap(four.last, centroid), lessThan(0.1),
             reason: 'the fourth chip is not in the middle');
 
-        // Two stand side by side: same distance out, mirrored across the
-        // house's axis, and near enough to read as a pair.
+        // Two stand side by side: mirrored across the house's axis, so their
+        // midpoint lands on it, and near enough to read as a pair. Not on the
+        // centroid — across the axis is the house's narrow direction, so the
+        // pair sits a little out from the middle where there is more room.
         final two = g.yardSlots(arm, count: 2);
         expect(gap(two[0], centroid), closeTo(gap(two[1], centroid), 0.01));
+
         final mid = Pt((two[0].x + two[1].x) / 2, (two[0].y + two[1].y) / 2);
-        expect(gap(mid, centroid), lessThan(0.1),
-            reason: 'the pair is not centred in the house');
-        expect(gap(two[0], two[1]), closeTo(56, 1),
+        final apex = tri.a;
+        final baseMid = Pt((tri.b.x + tri.c.x) / 2, (tri.b.y + tri.c.y) / 2);
+        expect(gap(apex, mid) + gap(mid, baseMid), closeTo(gap(apex, baseMid), 0.5),
+            reason: 'the pair is not centred across the house');
+        expect(gap(two[0], two[1]), closeTo(52, 1),
             reason: 'the pair is not side by side');
       }
     });

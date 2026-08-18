@@ -213,27 +213,33 @@ class CrossGeometry implements BoardGeometry {
   @override
   List<Pt> yardSlots(int arm, {int count = 4}) {
     final o = yardOrigins[arm];
-    // In the block's own six-by-six grid. A square house has no apex to build
-    // a triangle on, so four sit in a square and the smaller counts borrow the
-    // same idea: a triangle for three, a level pair for two.
+    // In the block's own six-by-six grid, whose painted interior runs from 1
+    // to 5. A square house has no apex to build a triangle on, so four sit in
+    // a square and the smaller counts borrow the same idea: a triangle for
+    // three, a level pair for two.
+    //
+    // Drawn in from the corners they used to sit at. Against the interior's
+    // edge the chips read as pushed up against the wall of the house rather
+    // than standing inside it, which is the same complaint the hexagon's
+    // houses had.
     final places = switch (count) {
       <= 1 => const [
           [3.0, 3.0],
         ],
       2 => const [
-          [1.9, 3.0],
-          [4.1, 3.0],
+          [2.15, 3.0],
+          [3.85, 3.0],
         ],
       3 => const [
-          [3.0, 1.85],
-          [1.85, 4.1],
-          [4.15, 4.1],
+          [3.0, 2.1],
+          [2.1, 3.8],
+          [3.9, 3.8],
         ],
       _ => const [
-          [1.9, 1.9],
-          [4.1, 1.9],
-          [1.9, 4.1],
-          [4.1, 4.1],
+          [2.15, 2.15],
+          [3.85, 2.15],
+          [2.15, 3.85],
+          [3.85, 3.85],
         ],
     };
     return [
@@ -325,25 +331,30 @@ class HexGeometry implements BoardGeometry {
   ///
   /// The house is an equilateral triangle 181 across, sitting between radius
   /// 90 and 246.8, so its centroid is at 194.53 and each of its three points
-  /// is 104.53 away from that. The chips stand 36% of the way out to those
+  /// is 104.53 away from that. The chips stand 32% of the way out to those
   /// points — far enough that the three of them read as a triangle, near
   /// enough to leave a clear band of house around them.
   ///
-  /// It was half way out, which put a chip's edge four units off the painted
-  /// border: the chips looked flung into the corners rather than set down in
-  /// the middle of a house. At 36% that gap is about twelve.
+  /// It was half way out once, which put a chip's edge four units off the
+  /// painted border: the chips looked flung into the corners rather than set
+  /// down in the middle of a house. Drawn in again when that border was made
+  /// thicker, since a thicker border is a smaller room.
   static const _slotMiddle = [194.53, 0.0];
   static const _slotPoints = [
-    [156.90, 0.0], // toward the apex, pointing at the middle of the board
-    [213.35, -32.59], // and toward each corner of the base
-    [213.35, 32.59],
+    [161.08, 0.0], // toward the apex, pointing at the middle of the board
+    [211.26, -28.97], // and toward each corner of the base
+    [211.26, 28.97],
   ];
 
   /// Two chips stand across the house rather than on two of its three points,
   /// which would read as a triangle with a piece missing.
+  ///
+  /// Set a little out from the middle: across the axis is the house's narrow
+  /// direction, and a pair centred on the centroid has the two sloping walls
+  /// closer to it than anything else in here.
   static const _slotPair = [
-    [194.53, -28.0],
-    [194.53, 28.0],
+    [206.53, -26.0],
+    [206.53, 26.0],
   ];
 
   @override

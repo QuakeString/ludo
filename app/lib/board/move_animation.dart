@@ -46,12 +46,15 @@ class MoveAnimation {
   static const hopMillis = 150;
   static const landMillis = 90;
 
-  /// How long a captured chip takes per square of its walk home. Slow enough
-  /// to follow with your eyes — the whole point of walking it back is that you
-  /// can see how much ground was taken off you, which a blur does not show.
-  static const captureStepMillis = 55;
-  static const captureMinMillis = 700;
-  static const captureMaxMillis = 2600;
+  /// How long a captured chip takes per square of its walk home.
+  ///
+  /// Slow enough to follow with your eyes: the whole point of walking it back
+  /// rather than snapping it to its yard is that you can see how much ground
+  /// was taken off you, and a blur does not show that. It has been too fast
+  /// twice; this is a deliberate trudge, about eight squares a second.
+  static const captureStepMillis = 105;
+  static const captureMinMillis = 800;
+  static const captureMaxMillis = 4200;
 
   /// The whole retreat, sized to how far the chip has to come back.
   int get captureMillis {
@@ -158,6 +161,20 @@ class MoveAnimation {
     return path;
   }
 
+  final Map<int, List<double>> _retreatMarks = {};
+
+  /// Distance along the retreat at each waypoint, so the walk can be paced by
+  /// ground covered instead of by squares passed.
+  List<double> _retreatMileposts(int tokenId) =>
+      _retreatMarks.putIfAbsent(tokenId, () {
+        final path = _retreatPath(tokenId);
+        final marks = <double>[0];
+        for (var i = 1; i < path.length; i++) {
+          marks.add(marks[i - 1] + (path[i] - path[i - 1]).length);
+        }
+        return marks;
+      });
+
   /// A captured chip's walk back to its yard.
   ChipMotion? capturedAt(double t, int tokenId) {
     if (!move.isCapture || !move.capturedTokenIds.contains(tokenId)) {
@@ -175,13 +192,25 @@ class MoveAnimation {
     final path = _retreatPath(tokenId);
     if (path.length < 2) return ChipMotion(ground: path.first);
 
-    // Slide along the retreat, easing out at the end so it settles rather than
-    // stops dead. No hop per square: this is a chip being dragged back, not one
-    // making its way forward.
-    final eased = 1 - math.pow(1 - p, 2.2).toDouble();
-    final span = (path.length - 1) * eased;
-    final i = span.floor().clamp(0, path.length - 2);
-    final f = span - i;
+    // One steady speed the whole way back, measured in ground covered rather
+    // than in squares passed.
+    //
+    // It used to ease out, which meant it crossed most of the board in the
+    // first moment and then crawled — so the part worth watching, the distance
+    // being given up, went by too fast to follow, while the part nobody needs
+    // to see was drawn out. Pacing by squares instead is nearly right and
+    // still visibly wrong: the track turns its corners diagonally, which is
+    // half again as far as a straight step, and the last stride into the yard
+    // is longer than any square. The chip sped up exactly at the corners, which
+    // is where the eye is following it.
+    final marks = _retreatMileposts(tokenId);
+    final want = marks.last * p;
+    var i = 0;
+    while (i < marks.length - 2 && marks[i + 1] < want) {
+      i++;
+    }
+    final leg = marks[i + 1] - marks[i];
+    final f = leg <= 0 ? 0.0 : ((want - marks[i]) / leg).clamp(0.0, 1.0);
     final a = path[i], b = path[i + 1];
 
     return ChipMotion(

@@ -3,6 +3,8 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:ludo_geometry/ludo_geometry.dart';
 
+import 'board_painter.dart';
+
 /// The house of whoever has to roll, its border flushing deep and pale.
 ///
 /// A soft halo around the house was the first attempt at this and it was
@@ -105,7 +107,7 @@ class _FlushPainter extends CustomPainter {
       band
         ..addPolygon(outer, true)
         ..addPolygon([
-          for (final o in outer) centroid + (o - centroid) * 0.80,
+          for (final o in outer) centroid + (o - centroid) * houseInset,
         ], true);
     }
     canvas.drawPath(band, Paint()..color = tone);

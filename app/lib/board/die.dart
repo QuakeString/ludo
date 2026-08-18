@@ -1,10 +1,10 @@
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 
 import '../theme/seat_colors.dart';
+import 'sounds.dart';
 
 /// How long a die tumbles before it settles.
 ///
@@ -56,8 +56,6 @@ class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
     duration: const Duration(milliseconds: dieRollMillis),
   );
 
-  AudioPlayer? _player;
-
   /// Where the tumble starts from, so each roll looks different.
   double _fromX = 0, _fromY = 0;
   int _spin = 0;
@@ -100,22 +98,14 @@ class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
     _rattle();
   }
 
-  Future<void> _rattle() async {
+  void _rattle() {
     if (widget.mute) return;
-    try {
-      final player = _player ??= AudioPlayer();
-      await player.stop();
-      await player.play(AssetSource('sounds/dice_roll.wav'), volume: 0.55);
-    } catch (_) {
-      // No audio device, a browser that has not had a gesture yet, a test —
-      // none of which is a reason for the dice not to roll.
-    }
+    Sfx.instance.play(Sound.die, volume: 0.6);
   }
 
   @override
   void dispose() {
     _roll.dispose();
-    _player?.dispose();
     super.dispose();
   }
 
@@ -267,6 +257,20 @@ class _CubePainter extends CustomPainter {
     [1, 1, -1],
     [-1, 1, -1],
   ];
+
+  /// Fewer pips, bigger pips.
+  ///
+  /// On a real die every pip is the same size, and at the size a die is
+  /// actually shown here that is the wrong rule to copy: a one drawn at the
+  /// size that suits a six is a speck adrift in an empty face. What the eye
+  /// reads across the room is how much ink is on the face, so the low numbers
+  /// are given more of it.
+  static double _pipScale(int n) => switch (n) {
+    1 => 1.6,
+    2 => 1.38,
+    3 => 1.2,
+    _ => 1.0,
+  };
 
   /// Ludo dice are not all-black: the one is blue and the four is red. Small
   /// thing, but it is the difference between "a die" and "the die on the table
@@ -452,22 +456,23 @@ class _CubePainter extends CustomPainter {
         origin.dx, origin.dy, 0, 1,
       ]),
     );
+    final k = _pipScale(n);
     for (final o in _pipLayout[n]!) {
       final at = Offset(0.5 + o[0] * 0.225, 0.5 + o[1] * 0.225);
       // Pips are sunk into the face: a dark rim below, the colour above.
       canvas.drawCircle(
-        at.translate(0, 0.012),
-        0.092,
+        at.translate(0, 0.012 * k),
+        0.092 * k,
         Paint()..color = Colors.black.withValues(alpha: 0.22),
       );
       canvas.drawCircle(
         at,
-        0.086,
+        0.086 * k,
         Paint()..color = Color.lerp(ink, Colors.black, (1 - lit) * 0.45)!,
       );
       canvas.drawCircle(
-        at.translate(-0.019, -0.019),
-        0.027,
+        at.translate(-0.019 * k, -0.019 * k),
+        0.027 * k,
         Paint()..color = Colors.white.withValues(alpha: 0.22),
       );
     }

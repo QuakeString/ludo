@@ -11,6 +11,7 @@ import '../board/chip_layout.dart';
 import '../board/die.dart';
 import '../board/house_flush.dart';
 import '../board/move_animation.dart';
+import '../board/sounds.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
 import '../net/online_session.dart';
@@ -308,6 +309,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _settle() {
     final animation = _playing;
     if (animation == null) return;
+    _soundFor(animation.move);
 
     if (_online) {
       // Online there is nothing to work out: the position the chips just
@@ -333,6 +335,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (_state.isOver) return;
     if (_autoAdvance()) return;
     _maybeTakeComputerTurn();
+  }
+
+  /// What a move sounds like, played as the chip lands.
+  ///
+  /// Three outcomes, three sounds, because they are three different things
+  /// happening and a board game says so out loud: a chip set down, a chip
+  /// knocked off, a chip home. At the end of the walk rather than the start —
+  /// the sound is the landing, and a knock that arrives before the chip does
+  /// belongs to no event at all.
+  void _soundFor(Move move) {
+    if (move.isCapture) {
+      Sfx.instance.play(Sound.capture, volume: 0.9);
+    } else if (_state.board.isFinished(move.toProgress)) {
+      Sfx.instance.play(Sound.home, volume: 0.75);
+    } else {
+      Sfx.instance.play(Sound.step, volume: 0.55);
+    }
   }
 
   /// If a computer sits at the seat on turn, play it — with a beat first, so a
@@ -580,7 +599,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
     final cell = _geometry.cellSize * side;
     final chipWidth = cell * (_state.board.arms == 4 ? 0.78 : 0.66);
-    final diameter = chipWidth * 2.0;
+    // Round the chip's foot, not the whole square it stands on. At twice the
+    // chip's width the ring swallowed its neighbours' squares too, and on a
+    // crowded square it circled the crowd rather than marking a piece.
+    final diameter = chipWidth * 1.5;
 
     final layout = chipLayout(_state, _geometry);
     final movable = {for (final m in moves) ...m.tokenIds};

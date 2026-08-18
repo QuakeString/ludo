@@ -278,5 +278,51 @@ void animationTests() {
         );
       },
     );
+    test('a captured chip goes back at one steady speed', () {
+      var s = GameState.newGame(const RuleConfig());
+      final b = s.board;
+      final victim =
+          (3 - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
+      final tokens = [...s.tokens];
+      tokens[0] = tokens[0].copyWith(progress: 2);
+      tokens[4] = tokens[4].copyWith(progress: victim);
+      s = s.copyWith(tokens: tokens, dice: 1);
+
+      final move = engine.legalMoves(s).firstWhere((m) => m.isCapture);
+      final a = MoveAnimation(move: move, before: s, geometry: geometry);
+
+      // Only the stretch where the chip is actually retreating: before that it
+      // stands still while the capturing chip walks over to it.
+      final begins =
+          (a.duration.inMilliseconds - a.captureMillis) /
+          a.duration.inMilliseconds;
+
+      /// Ground covered by the time [fraction] of the retreat has passed.
+      ///
+      /// Summed from dense samples rather than checked step by step: the track
+      /// turns square corners, so the straight line between two samples either
+      /// side of one is shorter than the distance actually walked, and a
+      /// step-by-step check reads that as slowing down when nothing has.
+      double travelledBy(double fraction) {
+        var total = 0.0;
+        Pt? previous;
+        const n = 900;
+        for (var i = 0; i <= (n * fraction).round(); i++) {
+          final t = begins + (1 - begins) * (i / n);
+          final at = a.capturedAt(t, 4)?.ground;
+          if (at == null) continue;
+          if (previous != null) total += (at - previous).length;
+          previous = at;
+        }
+        return total;
+      }
+
+      final whole = travelledBy(1);
+      expect(whole, greaterThan(0.5), reason: 'it barely moved');
+      // Half the time, half the ground. Under the old easing it had covered
+      // more than three quarters of the way by the halfway point.
+      expect(travelledBy(0.5) / whole, closeTo(0.5, 0.03));
+      expect(travelledBy(0.25) / whole, closeTo(0.25, 0.03));
+    });
   });
 }

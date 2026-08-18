@@ -16,6 +16,14 @@ import 'move_animation.dart';
 /// is not enough — replaying them still rasterises every square, every frame.
 enum BoardLayer { furniture, glow, chips, motions }
 
+/// How far in the painted interior of a hexagon house sits from its outline.
+///
+/// The gap between the two is the house's coloured border, and it carries the
+/// seat's colour at the size the eye actually picks it out from across the
+/// board — so it is worth a few percent of the house. Shared with whatever
+/// else draws that border, because two numbers meaning one thing drift.
+const double houseInset = 0.74;
+
 /// Draws a whole board from engine state plus geometry.
 ///
 /// The painter knows nothing about rules — it asks the engine what is legal and
@@ -276,7 +284,7 @@ class BoardPainter extends CustomPainter {
         );
         canvas.drawPath(
           Path()..addPolygon([
-            for (final o in outer) centroid + (o - centroid) * 0.80,
+            for (final o in outer) centroid + (o - centroid) * houseInset,
           ], true),
           Paint()..color = palette.homeInterior,
         );
