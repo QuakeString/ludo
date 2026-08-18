@@ -1,0 +1,18 @@
+sub_assembly,id,name,qty,length,width,thickness,material,grain,rough_length,rough_width,rough_thickness,note
+Head end,head-bottom-rail,Head end bottom rail,1,1470,90.0,32,solid oak,along length,1500,94.0,36,
+Head end,head-top-rail,Headboard arched top rail,1,1470,200,32,solid oak,along length,1500,204,36,
+Head end,head-panel,Headboard panel,1,1430,660,18,solid oak,across width,1460,664,22,glued up from narrower boards; leave 3 mm play in the grooves top and bottom and do not glue it in
+Head end,head-post,Head post,2,880,70,40,solid oak,along length,910,74,44,mortise before shaping; keep the bolt counterbore on the outside face
+Foot end,foot-bottom-rail,Foot end bottom rail,1,1470,90.0,32,solid oak,along length,1500,94.0,36,
+Foot end,foot-top-rail,Foot end top rail,1,1470,80.0,32,solid oak,along length,1500,84.0,36,
+Foot end,foot-panel,Foot end panel,1,1430,240,18,solid oak,across width,1460,244,22,glued up from narrower boards; leave 3 mm play in the grooves top and bottom and do not glue it in
+Foot end,foot-post,Foot post,2,420,70,40,solid oak,along length,450,74,44,mortise before shaping; keep the bolt counterbore on the outside face
+Side rails,side-rail,Side rail,2,2090,160,32,solid oak,along length,2120,164,36,bed bolts pull the joint up; the tenon only locates it
+Side rails,slat-bearer,Slat bearer,2,2010,50,25,solid oak,along length,2040,54,29,"glued and screwed to the inside of the rail, flush with nothing -- work off the top edge"
+Deck,centre-beam,Centre beam,1,2010,95,45,solid oak,along length,2040,99,49,carries the middle of every slat; screw each slat to it
+Deck,slat,Slat,15,1414.0,70,20,solid oak,along length,1444.0,74,24,
+Deck,beam-leg,Centre beam leg,3,285,45,45,solid oak,along length,315,49,49,
+Drawers,drawer-front,Drawer front,2,999.0,225,18,solid oak,across width,1029.0,229,22,"routed finger pull, radiused; screwed to the box from inside"
+Drawers,drawer-bottom,Drawer bottom,2,939.0,600,12,birch plywood,n/a,969.0,604,16,slides into the grooves as the box goes together
+Drawers,drawer-long,Drawer long side,4,923.0,175,18,solid oak,along length,953.0,179,22,
+Drawers,drawer-end,Drawer end panel,4,620,175,18,solid oak,along length,650,179,22,

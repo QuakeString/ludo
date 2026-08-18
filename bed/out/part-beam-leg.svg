@@ -1,0 +1,22 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2070 1100' width='100%'>
+<title>Centre beam leg 1</title>
+<rect width='2070' height='1100' fill='#ffffff'/>
+<text x='170.0' y='60.0' font-size='44' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='bold'>CENTRE BEAM LEG 1</text>
+<text x='170.0' y='108.0' font-size='28' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>3 off   -   285 x 45 x 45 mm   -   solid oak   -   grain along length</text>
+<rect x='170.0' y='360.0' width='285.0' height='45.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<rect x='170.0' y='625.0' width='285.0' height='45.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<text x='170.0' y='439.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>FACE</text>
+<text x='170.0' y='704.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>EDGE</text>
+<line x1='170.0' y1='505.0' x2='455.0' y2='505.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='170.0' y1='496.0' x2='170.0' y2='514.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='455.0' y1='496.0' x2='455.0' y2='514.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='312.5' y='495.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' font-weight='normal'>285</text>
+<line x1='535.0' y1='405.0' x2='535.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='526.0' y1='405.0' x2='544.0' y2='405.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='526.0' y1='360.0' x2='544.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='523.0' y='382.5' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 523.0 382.5)'>45</text>
+<line x1='535.0' y1='670.0' x2='535.0' y2='625.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='526.0' y1='670.0' x2='544.0' y2='670.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='526.0' y1='625.0' x2='544.0' y2='625.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='523.0' y='647.5' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 523.0 647.5)'>45</text>
+</svg>

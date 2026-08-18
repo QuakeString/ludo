@@ -1,0 +1,23 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2070 1622' width='100%'>
+<title>Drawer 1 bottom</title>
+<rect width='2070' height='1622' fill='#ffffff'/>
+<text x='170.0' y='60.0' font-size='44' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='bold'>DRAWER 1 BOTTOM</text>
+<text x='170.0' y='108.0' font-size='28' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>2 off   -   939 x 600 x 12 mm   -   birch plywood   -   grain n/a</text>
+<text x='170.0' y='146.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>slides into the grooves as the box goes together</text>
+<rect x='170.0' y='360.0' width='939.0' height='600.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<rect x='170.0' y='1180.0' width='939.0' height='12.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<text x='170.0' y='994.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>FACE</text>
+<text x='170.0' y='1226.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>EDGE</text>
+<line x1='170.0' y1='1060.0' x2='1109.0' y2='1060.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='170.0' y1='1051.0' x2='170.0' y2='1069.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1109.0' y1='1051.0' x2='1109.0' y2='1069.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='639.5' y='1050.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' font-weight='normal'>939</text>
+<line x1='1189.0' y1='960.0' x2='1189.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1180.0' y1='960.0' x2='1198.0' y2='960.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1180.0' y1='360.0' x2='1198.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='1177.0' y='660.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 1177.0 660.0)'>600</text>
+<line x1='1189.0' y1='1192.0' x2='1189.0' y2='1180.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1180.0' y1='1192.0' x2='1198.0' y2='1192.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1180.0' y1='1180.0' x2='1198.0' y2='1180.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='1177.0' y='1186.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 1177.0 1186.0)'>12</text>
+</svg>

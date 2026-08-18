@@ -1,0 +1,43 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2070 1383' width='100%'>
+<title>Drawer 1 long side (back)</title>
+<rect width='2070' height='1383' fill='#ffffff'/>
+<text x='170.0' y='60.0' font-size='44' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='bold'>DRAWER 1 LONG SIDE (BACK)</text>
+<text x='170.0' y='108.0' font-size='28' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>4 off   -   923 x 175 x 18 mm   -   solid oak   -   grain along length</text>
+<rect x='170.0' y='360.0' width='923.0' height='175.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<rect x='162.0' y='511.0' width='939.0' height='12.0' fill='#ffffff' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='1.6' stroke-dasharray='12 8'/>
+<line x1='168.0' y1='360.0' x2='168.0' y2='360.0' stroke='#b4472b' stroke-width='1.0'/>
+<text x='168.0' y='352.0' font-size='30' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' font-weight='bold'>A</text>
+<rect x='170.0' y='755.0' width='923.0' height='18.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<rect x='162.0' y='755.0' width='939.0' height='8.0' fill='#ffffff' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='1.6' stroke-dasharray='12 8'/>
+<text x='170.0' y='569.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>FACE</text>
+<text x='170.0' y='807.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>EDGE</text>
+<line x1='170.0' y1='635.0' x2='1093.0' y2='635.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='170.0' y1='626.0' x2='170.0' y2='644.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1093.0' y1='626.0' x2='1093.0' y2='644.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='631.5' y='625.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' font-weight='normal'>923</text>
+<line x1='1173.0' y1='535.0' x2='1173.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1164.0' y1='535.0' x2='1182.0' y2='535.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1164.0' y1='360.0' x2='1182.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='1161.0' y='447.5' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 1161.0 447.5)'>175</text>
+<line x1='1173.0' y1='773.0' x2='1173.0' y2='755.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1164.0' y1='773.0' x2='1182.0' y2='773.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1164.0' y1='755.0' x2='1182.0' y2='755.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='1161.0' y='764.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 1161.0 764.0)'>18</text>
+<text x='170.0' y='943.0' font-size='32' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='bold'>SETTING OUT</text>
+<text x='170.0' y='989.0' font-size='24' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'></text>
+<text x='240.0' y='989.0' font-size='24' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>feature</text>
+<text x='790.0' y='989.0' font-size='24' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>from left end</text>
+<text x='980.0' y='989.0' font-size='24' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>length</text>
+<text x='1170.0' y='989.0' font-size='24' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>across face</text>
+<text x='1360.0' y='989.0' font-size='24' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>width</text>
+<text x='1500.0' y='989.0' font-size='24' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>depth</text>
+<line x1='170.0' y1='1001.0' x2='1800.0' y2='1001.0' stroke='#6b6b6b' stroke-width='1.2'/>
+<text x='170.0' y='1109.0' font-size='24' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>EDGE view is the same part on its side; 'top' and 'base' name the face the cut is made from.  Dashed outlines are hidden work.</text>
+<text x='170.0' y='1039.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#b4472b' font-weight='bold'>A</text>
+<text x='240.0' y='1039.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='normal'>groove</text>
+<text x='790.0' y='1039.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='normal'>-8</text>
+<text x='980.0' y='1039.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='normal'>939</text>
+<text x='1170.0' y='1039.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='normal'>12</text>
+<text x='1360.0' y='1039.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='normal'>12</text>
+<text x='1500.0' y='1039.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='normal'>8  from top (EDGE)</text>
+</svg>

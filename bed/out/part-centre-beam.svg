@@ -1,0 +1,23 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2650 1150' width='100%'>
+<title>Centre beam</title>
+<rect width='2650' height='1150' fill='#ffffff'/>
+<text x='170.0' y='60.0' font-size='44' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='bold'>CENTRE BEAM</text>
+<text x='170.0' y='108.0' font-size='28' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>1 off   -   2010 x 95 x 45 mm   -   solid oak   -   grain along length</text>
+<text x='170.0' y='146.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>carries the middle of every slat; screw each slat to it</text>
+<rect x='170.0' y='360.0' width='2010.0' height='95.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<rect x='170.0' y='675.0' width='2010.0' height='45.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<text x='170.0' y='489.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>FACE</text>
+<text x='170.0' y='754.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>EDGE</text>
+<line x1='170.0' y1='555.0' x2='2180.0' y2='555.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='170.0' y1='546.0' x2='170.0' y2='564.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2180.0' y1='546.0' x2='2180.0' y2='564.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='1175.0' y='545.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' font-weight='normal'>2010</text>
+<line x1='2260.0' y1='455.0' x2='2260.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2251.0' y1='455.0' x2='2269.0' y2='455.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2251.0' y1='360.0' x2='2269.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='2248.0' y='407.5' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 2248.0 407.5)'>95</text>
+<line x1='2260.0' y1='720.0' x2='2260.0' y2='675.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2251.0' y1='720.0' x2='2269.0' y2='720.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2251.0' y1='675.0' x2='2269.0' y2='675.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='2248.0' y='697.5' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 2248.0 697.5)'>45</text>
+</svg>

@@ -1,0 +1,22 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2070 1100' width='100%'>
+<title>Slat 1</title>
+<rect width='2070' height='1100' fill='#ffffff'/>
+<text x='170.0' y='60.0' font-size='44' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='bold'>SLAT 1</text>
+<text x='170.0' y='108.0' font-size='28' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>15 off   -   1414 x 70 x 20 mm   -   solid oak   -   grain along length</text>
+<rect x='170.0' y='360.0' width='1414.0' height='70.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<rect x='170.0' y='650.0' width='1414.0' height='20.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<text x='170.0' y='464.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>FACE</text>
+<text x='170.0' y='704.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>EDGE</text>
+<line x1='170.0' y1='530.0' x2='1584.0' y2='530.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='170.0' y1='521.0' x2='170.0' y2='539.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1584.0' y1='521.0' x2='1584.0' y2='539.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='877.0' y='520.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' font-weight='normal'>1414</text>
+<line x1='1664.0' y1='430.0' x2='1664.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1655.0' y1='430.0' x2='1673.0' y2='430.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1655.0' y1='360.0' x2='1673.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='1652.0' y='395.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 1652.0 395.0)'>70</text>
+<line x1='1664.0' y1='670.0' x2='1664.0' y2='650.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1655.0' y1='670.0' x2='1673.0' y2='670.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='1655.0' y1='650.0' x2='1673.0' y2='650.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='1652.0' y='660.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 1652.0 660.0)'>20</text>
+</svg>

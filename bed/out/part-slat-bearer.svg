@@ -1,0 +1,23 @@
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2650 1085' width='100%'>
+<title>Slat bearer (left)</title>
+<rect width='2650' height='1085' fill='#ffffff'/>
+<text x='170.0' y='60.0' font-size='44' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#1b1b1b' font-weight='bold'>SLAT BEARER (LEFT)</text>
+<text x='170.0' y='108.0' font-size='28' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>2 off   -   2010 x 50 x 25 mm   -   solid oak   -   grain along length</text>
+<text x='170.0' y='146.0' font-size='25' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>glued and screwed to the inside of the rail, flush with nothing -- work off the top edge</text>
+<rect x='170.0' y='360.0' width='2010.0' height='50.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<rect x='170.0' y='630.0' width='2010.0' height='25.0' fill='#f4efe6' fill-opacity='1.0' stroke='#1b1b1b' stroke-width='2.2'/>
+<text x='170.0' y='444.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>FACE</text>
+<text x='170.0' y='689.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='start' fill='#6b6b6b' font-weight='normal'>EDGE</text>
+<line x1='170.0' y1='510.0' x2='2180.0' y2='510.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='170.0' y1='501.0' x2='170.0' y2='519.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2180.0' y1='501.0' x2='2180.0' y2='519.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='1175.0' y='500.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' font-weight='normal'>2010</text>
+<line x1='2260.0' y1='410.0' x2='2260.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2251.0' y1='410.0' x2='2269.0' y2='410.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2251.0' y1='360.0' x2='2269.0' y2='360.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='2248.0' y='385.0' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 2248.0 385.0)'>50</text>
+<line x1='2260.0' y1='655.0' x2='2260.0' y2='630.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2251.0' y1='655.0' x2='2269.0' y2='655.0' stroke='#b4472b' stroke-width='1.6'/>
+<line x1='2251.0' y1='630.0' x2='2269.0' y2='630.0' stroke='#b4472b' stroke-width='1.6'/>
+<text x='2248.0' y='642.5' font-size='26' font-family='DejaVu Sans, Helvetica, Arial, sans-serif' text-anchor='middle' fill='#b4472b' transform='rotate(-90 2248.0 642.5)'>25</text>
+</svg>

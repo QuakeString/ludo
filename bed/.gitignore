@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+
+# written by FreeCAD when you run the macro
+out/bed.FCStd
+out/bed.FCStd1
+out/bed.step
