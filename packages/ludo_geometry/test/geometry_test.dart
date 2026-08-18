@@ -274,9 +274,12 @@ void main() {
                 sides.reduce((a, b) => a < b ? a : b),
             lessThan(0.1),
             reason: 'the three do not make an equilateral triangle');
+        // Far enough out to read as a triangle, near enough to leave a band
+        // of house around them. Both ends have been wrong: at half way out
+        // the chips looked flung into the corners.
         for (final s in three) {
-          expect(gap(s, centroid), greaterThan(30),
-              reason: 'a chip of three sits in the middle');
+          expect(gap(s, centroid), inInclusiveRange(30, 45),
+              reason: 'the chip triangle is either huddled or flung wide');
         }
 
         // Four are those three plus one in the middle.

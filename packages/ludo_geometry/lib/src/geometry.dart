@@ -325,14 +325,18 @@ class HexGeometry implements BoardGeometry {
   ///
   /// The house is an equilateral triangle 181 across, sitting between radius
   /// 90 and 246.8, so its centroid is at 194.53 and each of its three points
-  /// is 104.53 away from that. The chips stand halfway out to those points,
-  /// which is far enough to make the triangle obvious and still leaves a
-  /// chip's edge about 15 units clear of the painted border.
+  /// is 104.53 away from that. The chips stand 36% of the way out to those
+  /// points — far enough that the three of them read as a triangle, near
+  /// enough to leave a clear band of house around them.
+  ///
+  /// It was half way out, which put a chip's edge four units off the painted
+  /// border: the chips looked flung into the corners rather than set down in
+  /// the middle of a house. At 36% that gap is about twelve.
   static const _slotMiddle = [194.53, 0.0];
   static const _slotPoints = [
-    [142.26, 0.0], // toward the apex, pointing at the middle of the board
-    [220.67, -45.26], // and toward each corner of the base
-    [220.67, 45.26],
+    [156.90, 0.0], // toward the apex, pointing at the middle of the board
+    [213.35, -32.59], // and toward each corner of the base
+    [213.35, 32.59],
   ];
 
   /// Two chips stand across the house rather than on two of its three points,
