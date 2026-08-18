@@ -408,9 +408,12 @@ class BoardPainter extends CustomPainter {
     }
   }
 
-  /// Up to two chips draw in full; three or more collapse to one plus a count.
-  /// Same-seat groups stack front to back, mixed seats sit side by side —
-  /// whose chips are there matters more than how many.
+  /// Two or more chips on one square lean apart, so every head shows.
+  ///
+  /// They used to be shrunk and set side by side, which made a crowded square
+  /// read as two small counters rather than two pieces sharing a square. Real
+  /// pieces jostled together tip away from each other; that is all this is,
+  /// and it keeps them full size.
   void _paintGroup(
     Canvas canvas,
     Offset at,
@@ -419,81 +422,46 @@ class BoardPainter extends CustomPainter {
     Set<int> movable,
     double cell,
   ) {
-    final owners = group.map((t) => t.owner).toSet();
-
     if (group.length == 1) {
       _chip(canvas, at, width, group.first, movable, cell);
       return;
     }
 
-    if (owners.length == 1) {
-      if (group.length == 2) {
-        _chip(
-          canvas,
-          at + Offset(-width * 0.22, -width * 0.10),
-          width * 0.86,
-          group[0],
-          movable,
-          cell,
-        );
-        _chip(
-          canvas,
-          at + Offset(width * 0.22, width * 0.06),
-          width * 0.86,
-          group[1],
-          movable,
-          cell,
-        );
-      } else {
-        _chip(
-          canvas,
-          at + Offset(-width * 0.12, -width * 0.08),
-          width * 0.8,
-          group.first,
-          movable,
-          cell,
-          ghost: true,
-        );
-        _chip(
-          canvas,
-          at + Offset(width * 0.06, width * 0.05),
-          width * 0.92,
-          group[1],
-          movable,
-          cell,
-          badge: group.length,
-        );
-      }
-      return;
-    }
-
-    // Mixed seats: side by side, shrunk so each colour stays readable.
+    // One of each colour first: whose chips are standing there matters more
+    // than how many, so a player's second chip never crowds out another
+    // player's first.
     final byOwner = <int, List<Token>>{};
     for (final t in group) {
       byOwner.putIfAbsent(t.owner, () => []).add(t);
     }
-    // Sized so they genuinely sit beside each other. They used to be spread by
-    // less than their own width, so the one drawn second covered the first and
-    // a square with two colours on it looked like a square with one.
-    final entries = byOwner.entries.toList();
-    final scale = entries.length == 2 ? 0.62 : 0.5;
-    for (var i = 0; i < entries.length; i++) {
-      final angle = (i / entries.length) * 2 * math.pi - math.pi / 2;
-      final spread = entries.length == 2 ? width * 0.34 : width * 0.36;
-      final offset = entries.length == 2
-          // Level with each other: a vertical stagger is what let one pawn's
-          // body hide the next.
-          ? Offset(i == 0 ? -spread : spread, 0)
-          : Offset(math.cos(angle) * spread, math.sin(angle) * spread * 0.6);
-      final tokens = entries[i].value;
+    final order = <Token>[
+      for (final own in byOwner.values) own.first,
+      for (final own in byOwner.values) ...own.skip(1),
+    ];
+
+    // Three leaning pieces still read; beyond that they are a heap, so the
+    // rest are counted on a badge instead.
+    final shown = order.length <= 3 ? order.length : 3;
+    final hidden = order.length - shown;
+
+    // How far they go over depends on how many there are: two barely tip,
+    // three have to lean properly for the middle one's head to clear the
+    // others. One angle for every crowd left three of them stacked.
+    final lean = 0.10 * shown;
+    final spread = 0.09 * shown;
+
+    for (var i = 0; i < shown; i++) {
+      // -1 for the leftmost, +1 for the rightmost, 0 for one in the middle.
+      final fan = (i / (shown - 1)) * 2 - 1;
       _chip(
         canvas,
-        at + offset,
-        width * scale,
-        tokens.first,
+        at + Offset(fan * width * spread, 0),
+        width * 0.92,
+        order[i],
         movable,
         cell,
-        badge: tokens.length > 1 ? tokens.length : null,
+        tilt: fan * lean,
+        badge: (hidden > 0 && i == shown - 1) ? order.length : null,
       );
     }
   }
@@ -507,6 +475,7 @@ class BoardPainter extends CustomPainter {
     double cell, {
     int? badge,
     bool ghost = false,
+    double tilt = 0,
   }) {
     // The ring is drawn by _paintLegalRings, between the board and the chips,
     // because it turns and this layer is recorded once and replayed.
@@ -517,6 +486,7 @@ class BoardPainter extends CustomPainter {
       width,
       ghost ? colour.withValues(alpha: 0.55) : colour,
       badge: badge,
+      tilt: tilt,
     );
   }
 

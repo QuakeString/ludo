@@ -126,6 +126,75 @@ void main() {
         .writeAsBytesSync(png!.buffer.asUint8List());
   });
 
+  test('three on a square lean further than two', () async {
+    // The angle is not fixed: three pieces have to go over further than two
+    // for the middle one's head to clear the others.
+    final fresh = GameState.newGame(rules, seed: 2);
+    final board = fresh.board;
+    final shared = board.startRing(fresh.armOf(0)) + 3;
+    int progressFor(int seat) =>
+        (shared - board.startRing(fresh.armOf(seat)) + board.trackLength) %
+        board.trackLength;
+
+    final state = situation({
+      0: progressFor(0),
+      4: progressFor(1),
+      8: progressFor(2),
+    });
+    final geometry = BoardGeometry.forSpec(state.board);
+    final layout = chipLayout(state, geometry);
+    expect(layout[0], layout[4]);
+    expect(layout[0], layout[8]);
+
+    const side = 900;
+    final png = await (await wholeBoard(
+      state,
+      geometry,
+      side,
+    )).toByteData(format: ui.ImageByteFormat.png);
+    Directory('build/board-previews').createSync(recursive: true);
+    File('build/board-previews/crowded-three.png')
+        .writeAsBytesSync(png!.buffer.asUint8List());
+
+    // Red, green and blue must all reach the square.
+    final (pixels, _) = await raster(
+      BoardPainter(
+        state: state,
+        geometry: geometry,
+        palette: BoardPalette.light,
+        legalMoves: const [],
+        layer: BoardLayer.chips,
+      ),
+      side,
+    );
+    final cell = geometry.cellSize * side;
+    final centre = Offset(layout[0]!.x * side, layout[0]!.y * side);
+    var reds = 0, greens = 0, blues = 0;
+    for (
+      var y = (centre.dy - cell * 2).round();
+      y < (centre.dy + cell * 2).round();
+      y++
+    ) {
+      for (
+        var x = (centre.dx - cell * 2).round();
+        x < (centre.dx + cell * 2).round();
+        x++
+      ) {
+        if (x < 0 || y < 0 || x >= side || y >= side) continue;
+        final i = (y * side + x) * 4;
+        final r = pixels.getUint8(i);
+        final g = pixels.getUint8(i + 1);
+        final b = pixels.getUint8(i + 2);
+        if (r > b + 40 && r > g + 40) reds++;
+        if (g > r + 30 && g > b + 30) greens++;
+        if (b > r + 40 && b > g + 20) blues++;
+      }
+    }
+    expect(reds, greaterThan(60), reason: 'red is buried');
+    expect(greens, greaterThan(60), reason: 'green is buried');
+    expect(blues, greaterThan(60), reason: 'blue is buried');
+  });
+
   test('finished chips rest in their own wedge, not on each other', () {
     final s = GameState.newGame(rules, seed: 2);
     final geometry = BoardGeometry.forSpec(s.board);

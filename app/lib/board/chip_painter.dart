@@ -52,6 +52,7 @@ class ChipArt {
     double squash = 1,
     double scale = 1,
     double spin = 0,
+    double tilt = 0,
     double fade = 1,
     int? badge,
     Color rim = Colors.white,
@@ -72,6 +73,11 @@ class ChipArt {
     );
 
     canvas.translate(0, -lift);
+    // Leaned, not slid: the piece pivots on the point where it touches the
+    // board, which is how a real one behaves when it is nudged. Applied before
+    // the scales so the whole chip goes over as a piece, and after the shadow
+    // so the shadow stays flat on the square where the chip is standing.
+    if (tilt != 0) canvas.rotate(tilt);
     canvas.scale(2 - squash, squash);
     // A spin reads as rotation about the chip's own axis, so it foreshortens
     // horizontally rather than tipping over.
