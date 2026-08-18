@@ -138,7 +138,6 @@ class LudoEngine {
 
     final arm = s.armOf(token.owner);
     final ring = s.board.startRing(arm);
-    if (_blockedFor(s, token.owner, ring)) return null;
 
     final captured = _capturesAt(s, token.owner, ring, moverIsPair: false);
     if (captured == null) return null; // occupied in a way we cannot land on
@@ -157,13 +156,11 @@ class LudoEngine {
   Move? _advanceMove(GameState s, Token token, int roll) {
     final target = _targetProgress(s, token.progress, roll);
     if (target == null) return null;
-    if (!_pathIsClear(s, token.owner, token.progress, target)) return null;
     if (!_mayFinish(s, token.owner, target)) return null;
 
     final ring = s.board.ringIndex(s.armOf(token.owner), target);
     var captured = const <int>[];
     if (ring != null) {
-      if (_blockedFor(s, token.owner, ring)) return null;
       final c = _capturesAt(s, token.owner, ring, moverIsPair: false);
       if (c == null) return null;
       captured = c;
@@ -190,22 +187,17 @@ class LudoEngine {
     final steps = rules.pairMoveEvenOnly ? roll ~/ 2 : roll;
     if (steps <= 0) return null;
 
-    // Members share a square, so one is enough to compute the path — but the
-    // path must be clear for every owner involved.
+    // Members share a square, so one is enough to compute the path.
     final lead = members.first;
     final target = _targetProgress(s, lead.progress, steps);
     if (target == null) return null;
     for (final m in members) {
-      if (!_pathIsClear(s, m.owner, m.progress, target)) return null;
       if (!_mayFinish(s, m.owner, target)) return null;
     }
 
     final ring = s.board.ringIndex(s.armOf(lead.owner), target);
     var captured = const <int>[];
     if (ring != null) {
-      if (_blockedFor(s, lead.owner, ring, ignore: members.map((m) => m.id))) {
-        return null;
-      }
       final c = _capturesAt(s, lead.owner, ring,
           moverIsPair: true, ignore: members.map((m) => m.id).toSet());
       if (c == null) return null;
@@ -241,36 +233,6 @@ class LudoEngine {
     if (!s.rules.mustCaptureToWin) return true;
     if (target < s.board.finalProgress) return true;
     return s.captures[owner] > 0;
-  }
-
-  /// Walks every square between `from` and `to`, looking for a wall.
-  bool _pathIsClear(GameState s, int owner, int from, int to) {
-    if (!s.rules.blockades) return true;
-    for (var p = from + 1; p <= to; p++) {
-      final ring = s.board.ringIndex(s.armOf(owner), p);
-      if (ring == null) continue; // home stretch is private
-      if (_blockedFor(s, owner, ring)) return false;
-    }
-    return true;
-  }
-
-  /// True when a ring square holds a wall this player cannot pass: two or more
-  /// *unlinked* tokens of one opposing seat.
-  ///
-  /// A linked pair is deliberately not a wall. Both are two tokens on one
-  /// square, but they are different things: a blockade stops everyone, while a
-  /// pair is governed by [RuleConfig.pairCapture] — otherwise a pair would
-  /// always block, and "a pair can be taken by a pair" could never happen.
-  bool _blockedFor(GameState s, int owner, int ring, {Iterable<int>? ignore}) {
-    if (!s.rules.blockades) return false;
-    final skip = ignore?.toSet() ?? const <int>{};
-    final counts = <int, int>{};
-    for (final t in s.tokensOnRing(ring)) {
-      if (skip.contains(t.id) || t.isPaired) continue;
-      if (s.rules.sameSide(t.owner, owner)) continue; // friendly, pass freely
-      counts[t.owner] = (counts[t.owner] ?? 0) + 1;
-    }
-    return counts.values.any((c) => c >= 2);
   }
 
   /// Tokens captured by landing on [ring], or null when landing is not legal.

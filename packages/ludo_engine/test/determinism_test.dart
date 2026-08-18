@@ -87,7 +87,6 @@ void main() {
       'three players': const RuleConfig(players: 3),
       'five players': const RuleConfig(players: 5, tokensPerPlayer: 3),
       'no safe squares': const RuleConfig(safeSquares: SafeSquares.none),
-      'no blockades': const RuleConfig(blockades: false),
       'loose home entry': const RuleConfig(exactHomeEntry: false),
       'teams 2v2': const RuleConfig(players: 4, tokensPerPlayer: 2, teams: [
         [0, 2],

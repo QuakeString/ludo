@@ -202,7 +202,7 @@ Available in pass-and-play *and* online rooms, at any seat count that divides ev
 
 Team behaviour — each item is a `RuleConfig` switch, not a hard-coded rule:
 
-- Partners never capture each other, and don't blockade each other.
+- Partners never capture each other.
 - A player whose tokens are all home keeps rolling **for the team** (moving a partner's token).
 - The team wins when *every* partner has all tokens home.
 - UI: your own team carries a colored rail in the seat list, so friend-vs-foe is readable
@@ -217,9 +217,8 @@ Two tokens sharing a square may be **linked into a pair**:
   the pair 3 squares).
 - In team games a pair may be formed from your token **and a partner's token**
   (`pairAcrossPartners`).
-- A pair is drawn with a gold link and a `÷2` tag — deliberately *not* like a blockade, which
-  keeps its dashed-wall treatment. Both are two tokens on one square, so they must not look
-  alike.
+- A pair is drawn with a gold link and a `÷2` tag, so a linked pair never looks like two
+  chips that merely happen to share a square.
 
 - **Locked until safe:** once linked, a pair **cannot be broken until it reaches a safe
   square** — a star square or its own home column. Pairing is a commitment, not a per-turn
@@ -302,7 +301,6 @@ Every variant is expressed as a `RuleConfig` the engine interprets:
   "turnTimerDots": 6,             // 6 dots x 5s = 30s, then auto-play
   "fillEmptySeatsWithAI": true,   // host's choice, never automatic
   "safeSquares": "stars",        // "stars" | "none" | "starts+stars"
-  "blockades": true,              // two own tokens block a square
   "exactHomeEntry": true,
   "mustCaptureToWin": false,     // popular Indian variant: need ≥1 capture before finishing
   "turnTimerSeconds": 30,         // 0 = no timer (offline default)

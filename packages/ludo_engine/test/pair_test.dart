@@ -241,12 +241,17 @@ void main() {
           reason: 'the pair was passed, not blocked');
     });
 
-    test('two unlinked opposing tokens are still a wall', () {
+    test('two unlinked opposing tokens are not a pair, and both go home', () {
+      // Worth keeping next to the pair rules: two tokens sharing a square look
+      // the same on the board whether they are linked or not, and the two
+      // cases are governed differently. Unlinked, they are simply two chips —
+      // land on them and both are sent home.
       var s = GameState.newGame(paired);
       final theirs = progressForRing(s, 1, 10);
       final mine = progressForRing(s, 0, 8);
-      s = situation(paired, at: {0: mine, 4: theirs, 5: theirs}, dice: 4);
-      expect(engine.legalMoves(s), isEmpty);
+      s = situation(paired, at: {0: mine, 4: theirs, 5: theirs}, dice: 2);
+      final move = engine.legalMoves(s).single;
+      expect(move.capturedTokenIds, unorderedEquals([4, 5]));
     });
 
     test('a pair on a safe square is not captured at all', () {

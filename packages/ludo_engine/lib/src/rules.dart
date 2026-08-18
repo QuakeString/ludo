@@ -29,7 +29,6 @@ class RuleConfig {
     this.tripleSixForfeits = true,
     this.captureGrantsExtraRoll = false,
     this.safeSquares = SafeSquares.startsAndStars,
-    this.blockades = true,
     this.exactHomeEntry = true,
     this.mustCaptureToWin = false,
     this.diceSides = 6,
@@ -61,9 +60,6 @@ class RuleConfig {
   final bool tripleSixForfeits;
   final bool captureGrantsExtraRoll;
   final SafeSquares safeSquares;
-
-  /// Two tokens of one player on a square form a wall nobody may pass.
-  final bool blockades;
 
   /// Home must be entered on an exact count; an overshoot is not a legal move.
   final bool exactHomeEntry;
@@ -147,7 +143,6 @@ class RuleConfig {
     bool? tripleSixForfeits,
     bool? captureGrantsExtraRoll,
     SafeSquares? safeSquares,
-    bool? blockades,
     bool? exactHomeEntry,
     bool? mustCaptureToWin,
     int? diceSides,
@@ -173,7 +168,6 @@ class RuleConfig {
       captureGrantsExtraRoll:
           captureGrantsExtraRoll ?? this.captureGrantsExtraRoll,
       safeSquares: safeSquares ?? this.safeSquares,
-      blockades: blockades ?? this.blockades,
       exactHomeEntry: exactHomeEntry ?? this.exactHomeEntry,
       mustCaptureToWin: mustCaptureToWin ?? this.mustCaptureToWin,
       diceSides: diceSides ?? this.diceSides,
@@ -250,7 +244,6 @@ class RuleConfig {
         'tripleSixForfeits': tripleSixForfeits,
         'captureGrantsExtraRoll': captureGrantsExtraRoll,
         'safeSquares': safeSquares.name,
-        'blockades': blockades,
         'exactHomeEntry': exactHomeEntry,
         'mustCaptureToWin': mustCaptureToWin,
         'diceSides': diceSides,
@@ -288,7 +281,6 @@ class RuleConfig {
         (s) => s.name == json['safeSquares'],
         orElse: () => defaults.safeSquares,
       ),
-      blockades: pick('blockades', defaults.blockades),
       exactHomeEntry: pick('exactHomeEntry', defaults.exactHomeEntry),
       mustCaptureToWin: pick('mustCaptureToWin', defaults.mustCaptureToWin),
       diceSides: pick('diceSides', defaults.diceSides),
@@ -331,7 +323,6 @@ class RuleConfig {
     'tripleSixForfeits': 'f',
     'captureGrantsExtraRoll': 'c',
     'safeSquares': 's',
-    'blockades': 'b',
     'exactHomeEntry': 'h',
     'mustCaptureToWin': 'm',
     'diceSides': 'd',

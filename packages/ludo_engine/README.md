@@ -63,14 +63,18 @@ The dice cursor lives in the state and advances through xorshift32, not
 platforms or releases. A seed plus a list of actions therefore replays a game
 byte-for-byte on a phone and on the server.
 
-## Pairs are not blockades
+## Two tokens on a square
 
-Both are two tokens sharing a square, and it would be easy to conflate them. A
-**blockade** is two unlinked tokens of one seat: it stops everyone. A **pair** is
-a deliberate link: it moves as one, it cannot be broken until it reaches safety,
-and it can only be captured by another pair. If a pair also counted as a
-blockade, no pair could ever be captured, so the engine keeps them apart —
-`_blockedFor` skips linked tokens and `pairCapture` decides instead.
+Two tokens sharing a square are either a **pair** or just a crowd, and the
+difference is whether they are linked. A pair moves as one, cannot be broken
+until it reaches safety, and is captured only by another pair. An unlinked
+crowd is nothing special: chips travel through it, and landing on it sends all
+of it home.
+
+There used to be a third case — a *blockade*, two unlinked tokens of one seat
+walling the square against everyone. It was removed. It is a real variant, but
+on a board it reads as a chip that inexplicably will not move, and nobody
+playing here wanted it.
 
 ## Computer players
 

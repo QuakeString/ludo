@@ -181,40 +181,37 @@ void main() {
     });
   });
 
-  group('blockades', () {
-    test('two opposing tokens block both passage and landing', () {
+  group('crowded squares', () {
+    test('a crowd is just a crowd — nothing blocks passage or landing', () {
+      // Two of one player on a square used to be a wall. That rule is gone:
+      // chips pass through each other, and landing on the pile sends all of it
+      // home.
       var s = GameState.newGame(classic);
-      final wall = progressForRing(s, 1, 5);
-      // Player 0 sits at ring 3; the wall is at ring 5.
+      final crowd = progressForRing(s, 1, 5);
       final me = progressForRing(s, 0, 3);
-      s = situation(classic, at: {0: me, 4: wall, 5: wall}, dice: 2);
-      expect(engine.legalMoves(s), isEmpty, reason: 'cannot land on the wall');
 
-      final past = situation(classic, at: {0: me, 4: wall, 5: wall}, dice: 4);
-      expect(engine.legalMoves(past), isEmpty, reason: 'cannot pass the wall');
+      final past = situation(classic, at: {0: me, 4: crowd, 5: crowd}, dice: 4);
+      expect(
+        engine.legalMoves(past),
+        isNotEmpty,
+        reason: 'a chip must be able to travel past a crowd',
+      );
 
-      final short = situation(classic, at: {0: me, 4: wall, 5: wall}, dice: 1);
-      expect(engine.legalMoves(short), hasLength(1),
-          reason: 'stopping before the wall is fine');
+      final onto = situation(classic, at: {0: me, 4: crowd, 5: crowd}, dice: 2);
+      final move = engine.legalMoves(onto).single;
+      expect(
+        move.capturedTokenIds,
+        unorderedEquals([4, 5]),
+        reason: 'landing on them sends both home',
+      );
     });
 
-    test('your own tokens never block you', () {
+    test('your own tokens never get in your way', () {
       var s = GameState.newGame(classic);
       final me = progressForRing(s, 0, 3);
       final mine = progressForRing(s, 0, 5);
       s = situation(classic, at: {0: me, 1: mine, 2: mine}, dice: 4);
       expect(engine.legalMoves(s).where((m) => m.tokenId == 0), hasLength(1));
-    });
-
-    test('with blockades off, a crowd is just a crowd', () {
-      final rules = classic.copyWith(blockades: false);
-      var s = GameState.newGame(rules);
-      final wall = progressForRing(s, 1, 5);
-      final me = progressForRing(s, 0, 3);
-      s = situation(rules, at: {0: me, 4: wall, 5: wall}, dice: 2);
-      final move = engine.legalMoves(s).single;
-      expect(move.capturedTokenIds, unorderedEquals([4, 5]),
-          reason: 'both are sent home');
     });
   });
 

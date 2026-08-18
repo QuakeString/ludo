@@ -121,7 +121,6 @@ void main() {
         extraRollOnSix: false,
         captureGrantsExtraRoll: true,
         safeSquares: SafeSquares.none,
-        blockades: false,
         exactHomeEntry: false,
         mustCaptureToWin: true,
         turnTimerDots: 6,
