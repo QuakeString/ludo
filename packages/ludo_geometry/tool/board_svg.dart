@@ -42,7 +42,8 @@ List<Pt> cellCorners(CellShape c) {
 String polygon(List<Pt> pts, String attrs) =>
     '<polygon points="${pts.map(xy).join(' ')}" $attrs/>';
 
-String svgFor(BoardSpec spec, {required bool guides}) {
+String svgFor(BoardSpec spec,
+    {required bool guides, bool measure = false}) {
   final g = BoardGeometry.forSpec(spec);
   final out = StringBuffer();
 
@@ -130,6 +131,45 @@ String svgFor(BoardSpec spec, {required bool guides}) {
   out.writeln('</g>');
 
   // --- measuring marks ----------------------------------------------------
+  if (measure && g is HexGeometry) {
+    final v = g.plateOutline();
+    out.writeln('<g id="measure" font-family="monospace" font-size="13">');
+    for (var i = 0; i < 12; i++) {
+      final a = v[i], b = v[(i + 1) % 12];
+      final len = (b - a).length * u;
+      // Even edges face an arm and carry the track; odd edges face a house.
+      final path = i.isEven;
+      final mx = (a.x + b.x) / 2 * u, my = (a.y + b.y) / 2 * u;
+      final dx = mx - u / 2, dy = my - u / 2;
+      final d = math.sqrt(dx * dx + dy * dy);
+      out.writeln('  <line x1="${f(a.x * u)}" y1="${f(a.y * u)}" '
+          'x2="${f(b.x * u)}" y2="${f(b.y * u)}" '
+          'stroke="${path ? '#1B6FD1' : '#C22'}" stroke-width="4"/>');
+      out.writeln('  <text x="${f(mx + dx / d * 26)}" y="${f(my + dy / d * 26)}" '
+          'text-anchor="middle" fill="${path ? '#1B6FD1' : '#C22'}">'
+          '${f(len)}</text>');
+    }
+
+    // How much of each edge the thing behind it actually fills. A house fills
+    // its edge end to end. The track is three cells wide and stops 13 units
+    // short of the rim, so it fills 90 of its 146 — which is the difference
+    // you are looking at when a home side reads as bigger than a path side.
+    for (var arm = 0; arm < spec.arms; arm++) {
+      final ang = (-90 + 60.0 * arm) * math.pi / 180;
+      final ux = math.cos(ang), uy = math.sin(ang);
+      Pt at(double r, double lat) => Pt(
+          (u / 2 + ux * r - uy * lat) / u, (u / 2 + uy * r + ux * lat) / u);
+      final a = at(259, -45), b = at(259, 45);
+      out.writeln('  <line x1="${f(a.x * u)}" y1="${f(a.y * u)}" '
+          'x2="${f(b.x * u)}" y2="${f(b.y * u)}" '
+          'stroke="#1B6FD1" stroke-width="3" stroke-dasharray="5 3"/>');
+      final m = at(236, 0);
+      out.writeln('  <text x="${f(m.x * u)}" y="${f(m.y * u)}" '
+          'text-anchor="middle" fill="#1B6FD1" font-size="12">90.00</text>');
+    }
+    out.writeln('</g>');
+  }
+
   if (guides) {
     out.writeln('<!-- Delete this group once you are done marking it up. -->');
     out.writeln('<g id="guides" fill="none" stroke="#00000055" '
@@ -155,6 +195,8 @@ void main() {
   ]) {
     File('build/$name.svg').writeAsStringSync(svgFor(spec, guides: true));
     File('build/$name-plain.svg').writeAsStringSync(svgFor(spec, guides: false));
+    File('build/$name-measured.svg')
+        .writeAsStringSync(svgFor(spec, guides: false, measure: true));
     stdout.writeln('wrote build/$name.svg');
   }
 }
