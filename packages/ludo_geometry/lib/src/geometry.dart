@@ -99,6 +99,27 @@ abstract class BoardGeometry {
   List<int> starRingIndices();
 }
 
+/// Where a finished token rests: inside its own wedge of the centre.
+///
+/// Every seat used to send its finished chips to the exact middle, so a red
+/// chip and a blue one that had both got home sat on top of each other with
+/// nothing to say whose was whose. Each wedge is that seat's colour already —
+/// the chips belong in it.
+Pt homeRest(BoardGeometry g, int arm) {
+  final wedge = g.centreWedges()[arm % g.centreWedges().length];
+  const centre = Pt(0.5, 0.5);
+  // The wedge is a triangle with its point at the middle of the board; its
+  // other two corners are the outer edge.
+  final outer = Pt((wedge.a.x + wedge.b.x) / 2, (wedge.a.y + wedge.b.y) / 2);
+  // Most of the way out, so the chips sit in the wide part of the wedge rather
+  // than crowding its point.
+  const t = 0.58;
+  return Pt(
+    centre.x + (outer.x - centre.x) * t,
+    centre.y + (outer.y - centre.y) * t,
+  );
+}
+
 /// The classic 15x15 cross, for two to four seats.
 class CrossGeometry implements BoardGeometry {
   CrossGeometry(this.spec) : assert(spec.arms == 4);
@@ -174,7 +195,7 @@ class CrossGeometry implements BoardGeometry {
   @override
   Pt tokenAt(int arm, int progress, {int slot = 0}) {
     if (progress < 0) return yardSlots(arm)[slot % 4];
-    if (spec.isFinished(progress)) return const Pt(0.5, 0.5);
+    if (spec.isFinished(progress)) return homeRest(this, arm);
     final home = spec.homeIndex(progress);
     if (home != null) return homeCell(arm, home).centre;
     return ringCell(spec.ringIndex(arm, progress)!).centre;
@@ -351,7 +372,7 @@ class HexGeometry implements BoardGeometry {
   @override
   Pt tokenAt(int arm, int progress, {int slot = 0}) {
     if (progress < 0) return yardSlots(arm)[slot % 4];
-    if (spec.isFinished(progress)) return const Pt(0.5, 0.5);
+    if (spec.isFinished(progress)) return homeRest(this, arm);
     final home = spec.homeIndex(progress);
     if (home != null) return homeCell(arm, home).centre;
     return ringCell(spec.ringIndex(arm, progress)!).centre;

@@ -111,7 +111,27 @@ void main() {
       const b = BoardSpec.cross;
       expect(g.tokenAt(0, -1), g.yardSlots(0).first);
       expect(g.tokenAt(0, 0), g.ringCell(b.startRing(0)).centre);
-      expect(g.tokenAt(0, b.finalProgress), const Pt(0.5, 0.5));
+      expect(g.tokenAt(0, b.finalProgress), isNot(const Pt(0.5, 0.5)),
+          reason: 'a finished chip rests in its own wedge, not the middle');
+    });
+
+    test('each seat finishes in its own wedge of the centre', () {
+      const b = BoardSpec.cross;
+      final rests = [
+        for (var arm = 0; arm < 4; arm++) g.tokenAt(arm, b.finalProgress)
+      ];
+
+      // Four seats, four distinct resting places — chips that are home must
+      // still show whose they are.
+      expect(rests.toSet(), hasLength(4));
+
+      for (var arm = 0; arm < 4; arm++) {
+        final wedge = g.centreWedges()[arm];
+        expect(_inside(wedge, rests[arm]), isTrue,
+            reason: 'arm $arm rests outside its own wedge');
+        // And near the middle of the board, not out on the track.
+        expect((rests[arm] - const Pt(0.5, 0.5)).length, lessThan(0.12));
+      }
     });
 
     test('stars sit on the ring, one per arm', () {
@@ -192,4 +212,14 @@ void main() {
       }
     });
   });
+}
+
+/// Whether a point lies inside a triangle, by the sign of the three edges.
+bool _inside(Tri t, Pt p) {
+  double side(Pt a, Pt b) =>
+      (b.x - a.x) * (p.y - a.y) - (b.y - a.y) * (p.x - a.x);
+  final d1 = side(t.a, t.b), d2 = side(t.b, t.c), d3 = side(t.c, t.a);
+  final anyNeg = d1 < 0 || d2 < 0 || d3 < 0;
+  final anyPos = d1 > 0 || d2 > 0 || d3 > 0;
+  return !(anyNeg && anyPos);
 }

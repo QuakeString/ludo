@@ -462,13 +462,18 @@ class BoardPainter extends CustomPainter {
     for (final t in group) {
       byOwner.putIfAbsent(t.owner, () => []).add(t);
     }
+    // Sized so they genuinely sit beside each other. They used to be spread by
+    // less than their own width, so the one drawn second covered the first and
+    // a square with two colours on it looked like a square with one.
     final entries = byOwner.entries.toList();
-    final scale = entries.length == 2 ? 0.74 : 0.62;
+    final scale = entries.length == 2 ? 0.62 : 0.5;
     for (var i = 0; i < entries.length; i++) {
       final angle = (i / entries.length) * 2 * math.pi - math.pi / 2;
-      final spread = entries.length == 2 ? width * 0.30 : width * 0.34;
+      final spread = entries.length == 2 ? width * 0.34 : width * 0.36;
       final offset = entries.length == 2
-          ? Offset(i == 0 ? -spread : spread, i == 0 ? 0 : width * 0.08)
+          // Level with each other: a vertical stagger is what let one pawn's
+          // body hide the next.
+          ? Offset(i == 0 ? -spread : spread, 0)
           : Offset(math.cos(angle) * spread, math.sin(angle) * spread * 0.6);
       final tokens = entries[i].value;
       _chip(
