@@ -128,16 +128,24 @@ def dice_roll():
 # A plastic peg set down on a printed board: duller and shorter than the die,
 # with no long ring at all.
 def chip_step():
+    """A plastic peg set down on a printed board.
+
+    The first attempt was low-passed almost to a thud and lasted a sixth of a
+    second, which is a sound you can play a hundred times without anyone
+    noticing it is there. A piece meeting a board has a bright edge to it, so
+    the top end stays and the peg is allowed to ring for a moment.
+    """
     rnd = random.Random(3)
-    n = int(0.16 * SR)
+    n = int(0.22 * SR)
     modes = [
-        (860, 0.5, 95),
-        (1490, 0.32, 120),
-        (2380, 0.16, 150),
-        (196, 0.30, 40),
+        (1240, 0.55, 70),
+        (2010, 0.40, 88),
+        (3150, 0.24, 110),
+        (4600, 0.12, 150),
+        (214, 0.34, 34),
     ]
-    out = strike(n, modes, 0.42, 900, 700, rnd)
-    return one_pole_lp(out, 5200)
+    out = strike(n, modes, 0.55, 1200, 620, rnd)
+    return one_pole_lp(out, 9000)
 
 
 # --- reaching home -----------------------------------------------------------

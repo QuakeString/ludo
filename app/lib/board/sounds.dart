@@ -17,9 +17,19 @@ class Sfx {
   /// Off for previews and tests.
   static bool muted = false;
 
+  /// Set by a test to record what the game asked for instead of playing it.
+  /// The sounds are the only record that a capture or an arrival happened at
+  /// all — nothing else about those two moments is visible from outside.
+  static void Function(String name)? spy;
+
   final Map<String, AudioPlayer> _players = {};
 
   Future<void> play(String name, {double volume = 1}) async {
+    final watcher = spy;
+    if (watcher != null) {
+      watcher(name);
+      return;
+    }
     if (muted) return;
     try {
       final player = _players.putIfAbsent(name, AudioPlayer.new);

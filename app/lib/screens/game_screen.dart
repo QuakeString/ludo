@@ -72,6 +72,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// so the board and the animation can never disagree.
   MoveAnimation? _playing;
   Timer? _scheduled;
+
+  /// The knock of a capture, which lands part-way through a move rather than
+  /// at the end of it.
+  Timer? _knock;
   String? _flash;
 
   /// Online only: the position to settle into once the current animation has
@@ -110,6 +114,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _scheduled?.cancel();
+    _knock?.cancel();
     _matchSub?.cancel();
     _session?.removeListener(_sessionChanged);
     _spin.dispose();
@@ -191,6 +196,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _playing = animation;
       _flash = update.autoPlayed ? 'Time ran out — played automatically' : null;
     });
+    _scheduleKnock(animation);
     _mover
       ..duration = animation.duration
       ..forward(from: 0);
@@ -300,6 +306,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _playing = animation;
       _flash = null;
     });
+    _scheduleKnock(animation);
     _mover
       ..duration = animation.duration
       ..forward(from: 0);
@@ -309,7 +316,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _settle() {
     final animation = _playing;
     if (animation == null) return;
-    _soundFor(animation.move);
+    _landingSound(animation.move);
 
     if (_online) {
       // Online there is nothing to work out: the position the chips just
@@ -337,21 +344,33 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _maybeTakeComputerTurn();
   }
 
-  /// What a move sounds like, played as the chip lands.
+  /// What a chip arriving sounds like.
   ///
-  /// Three outcomes, three sounds, because they are three different things
-  /// happening and a board game says so out loud: a chip set down, a chip
-  /// knocked off, a chip home. At the end of the walk rather than the start —
-  /// the sound is the landing, and a knock that arrives before the chip does
-  /// belongs to no event at all.
-  void _soundFor(Move move) {
-    if (move.isCapture) {
-      Sfx.instance.play(Sound.capture, volume: 0.9);
-    } else if (_state.board.isFinished(move.toProgress)) {
-      Sfx.instance.play(Sound.home, volume: 0.75);
+  /// A chip set down, or a chip home — two different things happening, and a
+  /// board game says which out loud.
+  void _landingSound(Move move) {
+    if (move.isCapture) return; // its own sound, and it has already played
+    if (_state.board.isFinished(move.toProgress)) {
+      Sfx.instance.play(Sound.home, volume: 0.9);
     } else {
-      Sfx.instance.play(Sound.step, volume: 0.55);
+      Sfx.instance.play(Sound.step, volume: 0.85);
     }
+  }
+
+  /// The knock of a capture, timed to the impact rather than to the end.
+  ///
+  /// A capture's animation is mostly the victim's long walk back to its base,
+  /// which now takes seconds. Playing the knock when all that finished put the
+  /// sound of the collision as much as four seconds after the collision.
+  void _scheduleKnock(MoveAnimation animation) {
+    _knock?.cancel();
+    if (!animation.move.isCapture) return;
+    final impact = Duration(
+      milliseconds: animation.duration.inMilliseconds - animation.captureMillis,
+    );
+    _knock = Timer(impact, () {
+      if (mounted) Sfx.instance.play(Sound.capture, volume: 1);
+    });
   }
 
   /// If a computer sits at the seat on turn, play it — with a beat first, so a
