@@ -375,17 +375,23 @@ class BoardPainter extends CustomPainter {
     final movable = {for (final m in legalMoves) ...m.tokenIds};
     final layout = chipLayout(state, geometry);
 
-    // Group by where they stand, so a crowded square can be drawn as a group
-    // rather than as overlapping singles.
+    // Group by where they are drawn — literally the same point on the canvas —
+    // and not by whose chip it is and how far round it has come.
+    //
+    // Progress is counted from each player's own start square, so two players
+    // standing on one square of the shared track have different owners *and*
+    // different progress. Keyed on those, they went into separate groups and
+    // were each drawn alone at the same spot, one flat on top of the other.
+    // Which meant the mixed-colour spreading below could never once run: the
+    // only crowd it was ever handed was a player's own chips.
     final groups = <String, List<Token>>{};
     for (final token in state.tokens) {
       if (motions.containsKey(token.id)) continue; // in flight
-      final arm = state.armOf(token.owner);
+      final at = layout[token.id];
+      if (at == null) continue;
       final key = token.inYard
           ? 'yard-${token.owner}'
-          : spec.isFinished(token.progress)
-          ? 'home-${token.owner}'
-          : 'p-$arm-${token.progress}';
+          : '${at.x.toStringAsFixed(5)},${at.y.toStringAsFixed(5)}';
       groups.putIfAbsent(key, () => []).add(token);
     }
 
