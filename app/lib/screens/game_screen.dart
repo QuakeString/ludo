@@ -14,6 +14,7 @@ import '../board/move_animation.dart';
 import '../board/sounds.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
+import '../fresh_seed.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
@@ -679,7 +680,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               onPressed: () => setState(() {
                 _scheduled?.cancel();
                 _playing = null;
-                _state = GameState.newGame(rules, seed: widget.seed + 1);
+                _state = GameState.newGame(rules, seed: freshSeed());
                 _flash = null;
                 _maybeTakeComputerTurn();
               }),

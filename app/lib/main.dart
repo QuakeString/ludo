@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:ludo_engine/ludo_engine.dart';
 
+import 'fresh_seed.dart';
 import 'screens/game_screen.dart';
 import 'screens/online_screen.dart';
 import 'theme/seat_colors.dart';
@@ -217,8 +218,11 @@ class _SetupScreenState extends State<SetupScreen> {
                 FilledButton(
                   onPressed: () => Navigator.of(context).push(
                     MaterialPageRoute(
-                      builder: (_) =>
-                          GameScreen(rules: _rules, aiSeats: _aiSeats),
+                      builder: (_) => GameScreen(
+                        rules: _rules,
+                        aiSeats: _aiSeats,
+                        seed: freshSeed(),
+                      ),
                     ),
                   ),
                   style: FilledButton.styleFrom(
