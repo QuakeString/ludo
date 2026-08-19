@@ -14,9 +14,15 @@ class ChipMotion {
     this.scale = 1,
     this.spin = 0,
     this.fade = 1,
+    this.trail = const [],
   });
 
   final Pt ground;
+
+  /// Where the chip was a moment ago, most recent first — the streak it leaves
+  /// behind it. Carried here rather than worked out by the painter, because
+  /// only the animation knows where the chip has been.
+  final List<Pt> trail;
   final double lift;
   final double squash;
   final double scale;
@@ -43,8 +49,24 @@ class MoveAnimation {
 
   final List<Pt> _waypoints;
 
+  /// A hop's flight time, and the little squash as it lands.
   static const hopMillis = 150;
   static const landMillis = 90;
+
+  /// Coming out of the yard is one hop, but it crosses a corner of the board
+  /// rather than stepping to the next square. At the ordinary 150ms it read as
+  /// the chip being flicked out rather than set down.
+  static const enterHopMillis = 430;
+
+  /// How long this move's hops take. Every hop within a move is the same
+  /// length; only leaving the yard differs, and that move is a single hop.
+  int get flightMillis =>
+      move.kind == MoveKind.enter ? enterHopMillis : hopMillis;
+
+  /// How far back the streak behind a moving chip reaches, and how finely it
+  /// is sampled.
+  static const trailMillis = 240;
+  static const trailSamples = 9;
 
   /// How long a captured chip takes per square of its walk home.
   ///
@@ -75,7 +97,8 @@ class MoveAnimation {
   /// Total run time, including the captured chip's flight home.
   Duration get duration => Duration(
     milliseconds:
-        hops * (hopMillis + landMillis) + (move.isCapture ? captureMillis : 0),
+        hops * (flightMillis + landMillis) +
+        (move.isCapture ? captureMillis : 0),
   );
 
   /// Every square the chip passes through, start to finish.
@@ -111,34 +134,76 @@ class MoveAnimation {
         ground: _waypoints.isEmpty ? const Pt(0.5, 0.5) : _waypoints.last,
       );
     }
-    final travelMillis = hops * (hopMillis + landMillis);
+    final travelMillis = hops * (flightMillis + landMillis);
     final elapsed = t * duration.inMilliseconds;
     if (elapsed >= travelMillis) {
       return ChipMotion(ground: _waypoints.last);
     }
 
-    final step = (elapsed / (hopMillis + landMillis)).floor().clamp(
+    final step = (elapsed / (flightMillis + landMillis)).floor().clamp(
       0,
       hops - 1,
     );
-    final within = elapsed - step * (hopMillis + landMillis);
+    final within = elapsed - step * (flightMillis + landMillis);
     final from = _waypoints[step];
     final to = _waypoints[step + 1];
 
-    if (within <= hopMillis) {
-      final p = within / hopMillis;
+    if (within <= flightMillis) {
+      final p = within / flightMillis;
       return ChipMotion(
         ground: Pt(from.x + (to.x - from.x) * p, from.y + (to.y - from.y) * p),
         // A parabola, not a straight line — the chip has weight.
         lift: math.sin(math.pi * p),
+        trail: _trailAt(elapsed),
       );
     }
     // Landing: squash, then recover.
-    final p = (within - hopMillis) / landMillis;
+    final p = (within - flightMillis) / landMillis;
     final squash = p < 0.5
         ? 1 - 0.12 * (p / 0.5)
         : 0.88 + 0.12 * ((p - 0.5) / 0.5);
-    return ChipMotion(ground: to, squash: squash);
+    return ChipMotion(ground: to, squash: squash, trail: _trailAt(elapsed));
+  }
+
+  /// When the chip touches down after its [hop]th flight, counting from zero.
+  ///
+  /// Exposed because the sound of a chip landing is scheduled against it: a
+  /// move of three squares is three taps, and only this knows when they fall.
+  Duration landingAt(int hop) =>
+      Duration(milliseconds: hop * (flightMillis + landMillis) + flightMillis);
+
+  /// Where the moving chip is [elapsed] milliseconds into the move.
+  Pt _groundAt(double elapsed) {
+    if (hops == 0) {
+      return _waypoints.isEmpty ? const Pt(0.5, 0.5) : _waypoints.last;
+    }
+    if (elapsed <= 0) return _waypoints.first;
+    if (elapsed >= hops * (flightMillis + landMillis)) return _waypoints.last;
+
+    final step = (elapsed / (flightMillis + landMillis)).floor().clamp(
+      0,
+      hops - 1,
+    );
+    final within = elapsed - step * (flightMillis + landMillis);
+    final from = _waypoints[step];
+    final to = _waypoints[step + 1];
+    if (within >= flightMillis) return to;
+    final p = within / flightMillis;
+    return Pt(from.x + (to.x - from.x) * p, from.y + (to.y - from.y) * p);
+  }
+
+  /// The streak behind the chip: where it was, sampled backwards.
+  ///
+  /// Taken from the same function that says where it is, so the trail can
+  /// never drift away from the chip leaving it.
+  List<Pt> _trailAt(double elapsed) {
+    final out = <Pt>[];
+    for (var i = 1; i <= trailSamples; i++) {
+      final back = elapsed - trailMillis * (i / trailSamples);
+      if (back <= 0) break;
+      out.add(_groundAt(back));
+    }
+    return out;
   }
 
   /// The way a captured chip goes home: back along the squares it came by.
@@ -180,7 +245,7 @@ class MoveAnimation {
     if (!move.isCapture || !move.capturedTokenIds.contains(tokenId)) {
       return null;
     }
-    final travelMillis = hops * (hopMillis + landMillis);
+    final travelMillis = hops * (flightMillis + landMillis);
     final elapsed = t * duration.inMilliseconds;
     if (elapsed < travelMillis) {
       final token = before.tokens[tokenId];

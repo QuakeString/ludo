@@ -100,11 +100,25 @@ class BoardPainter extends CustomPainter {
     for (final entry in motions.entries) {
       final token = state.tokens[entry.key];
       final m = entry.value;
+      final colour = colourOfArm(state.armOf(token.owner));
+
+      // The streak the chip leaves behind it, in its own colour, thinning and
+      // fading with age. Drawn oldest first and under the chip, so it reads as
+      // one stroke rather than a row of dots.
+      for (var i = m.trail.length - 1; i >= 0; i--) {
+        final age = (i + 1) / m.trail.length; // 1 is the oldest
+        canvas.drawCircle(
+          px(m.trail[i]),
+          chipWidth * 0.34 * (1 - age * 0.72),
+          Paint()..color = colour.withValues(alpha: 0.34 * (1 - age)),
+        );
+      }
+
       ChipArt.paint(
         canvas,
         px(m.ground),
         chipWidth,
-        colourOfArm(state.armOf(token.owner)),
+        colour,
         lift: m.lift * chipWidth * 0.7,
         squash: m.squash,
         scale: m.scale,

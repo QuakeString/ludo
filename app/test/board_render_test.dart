@@ -221,6 +221,24 @@ void animationTests() {
       );
     });
 
+    test('coming out of the yard takes its time', () {
+      var s = GameState.newGame(const RuleConfig(), seed: 3);
+      s = s.copyWith(dice: 6);
+      final enter = engine
+          .legalMoves(s)
+          .firstWhere((m) => m.kind == MoveKind.enter);
+      final out = MoveAnimation(move: enter, before: s, geometry: geometry);
+
+      // One hop, but a hop clean across a corner of the board rather than to
+      // the next square, so it gets longer than an ordinary step.
+      expect(out.hops, 1);
+      expect(
+        out.duration.inMilliseconds,
+        greaterThan(2 * (MoveAnimation.hopMillis + MoveAnimation.landMillis)),
+        reason: 'the chip is flicked out of its yard rather than set down',
+      );
+    });
+
     test('leaving the yard is a single hop', () {
       final s = GameState.newGame(const RuleConfig()).copyWith(dice: 6);
       final move = engine.legalMoves(s).first;

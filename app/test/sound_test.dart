@@ -49,6 +49,56 @@ void main() {
     expect(heard, contains(Sound.home), reason: 'nobody ever got home');
   });
 
+  testWidgets('a chip taps once for every square it lands on', (tester) async {
+    // Three squares is three taps. A move used to make one sound when it was
+    // over, which tells you nothing you had not already watched happen.
+    final heard = <(String, Duration)>[];
+    var clock = Duration.zero;
+    Sfx.spy = (name) => heard.add((name, clock));
+    addTearDown(() => Sfx.spy = null);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: GameScreen(
+          rules: RuleConfig(players: 4, tokensPerPlayer: 2),
+          seed: 4,
+          aiSeats: {
+            0: AiLevel.normal,
+            1: AiLevel.normal,
+            2: AiLevel.normal,
+            3: AiLevel.normal,
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    const tick = Duration(milliseconds: 40);
+    for (var i = 0; i < 3000; i++) {
+      await tester.pump(tick);
+      clock += tick;
+    }
+
+    final steps = heard.where((h) => h.$1 == Sound.step).toList();
+    expect(steps.length, greaterThan(8), reason: 'hardly anything moved');
+
+    // Three taps inside a second can only be one chip crossing three squares:
+    // no two separate moves are ever that close together, because the computer
+    // takes a beat before each and the die has to be read first.
+    var burst = false;
+    for (var i = 0; i + 2 < steps.length; i++) {
+      if (steps[i + 2].$2 - steps[i].$2 <= const Duration(milliseconds: 900)) {
+        burst = true;
+        break;
+      }
+    }
+    expect(
+      burst,
+      isTrue,
+      reason: 'every move made a single sound instead of one per square',
+    );
+  });
+
   testWidgets('the knock lands with the capture, not with the walk home', (
     tester,
   ) async {

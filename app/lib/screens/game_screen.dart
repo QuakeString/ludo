@@ -73,9 +73,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   MoveAnimation? _playing;
   Timer? _scheduled;
 
-  /// The knock of a capture, which lands part-way through a move rather than
-  /// at the end of it.
-  Timer? _knock;
+  /// One per square a chip is about to land on. A move is heard as it happens
+  /// rather than announced once it is over.
+  final List<Timer> _footsteps = [];
   String? _flash;
 
   /// Online only: the position to settle into once the current animation has
@@ -114,7 +114,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _scheduled?.cancel();
-    _knock?.cancel();
+    _silence();
     _matchSub?.cancel();
     _session?.removeListener(_sessionChanged);
     _spin.dispose();
@@ -196,7 +196,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _playing = animation;
       _flash = update.autoPlayed ? 'Time ran out — played automatically' : null;
     });
-    _scheduleKnock(animation);
+    _scheduleMoveSounds(animation);
     _mover
       ..duration = animation.duration
       ..forward(from: 0);
@@ -306,7 +306,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _playing = animation;
       _flash = null;
     });
-    _scheduleKnock(animation);
+    _scheduleMoveSounds(animation);
     _mover
       ..duration = animation.duration
       ..forward(from: 0);
@@ -316,7 +316,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _settle() {
     final animation = _playing;
     if (animation == null) return;
-    _landingSound(animation.move);
 
     if (_online) {
       // Online there is nothing to work out: the position the chips just
@@ -344,33 +343,42 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _maybeTakeComputerTurn();
   }
 
-  /// What a chip arriving sounds like.
-  ///
-  /// A chip set down, or a chip home — two different things happening, and a
-  /// board game says which out loud.
-  void _landingSound(Move move) {
-    if (move.isCapture) return; // its own sound, and it has already played
-    if (_state.board.isFinished(move.toProgress)) {
-      Sfx.instance.play(Sound.home, volume: 0.9);
-    } else {
-      Sfx.instance.play(Sound.step, volume: 0.85);
+  void _silence() {
+    for (final t in _footsteps) {
+      t.cancel();
     }
+    _footsteps.clear();
   }
 
-  /// The knock of a capture, timed to the impact rather than to the end.
+  /// A sound for every square the chip touches down on.
   ///
-  /// A capture's animation is mostly the victim's long walk back to its base,
-  /// which now takes seconds. Playing the knock when all that finished put the
-  /// sound of the collision as much as four seconds after the collision.
-  void _scheduleKnock(MoveAnimation animation) {
-    _knock?.cancel();
-    if (!animation.move.isCapture) return;
-    final impact = Duration(
-      milliseconds: animation.duration.inMilliseconds - animation.captureMillis,
-    );
-    _knock = Timer(impact, () {
-      if (mounted) Sfx.instance.play(Sound.capture, volume: 1);
-    });
+  /// A move of three squares is three taps, not one announcement once it is
+  /// over. The point of hopping square by square is that the move can be
+  /// counted as it happens, and a single sound at the end tells you nothing
+  /// you did not already know. The last tap says what the move actually was —
+  /// a chip set down, a chip knocked off, or a chip home.
+  ///
+  /// The knock belongs here for the same reason. A capture's animation is
+  /// mostly the victim's long walk back to its base, and the collision is at
+  /// the start of that, not the end.
+  void _scheduleMoveSounds(MoveAnimation animation) {
+    _silence();
+    final move = animation.move;
+    for (var hop = 0; hop < animation.hops; hop++) {
+      final last = hop == animation.hops - 1;
+      final (name, volume) = !last
+          ? (Sound.step, 0.6)
+          : move.isCapture
+          ? (Sound.capture, 1.0)
+          : _state.board.isFinished(move.toProgress)
+          ? (Sound.home, 0.9)
+          : (Sound.step, 0.85);
+      _footsteps.add(
+        Timer(animation.landingAt(hop), () {
+          if (mounted) Sfx.instance.play(name, volume: volume);
+        }),
+      );
+    }
   }
 
   /// If a computer sits at the seat on turn, play it — with a beat first, so a
