@@ -109,8 +109,8 @@ class BoardPainter extends CustomPainter {
         final age = (i + 1) / m.trail.length; // 1 is the oldest
         canvas.drawCircle(
           px(m.trail[i]),
-          chipWidth * 0.34 * (1 - age * 0.72),
-          Paint()..color = colour.withValues(alpha: 0.34 * (1 - age)),
+          chipWidth * 0.46 * (1 - age * 0.66),
+          Paint()..color = colour.withValues(alpha: 0.46 * (1 - age)),
         );
       }
 

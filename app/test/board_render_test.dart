@@ -221,6 +221,59 @@ void animationTests() {
       );
     });
 
+    test('a chip in flight drags its colour behind it', () async {
+      // Caught mid-hop, which is 150ms long and so nearly impossible to
+      // screenshot by hand in a browser. The trail is the kind of thing only
+      // an eye can pass, so this puts one where an eye can look at it.
+      var s = GameState.newGame(const RuleConfig(), seed: 6);
+      final tokens = [...s.tokens];
+      tokens[0] = tokens[0].copyWith(progress: 11);
+      s = s.copyWith(tokens: tokens, dice: 4);
+      final move = engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      final a = MoveAnimation(move: move, before: s, geometry: geometry);
+
+      // Three quarters of the way through the third hop, by which point the
+      // streak is at its longest.
+      final t =
+          (2 * (a.flightMillis + MoveAnimation.landMillis) +
+              a.flightMillis * 0.75) /
+          a.duration.inMilliseconds;
+
+      final recorder = ui.PictureRecorder();
+      final canvas = Canvas(recorder);
+      const size = Size(900, 900);
+      canvas.drawRect(
+        Offset.zero & size,
+        Paint()..color = BoardPalette.light.felt,
+      );
+      for (final layer in [BoardLayer.furniture, BoardLayer.chips]) {
+        BoardPainter(
+          state: s,
+          geometry: geometry,
+          palette: BoardPalette.light,
+          legalMoves: const [],
+          layer: layer,
+          motions: {move.tokenId: a.moverAt(t)},
+        ).paint(canvas, size);
+      }
+      BoardPainter(
+        state: s,
+        geometry: geometry,
+        palette: BoardPalette.light,
+        legalMoves: const [],
+        layer: BoardLayer.motions,
+        motions: {move.tokenId: a.moverAt(t)},
+      ).paint(canvas, size);
+
+      final image = await recorder.endRecording().toImage(900, 900);
+      final bytes = await image.toByteData(format: ui.ImageByteFormat.png);
+      Directory('build/board-previews').createSync(recursive: true);
+      File('build/board-previews/chip-in-flight.png')
+          .writeAsBytesSync(bytes!.buffer.asUint8List());
+
+      expect(a.moverAt(t).trail, isNotEmpty, reason: 'no streak at all');
+    });
+
     test('coming out of the yard takes its time', () {
       var s = GameState.newGame(const RuleConfig(), seed: 3);
       s = s.copyWith(dice: 6);

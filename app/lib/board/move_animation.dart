@@ -65,8 +65,8 @@ class MoveAnimation {
 
   /// How far back the streak behind a moving chip reaches, and how finely it
   /// is sampled.
-  static const trailMillis = 240;
-  static const trailSamples = 9;
+  static const trailMillis = 420;
+  static const trailSamples = 14;
 
   /// How long a captured chip takes per square of its walk home.
   ///
