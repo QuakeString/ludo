@@ -12,18 +12,8 @@ class LudoEngine {
 
   // --- dice ----------------------------------------------------------------
 
-  /// xorshift32. Small, fast, and identical on every platform Dart runs on —
-  /// which `Random` is not guaranteed to be.
-  static int _nextRng(int state) {
-    var x = state & 0xFFFFFFFF;
-    x ^= (x << 13) & 0xFFFFFFFF;
-    x ^= x >> 17;
-    x ^= (x << 5) & 0xFFFFFFFF;
-    return x == 0 ? 1 : x & 0xFFFFFFFF;
-  }
-
   /// The roll a state would produce next, without advancing it.
-  int peekRoll(GameState s) => (_nextRng(s.rngState) % s.rules.diceSides) + 1;
+  int peekRoll(GameState s) => s.rng.peek(s.rules.diceSides);
 
   // --- queries -------------------------------------------------------------
 
@@ -296,15 +286,14 @@ class LudoEngine {
     if (!s.awaitingRoll) {
       throw IllegalActionError('already rolled a ${s.dice}');
     }
-    final next = _nextRng(s.rngState);
-    final value = (next % s.rules.diceSides) + 1;
+    final (next, value) = s.rng.roll(s.rules.diceSides);
     final sixes = value == s.rules.diceSides ? s.consecutiveSixes + 1 : 0;
 
     // Three sixes in a row and the turn is gone, whatever was on the board.
     if (s.rules.tripleSixForfeits && sixes >= 3) {
-      return _advanceTurn(s.copyWith(rngState: next, consecutiveSixes: 0));
+      return _advanceTurn(s.copyWith(rng: next, consecutiveSixes: 0));
     }
-    return s.copyWith(rngState: next, dice: value, consecutiveSixes: sixes);
+    return s.copyWith(rng: next, dice: value, consecutiveSixes: sixes);
   }
 
   GameState _play(GameState s, Move move) {

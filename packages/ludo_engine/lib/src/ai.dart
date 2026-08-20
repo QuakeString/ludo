@@ -82,7 +82,7 @@ class LudoAi {
   /// player is unpredictable to a human but identical on replay — and, being
   /// separate from the game's dice cursor, it cannot disturb the roll sequence.
   static int _hash(GameState s) {
-    var h = 0x811c9dc5 ^ s.rngState;
+    var h = 0x811c9dc5 ^ s.rng.mark;
     h = (h * 16777619) & 0x3FFFFFFF;
     h ^= s.turn * 2654435761;
     for (final t in s.tokens) {

@@ -259,12 +259,13 @@ void serialisationTests() {
             s = engine.autoPlayTurn(s);
           }
           final back = GameState.fromJson(
-              jsonDecode(jsonEncode(s.toJson())) as Map<String, Object?>);
+              jsonDecode(jsonEncode(s.toJson(withDice: true)))
+                  as Map<String, Object?>);
           expect(back.fingerprint(), s.fingerprint(),
               reason: '$rules after $turns turns');
           expect(back.rules.toJson(), s.rules.toJson());
           expect(back.seatArms, s.seatArms);
-          expect(back.rngState, s.rngState);
+          expect(back.rng, s.rng);
         }
       }
     });
@@ -275,7 +276,8 @@ void serialisationTests() {
         live = engine.autoPlayTurn(live);
       }
       var restored = GameState.fromJson(
-          jsonDecode(jsonEncode(live.toJson())) as Map<String, Object?>);
+          jsonDecode(jsonEncode(live.toJson(withDice: true)))
+              as Map<String, Object?>);
 
       for (var i = 0; i < 60 && !live.isOver; i++) {
         live = engine.autoPlayTurn(live);
@@ -292,7 +294,8 @@ void serialisationTests() {
       tokens[1] = tokens[1].copyWith(progress: 5, pairId: 3);
       s = s.copyWith(tokens: tokens, nextPairId: 4);
       final back = GameState.fromJson(
-          jsonDecode(jsonEncode(s.toJson())) as Map<String, Object?>);
+          jsonDecode(jsonEncode(s.toJson(withDice: true)))
+              as Map<String, Object?>);
       expect(back.tokens[0].pairId, 3);
       expect(back.tokens[1].pairId, 3);
       expect(back.pairMembers(3), hasLength(2));

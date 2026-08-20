@@ -85,11 +85,11 @@ void main() {
         s = engine.autoPlayTurn(s);
       }
       if (s.awaitingRoll) s = engine.apply(s, const RollDice());
-      final before = s.rngState;
+      final before = s.rng;
       for (final level in AiLevel.values) {
         LudoAi(level: level, depth: 2).chooseMove(s);
       }
-      expect(s.rngState, before,
+      expect(s.rng, before,
           reason: 'thinking must not consume the game\'s dice');
     });
 

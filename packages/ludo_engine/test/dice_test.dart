@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:ludo_engine/ludo_engine.dart';
 import 'package:test/test.dart';
 
@@ -65,6 +67,35 @@ void main() {
       if (r[i].isEven == r[i - 1].isEven) same++;
     }
     expect(same / (r.length - 1), closeTo(0.5, 0.02));
+  });
+
+  test('the dice do not travel to the players', () {
+    // The state of the generator is the whole future of the dice: four lines
+    // of arithmetic turn it into every roll the rest of the game will make.
+    // It used to go out in the state the server broadcasts after every move,
+    // which handed every player at the table a perfect prediction of their own
+    // and everybody else's throws.
+    var s = GameState.newGame(const RuleConfig(), seed: 4242);
+    for (var i = 0; i < 30; i++) {
+      s = engine.autoPlayTurn(s);
+    }
+
+    expect(s.toJson().containsKey('rng'), isFalse,
+        reason: 'the dice are being broadcast');
+    expect(jsonEncode(s.toJson()), isNot(contains('rng')));
+
+    // What a player receives still describes the position exactly.
+    final asSeen = GameState.fromJson(
+      jsonDecode(jsonEncode(s.toJson())) as Map<String, Object?>,
+    );
+    expect(asSeen.fingerprint(), s.fingerprint());
+    expect(asSeen.rng, isNot(s.rng), reason: 'the dice came through anyway');
+
+    // And the machine that owns the game can still write it down in full.
+    final saved = GameState.fromJson(
+      jsonDecode(jsonEncode(s.toJson(withDice: true))) as Map<String, Object?>,
+    );
+    expect(saved.rng, s.rng);
   });
 
   test('a different seed is a different game', () {

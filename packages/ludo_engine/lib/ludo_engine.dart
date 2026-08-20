@@ -9,6 +9,7 @@ library;
 export 'src/ai.dart';
 export 'src/arena.dart';
 export 'src/board.dart';
+export 'src/dice.dart';
 export 'src/engine.dart';
 export 'src/moves.dart';
 export 'src/rules.dart';

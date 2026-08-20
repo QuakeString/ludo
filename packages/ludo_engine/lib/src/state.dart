@@ -1,4 +1,5 @@
 import 'board.dart';
+import 'dice.dart';
 import 'rules.dart';
 
 /// One token. Immutable; moving produces a new instance.
@@ -64,7 +65,7 @@ class GameState {
     required this.captures,
     required this.nextPairId,
     required this.finishOrder,
-    required this.rngState,
+    required this.rng,
   });
 
   /// A fresh game. [seed] fixes the dice sequence, so a game can be replayed
@@ -90,7 +91,7 @@ class GameState {
       captures: List.unmodifiable(List.filled(rules.players, 0)),
       nextPairId: 0,
       finishOrder: const [],
-      rngState: seed == 0 ? 1 : seed,
+      rng: DiceRng.fromSeed(seed),
     );
   }
 
@@ -115,7 +116,9 @@ class GameState {
   final List<int> finishOrder;
 
   /// Deterministic RNG cursor. Part of the state so replays are exact.
-  final int rngState;
+  /// The dice. Not a number anybody outside the engine should read — see
+  /// [toJson], which keeps it off the wire on purpose.
+  final DiceRng rng;
 
   BoardSpec get board => rules.board;
   bool get awaitingRoll => dice == null;
@@ -187,7 +190,7 @@ class GameState {
     List<int>? captures,
     int? nextPairId,
     List<int>? finishOrder,
-    int? rngState,
+    DiceRng? rng,
   }) {
     return GameState(
       rules: rules,
@@ -199,7 +202,7 @@ class GameState {
       captures: captures ?? this.captures,
       nextPairId: nextPairId ?? this.nextPairId,
       finishOrder: finishOrder ?? this.finishOrder,
-      rngState: rngState ?? this.rngState,
+      rng: rng ?? this.rng,
     );
   }
 
@@ -222,7 +225,19 @@ class GameState {
   /// the message the server broadcasts after every move, and the record a
   /// finished match is stored as. Keys are short because this crosses the wire
   /// on every turn.
-  Map<String, Object?> toJson() => {
+  ///
+  /// The dice are left out unless [withDice] is set, and that default is the
+  /// point of the parameter. The generator's state is the whole future of the
+  /// dice: anybody holding it can work out every roll the rest of the game
+  /// will produce, exactly, with four lines of arithmetic. Broadcasting it to
+  /// every player — which is what this used to do — handed each of them a
+  /// perfect prediction of their own and everyone else's throws.
+  ///
+  /// A save file and a match record are for the machine that owns the game, so
+  /// those pass [withDice]; the wire never does. A client that ends up with a
+  /// diceless state loses nothing, because online it is the server that rolls
+  /// and the server would reject anything else.
+  Map<String, Object?> toJson({bool withDice = false}) => {
         'rules': rules.toJson(),
         'arms': seatArms,
         'tokens': [for (final t in tokens) t.toJson()],
@@ -232,7 +247,7 @@ class GameState {
         'caps': captures,
         'pair': nextPairId,
         'done': finishOrder,
-        'rng': rngState,
+        if (withDice) 'rng': rng.toJson(),
       };
 
   factory GameState.fromJson(Map<String, Object?> j) {
@@ -251,7 +266,7 @@ class GameState {
       captures: List.unmodifiable(ints(j['caps'])),
       nextPairId: (j['pair'] as num?)?.toInt() ?? 0,
       finishOrder: List.unmodifiable(ints(j['done'])),
-      rngState: (j['rng'] as num?)?.toInt() ?? 1,
+      rng: DiceRng.fromJson(j['rng']),
     );
   }
 

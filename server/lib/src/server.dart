@@ -12,7 +12,7 @@ import 'room.dart';
 /// fake clients, which is how the match flow is covered without opening a port.
 class LudoHub {
   LudoHub({Random? random, DateTime Function()? clock})
-      : _random = random ?? Random(),
+      : _random = random ?? Random.secure(),
         _now = clock ?? DateTime.now;
 
   final Random _random;

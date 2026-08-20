@@ -52,7 +52,7 @@ class Room {
     this.fillEmptySeatsWithAI = true,
     int? seed,
     DateTime Function()? clock,
-  })  : _seed = seed ?? Random().nextInt(0x7FFFFFFF) + 1,
+  })  : _seed = seed ?? Random.secure().nextInt(0x7FFFFFFF) + 1,
         _now = clock ?? DateTime.now {
     for (var i = 0; i < rules.players; i++) {
       seats.add(Seat(i));
