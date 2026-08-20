@@ -75,6 +75,48 @@ void main() {
     expect(a, isNot(b), reason: 'seeds are not being used');
   });
 
+  test('no seat is luckier than any other', () {
+    // Reported as "one specific player always gets double six then a five, and
+    // it repeats". It did — under a fixed seed, where seat 3 opened 6,6,5 in
+    // every game played on the device, because every game used seed 1. The
+    // generator was never the problem, but "is one seat favoured" is worth
+    // holding down whatever the cause, so: whole games, real turn order, extra
+    // rolls on a six and all.
+    const rules = RuleConfig(players: 4, tokensPerPlayer: 4);
+    final bySeat = List.generate(4, (_) => List.filled(7, 0));
+
+    for (var game = 0; game < 120; game++) {
+      var s = GameState.newGame(rules, seed: 1 + game * 7919);
+      for (var step = 0; step < 4000 && !s.isOver; step++) {
+        if (s.awaitingRoll) {
+          final seat = s.turn;
+          s = engine.apply(s, const RollDice());
+          final v = s.dice;
+          if (v != null) bySeat[seat][v]++;
+          continue;
+        }
+        s = engine.autoPlayTurn(s);
+      }
+    }
+
+    for (var seat = 0; seat < 4; seat++) {
+      final n = bySeat[seat].reduce((a, b) => a + b);
+      expect(n, greaterThan(5000), reason: 'seat $seat barely played');
+      for (var face = 1; face <= 6; face++) {
+        // A wide band on purpose: this is here to catch a seat being fed one
+        // number systematically, not to re-test the generator — the flatness
+        // test above does that properly. Sixes land a little under the rest
+        // for every seat because three of them forfeit the turn, and that
+        // third six is never dealt.
+        expect(
+          bySeat[seat][face] / n,
+          closeTo(1 / 6, 0.012),
+          reason: 'seat $seat sees face $face too often or too rarely',
+        );
+      }
+    }
+  });
+
   test('the sequence does not fall into a short cycle', () {
     // xorshift32 has a period of 2^32-1, so nothing should repeat here. A
     // generator that got stuck would show up as a repeated window.
