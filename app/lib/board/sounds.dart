@@ -54,4 +54,6 @@ abstract final class Sound {
   static const step = 'chip_step';
   static const home = 'chip_home';
   static const capture = 'capture';
+  static const safe = 'safe';
+  static const victory = 'victory';
 }

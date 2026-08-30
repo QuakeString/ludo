@@ -186,8 +186,97 @@ def capture():
     return one_pole_lp(out, 9000)
 
 
+# --- landing somewhere safe --------------------------------------------------
+def safe_square():
+    """Reaching a star, or a start square: the one place nobody can touch you.
+
+    A single warm note rather than the two-note figure that means home, so the
+    two are never confused — this is relief, not arrival. It rises very
+    slightly as it sounds, about a fifth of a semitone, which is too little to
+    hear as a bend and enough to keep it from sitting flat.
+    """
+    rnd = random.Random(41)
+    n = int(0.55 * SR)
+    out = [0.0] * n
+
+    for ratio, level, decay in ((1.0, 1.0, 5.2), (2.0, 0.30, 7.0), (3.01, 0.12, 9.0)):
+        phase = 0.0
+        for i in range(n):
+            t = i / n
+            freq = 1046.5 * ratio * (1 + 0.006 * t)
+            phase += 2 * math.pi * freq / SR
+            out[i] += level * math.sin(phase) * math.exp(-i / SR * decay)
+
+    # A breath of air on the attack, so it is struck rather than switched on.
+    for i in range(int(0.012 * SR)):
+        out[i] += rnd.uniform(-1, 1) * 0.18 * math.exp(-i / SR * 500)
+
+    # And a little sparkle a moment later, quiet and high.
+    spark = [0.0] * n
+    at = int(0.055 * SR)
+    for i in range(at, n):
+        k = i - at
+        spark[i] = 0.16 * math.sin(2 * math.pi * 2093 * k / SR) * math.exp(-k / SR * 11)
+    for i in range(n):
+        out[i] += spark[i]
+
+    return out
+
+
+# --- winning --------------------------------------------------------------
+def victory():
+    """A short fanfare: four notes up, then the chord left ringing.
+
+    Struck rather than blown — the same slightly stretched partials as the
+    arrival chime, so the two belong to the same game — and the last three
+    notes are held so they pile into a major chord instead of arriving one at
+    a time and leaving. Under it, a swell of noise that rises and falls like a
+    room reacting.
+    """
+    rnd = random.Random(77)
+    n = int(1.9 * SR)
+    buf = [0.0] * n
+
+    def bell(freq, amp, decay, at):
+        length = n - int(at * SR)
+        if length <= 0:
+            return
+        out = [0.0] * length
+        for ratio, level, faster in (
+            (1.0, 1.0, 1.0),
+            (2.01, 0.38, 1.5),
+            (3.02, 0.18, 2.2),
+            (4.04, 0.09, 3.0),
+        ):
+            w = 2 * math.pi * freq * ratio / SR
+            for i in range(length):
+                out[i] += level * math.sin(w * i) * math.exp(-i / SR * decay * faster)
+        for i in range(int(0.008 * SR)):
+            out[i] += rnd.uniform(-1, 1) * 0.22 * math.exp(-i / SR * 800)
+        mix(buf, [v * amp for v in out], at)
+
+    # C5 E5 G5 C6, each one held from where it lands.
+    for k, (freq, at) in enumerate(
+        [(523.25, 0.0), (659.25, 0.10), (783.99, 0.20), (1046.50, 0.30)]
+    ):
+        bell(freq, 0.55 + 0.15 * k, 3.0 if k < 3 else 1.9, at)
+
+    # The room. Noise rising into the last note and falling away after it.
+    hiss = [rnd.uniform(-1, 1) for _ in range(n)]
+    hiss = one_pole_lp(hiss, 3200)
+    hiss = [v - w for v, w in zip(hiss, one_pole_lp(hiss, 300))]
+    for i in range(n):
+        t = i / n
+        swell = math.exp(-((t - 0.22) ** 2) / 0.012)
+        buf[i] += hiss[i] * swell * 0.30
+
+    return buf
+
+
 if __name__ == "__main__":
     # dice_roll.wav and chip_step.wav are not made here — prepare_dice.py cuts
     # both from the recording, and running this would overwrite them.
     write("chip_home.wav", chip_home())
+    write("safe.wav", safe_square())
+    write("victory.wav", victory())
     write("capture.wav", capture())

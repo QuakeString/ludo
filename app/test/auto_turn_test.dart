@@ -141,7 +141,9 @@ void main() {
       isTrue,
       reason: 'the game stalled waiting for a tap on a move with no choice',
     );
-    // And somebody actually got a chip round the board to do it.
-    expect(find.text('1/1'), findsOneWidget);
+    // And somebody actually got a chip round the board to do it. Twice over
+    // now, since the end-of-game sheet tallies the same thing the seat panel
+    // does — which is the point of it.
+    expect(find.text('1/1'), findsAtLeastNWidgets(1));
   });
 }

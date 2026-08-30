@@ -11,7 +11,7 @@ import 'package:ludo_engine/ludo_engine.dart';
 /// and arrivals are rare enough not to have come up yet. So this plays a whole
 /// game out and insists that every one of the four sounds gets used.
 void main() {
-  testWidgets('a game makes all four of its sounds', (tester) async {
+  testWidgets('a game makes every sound it has', (tester) async {
     final heard = <String>[];
     Sfx.spy = heard.add;
     addTearDown(() => Sfx.spy = null);
@@ -34,13 +34,26 @@ void main() {
     );
     await tester.pump();
 
+    const wanted = {
+      Sound.die,
+      Sound.step,
+      Sound.safe,
+      Sound.capture,
+      Sound.home,
+      // Not the fanfare: this game has to run to a finish for that, which
+      // takes longer than a test should sit. game_over_test plays one out.
+    };
     for (var i = 0; i < 3000; i++) {
       await tester.pump(const Duration(milliseconds: 120));
-      if (heard.toSet().length == 4) break;
+      // Counting distinct sounds was the stop condition once, and it stopped
+      // as soon as any four had been heard — which, after a fifth sound was
+      // added, meant giving up before the rarest of them happened.
+      if (wanted.difference(heard.toSet()).isEmpty) break;
     }
 
     expect(heard, contains(Sound.die), reason: 'no dice were rolled');
     expect(heard, contains(Sound.step), reason: 'no chip was ever set down');
+    expect(heard, contains(Sound.safe), reason: 'nobody ever reached a star');
     expect(
       heard,
       contains(Sound.capture),
@@ -96,6 +109,44 @@ void main() {
       burst,
       isTrue,
       reason: 'every move made a single sound instead of one per square',
+    );
+  });
+
+  testWidgets('landing somewhere safe sounds different from landing anywhere', (
+    tester,
+  ) async {
+    // A star or a start square is the one place nobody can knock you off, and
+    // arriving on one should feel like it rather than sounding like every
+    // other square.
+    final heard = <String>[];
+    Sfx.spy = heard.add;
+    addTearDown(() => Sfx.spy = null);
+
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: GameScreen(
+          rules: RuleConfig(players: 4, tokensPerPlayer: 4),
+          seed: 9,
+          aiSeats: {
+            0: AiLevel.normal,
+            1: AiLevel.normal,
+            2: AiLevel.normal,
+            3: AiLevel.normal,
+          },
+        ),
+      ),
+    );
+    await tester.pump();
+
+    for (var i = 0; i < 2000; i++) {
+      await tester.pump(const Duration(milliseconds: 60));
+      if (heard.contains(Sound.safe)) break;
+    }
+
+    expect(
+      heard,
+      contains(Sound.safe),
+      reason: 'nothing was ever heard reaching a star',
     );
   });
 

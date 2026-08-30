@@ -15,6 +15,7 @@ import '../board/sounds.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
 import '../fresh_seed.dart';
+import 'game_over.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
@@ -78,6 +79,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// rather than announced once it is over.
   final List<Timer> _footsteps = [];
   String? _flash;
+
+  /// The fanfare belongs to the moment the game ends, not to every rebuild
+  /// after it.
+  bool _celebrated = false;
 
   /// Online only: the position to settle into once the current animation has
   /// finished, and any updates that arrived while it was still running.
@@ -344,6 +349,28 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _maybeTakeComputerTurn();
   }
 
+  /// Deals a new game at this table, with new dice.
+  void _startFreshGame() {
+    _scheduled?.cancel();
+    _silence();
+    setState(() {
+      _playing = null;
+      _pendingState = null;
+      _queued.clear();
+      _state = GameState.newGame(_state.rules, seed: freshSeed());
+      _flash = null;
+      _celebrated = false;
+    });
+    _maybeTakeComputerTurn();
+  }
+
+  /// Whether the move ends on a square nobody can be knocked off.
+  bool _landsSomewhereSafe(Move move) {
+    final arm = _state.armOf(_state.tokens[move.tokenId].owner);
+    final ring = _state.board.ringIndex(arm, move.toProgress);
+    return ring != null && _state.safeRingSquares.contains(ring);
+  }
+
   void _silence() {
     for (final t in _footsteps) {
       t.cancel();
@@ -373,6 +400,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ? (Sound.capture, 1.0)
           : _state.board.isFinished(move.toProgress)
           ? (Sound.home, 0.9)
+          : _landsSomewhereSafe(move)
+          ? (Sound.safe, 0.8)
           : (Sound.step, 0.85);
       _footsteps.add(
         Timer(animation.landingAt(hop), () {
@@ -660,6 +689,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final moves = _myMove ? _legalMoves : const <Move>[];
     final session = _session;
     final glowSeat = _state.awaitingRoll && !_state.isOver ? _state.turn : null;
+
+    // Once, on the frame the game ends. Every path into this screen — a local
+    // move settling, the computer's turn, the server's word — arrives here, so
+    // this is the one place that cannot miss it.
+    if (_state.isOver && !_celebrated) {
+      _celebrated = true;
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => Sfx.instance.play(Sound.victory, volume: 0.9),
+      );
+    }
     // The rings turn and the house on turn flushes; both are boundaried
     // overlays, so the ticker costs frames for them and never for the board.
     _setPulse(needed: moves.isNotEmpty || glowSeat != null);
@@ -677,148 +716,160 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           if (session == null)
             IconButton(
               tooltip: 'New game',
-              onPressed: () => setState(() {
-                _scheduled?.cancel();
-                _playing = null;
-                _state = GameState.newGame(rules, seed: freshSeed());
-                _flash = null;
-                _maybeTakeComputerTurn();
-              }),
+              onPressed: _startFreshGame,
               icon: const Icon(Icons.refresh),
             ),
         ],
       ),
       body: SafeArea(
-        child: Column(
+        child: Stack(
           children: [
-            _TurnBar(
-              state: _state,
-              flash: _flash,
-              aiSeats: widget.aiSeats,
-              session: session,
-            ),
-            if (session?.disconnected ?? false)
-              const _Banner(
-                icon: Icons.wifi_off,
-                text:
-                    'Lost the connection. Your seat is held for five '
-                    'minutes — the table plays on meanwhile.',
-              ),
-            Expanded(
-              child: LayoutBuilder(
-                builder: (context, outer) {
-                  // The board and its two seat rails are laid out together and
-                  // share one width. Left to itself the rail took the whole
-                  // window, which on anything wider than a phone put a
-                  // player's die most of a screen away from the house it
-                  // belongs to.
-                  final band = _seatBandHeight(rules);
-                  final side = math.max(
-                    160.0,
-                    math.min(outer.maxWidth, outer.maxHeight - band * 2),
-                  );
-                  return Center(
-                    child: SizedBox(
-                      width: side,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _seatRow(top: true),
-                          Builder(
-                            builder: (context) {
-                              final size = Size(side, side);
-                              BoardPainter layer(BoardLayer which) =>
-                                  BoardPainter(
-                                    state: _state,
-                                    geometry: _geometry,
-                                    palette: palette,
-                                    legalMoves: moves,
-                                    glowSeat: glowSeat,
-                                    motions: _motions(),
-                                    layer: which,
-                                  );
+            Column(
+              children: [
+                _TurnBar(
+                  state: _state,
+                  flash: _flash,
+                  aiSeats: widget.aiSeats,
+                  session: session,
+                ),
+                if (session?.disconnected ?? false)
+                  const _Banner(
+                    icon: Icons.wifi_off,
+                    text:
+                        'Lost the connection. Your seat is held for five '
+                        'minutes — the table plays on meanwhile.',
+                  ),
+                Expanded(
+                  child: LayoutBuilder(
+                    builder: (context, outer) {
+                      // The board and its two seat rails are laid out together and
+                      // share one width. Left to itself the rail took the whole
+                      // window, which on anything wider than a phone put a
+                      // player's die most of a screen away from the house it
+                      // belongs to.
+                      final band = _seatBandHeight(rules);
+                      final side = math.max(
+                        160.0,
+                        math.min(outer.maxWidth, outer.maxHeight - band * 2),
+                      );
+                      return Center(
+                        child: SizedBox(
+                          width: side,
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _seatRow(top: true),
+                              Builder(
+                                builder: (context) {
+                                  final size = Size(side, side);
+                                  BoardPainter layer(BoardLayer which) =>
+                                      BoardPainter(
+                                        state: _state,
+                                        geometry: _geometry,
+                                        palette: palette,
+                                        legalMoves: moves,
+                                        glowSeat: glowSeat,
+                                        motions: _motions(),
+                                        layer: which,
+                                      );
 
-                              // Four layers, and only two of them ever repaint. The
-                              // board and the chips sit inside RepaintBoundaries so
-                              // Flutter keeps them as finished pictures; the ring and
-                              // the moving chip are drawn over the top. Painting the
-                              // whole board every frame to turn a ring was costing a
-                              // full CPU core.
-                              return GestureDetector(
-                                onTapDown: (d) =>
-                                    _tapBoard(d.localPosition, size),
-                                child: SizedBox(
-                                  width: side,
-                                  height: side,
-                                  child: Stack(
-                                    // A chip is taller than the square it
-                                    // stands on — it is a piece, not a
-                                    // counter — so one on the outside row
-                                    // has its head over the board's edge.
-                                    // Stack clips to its bounds by default,
-                                    // which sliced that head flat.
-                                    clipBehavior: Clip.none,
-                                    children: [
-                                      RepaintBoundary(
-                                        child: CustomPaint(
-                                          size: size,
-                                          painter: layer(BoardLayer.furniture),
-                                        ),
-                                      ),
-                                      RepaintBoundary(
-                                        child: CustomPaint(
-                                          size: size,
-                                          painter: layer(BoardLayer.glow),
-                                        ),
-                                      ),
-                                      if (glowSeat != null)
-                                        HouseFlush(
-                                          geometry: _geometry,
-                                          arm: _state.armOf(glowSeat),
-                                          colour: colourOfArm(
-                                            _state.armOf(glowSeat),
+                                  // Four layers, and only two of them ever repaint. The
+                                  // board and the chips sit inside RepaintBoundaries so
+                                  // Flutter keeps them as finished pictures; the ring and
+                                  // the moving chip are drawn over the top. Painting the
+                                  // whole board every frame to turn a ring was costing a
+                                  // full CPU core.
+                                  return GestureDetector(
+                                    onTapDown: (d) =>
+                                        _tapBoard(d.localPosition, size),
+                                    child: SizedBox(
+                                      width: side,
+                                      height: side,
+                                      child: Stack(
+                                        // A chip is taller than the square it
+                                        // stands on — it is a piece, not a
+                                        // counter — so one on the outside row
+                                        // has its head over the board's edge.
+                                        // Stack clips to its bounds by default,
+                                        // which sliced that head flat.
+                                        clipBehavior: Clip.none,
+                                        children: [
+                                          RepaintBoundary(
+                                            child: CustomPaint(
+                                              size: size,
+                                              painter: layer(
+                                                BoardLayer.furniture,
+                                              ),
+                                            ),
                                           ),
-                                          side: side,
-                                          beat: _spin,
-                                        ),
-                                      ..._rings(size),
-                                      RepaintBoundary(
-                                        child: CustomPaint(
-                                          size: size,
-                                          painter: layer(BoardLayer.chips),
-                                        ),
+                                          RepaintBoundary(
+                                            child: CustomPaint(
+                                              size: size,
+                                              painter: layer(BoardLayer.glow),
+                                            ),
+                                          ),
+                                          if (glowSeat != null)
+                                            HouseFlush(
+                                              geometry: _geometry,
+                                              arm: _state.armOf(glowSeat),
+                                              colour: colourOfArm(
+                                                _state.armOf(glowSeat),
+                                              ),
+                                              side: side,
+                                              beat: _spin,
+                                            ),
+                                          ..._rings(size),
+                                          RepaintBoundary(
+                                            child: CustomPaint(
+                                              size: size,
+                                              painter: layer(BoardLayer.chips),
+                                            ),
+                                          ),
+                                          AnimatedBuilder(
+                                            animation: _mover,
+                                            builder: (context, _) =>
+                                                CustomPaint(
+                                                  size: size,
+                                                  painter: layer(
+                                                    BoardLayer.motions,
+                                                  ),
+                                                ),
+                                          ),
+                                        ],
                                       ),
-                                      AnimatedBuilder(
-                                        animation: _mover,
-                                        builder: (context, _) => CustomPaint(
-                                          size: size,
-                                          painter: layer(BoardLayer.motions),
-                                        ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                              );
-                            },
+                                    ),
+                                  );
+                                },
+                              ),
+                              _seatRow(top: false),
+                            ],
                           ),
-                          _seatRow(top: false),
-                        ],
-                      ),
-                    ),
-                  );
-                },
+                        ),
+                      );
+                    },
+                  ),
+                ),
+                _Controls(
+                  state: _state,
+                  moves: moves,
+                  busy: _busy,
+                  // Online, "not your move" covers a computer seat, a remote
+                  // player's seat, and a seat being covered for — all of them mean
+                  // the same thing to these buttons: wait.
+                  isComputerTurn: !_myMove && !_state.isOver,
+                  onPass: () => session == null ? _passLocal() : session.pass(),
+                ),
+              ],
+            ),
+            if (_state.isOver)
+              GameOverSheet(
+                state: _state,
+                aiSeats: widget.aiSeats,
+                nameOf: _nameOf,
+                // Online a rematch is the room's business, not this device's.
+                onPlayAgain: session == null ? _startFreshGame : null,
+                onLeave: () => Navigator.of(context).maybePop(),
               ),
-            ),
-            _Controls(
-              state: _state,
-              moves: moves,
-              busy: _busy,
-              // Online, "not your move" covers a computer seat, a remote
-              // player's seat, and a seat being covered for — all of them mean
-              // the same thing to these buttons: wait.
-              isComputerTurn: !_myMove && !_state.isOver,
-              onPass: () => session == null ? _passLocal() : session.pass(),
-            ),
           ],
         ),
       ),
