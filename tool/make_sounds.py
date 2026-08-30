@@ -117,37 +117,81 @@ def chip_home():
 
 # --- a capture ---------------------------------------------------------------
 def capture():
-    """A blunt knock and something sliding away.
+    """Air let out of a balloon.
 
-    Lower and softer-edged than the die so it never reads as a roll, and the
-    downward sweep is the chip going back where it came from.
+    Not a thud. A knocked-out chip is deflation, and the sound of it is a
+    balloon's neck opened: a rush of air that falls in pitch and volume as the
+    pressure drops, with the neck flapping against itself the whole way.
+
+    Three things have to be right or it reads as steam instead. The noise is
+    band-passed by a resonator that glides *down* — a jet slows as the pressure
+    behind it goes. The neck flutter is an amplitude wobble that slows with it,
+    from about sixty flaps a second to twenty-five. And a second, narrower
+    resonance an octave up gives the squeal, the part that makes it a balloon
+    and not a tyre.
     """
-    rnd = random.Random(9)
-    n = int(0.55 * SR)
-    modes = [
-        (147, 0.85, 17),
-        (233, 0.5, 24),
-        (585, 0.3, 48),
-        (1180, 0.18, 70),
-    ]
-    buf = strike(n, modes, 0.55, 500, 380, rnd)
+    rnd = random.Random(21)
+    n = int(0.80 * SR)
+    out = [0.0] * n
 
-    # A short falling tone, swept by hand so the pitch really does bend.
-    phase, f0, f1 = 0.0, 520.0, 130.0
-    for i in range(int(0.34 * SR)):
-        t = i / (0.34 * SR)
-        f = f0 * (f1 / f0) ** t
-        phase += 2 * math.pi * f / SR
-        env = math.sin(math.pi * min(1.0, t * 1.05)) * math.exp(-t * 1.6)
-        buf[i + int(0.02 * SR)] += 0.42 * math.sin(phase) * env
+    # Two resonators, run sample by sample because their centre frequencies
+    # move the whole time.
+    wide_y1 = wide_y2 = 0.0
+    thin_y1 = thin_y2 = 0.0
+    wobble = rnd.uniform(0, 2 * math.pi)
+    flap_phase = 0.0
 
-    # And air moving past it.
-    hiss = [rnd.uniform(-1, 1) for _ in range(n)]
-    hiss = one_pole_lp(hiss, 2600)
     for i in range(n):
         t = i / n
-        buf[i] += 0.22 * hiss[i] * math.sin(math.pi * min(1.0, t * 2.2)) * math.exp(-t * 3.4)
-    return buf
+        x = rnd.uniform(-1, 1)
+
+        # Pressure falling away: everything follows this one curve.
+        pressure = math.exp(-3.1 * t)
+
+        # The jet's pitch, wobbling as the neck flutters.
+        wobble += 2 * math.pi * 7.0 / SR
+        centre = (2500 * pressure + 620) * (1 + 0.09 * math.sin(wobble))
+
+        def resonate(freq, r, y1, y2):
+            w = 2 * math.pi * min(freq, SR * 0.45) / SR
+            b1 = -2 * r * math.cos(w)
+            b2 = r * r
+            y = (1 - r) * x - b1 * y1 - b2 * y2
+            return y, y1
+
+        wide, wide_y2 = resonate(centre, 0.955, wide_y1, wide_y2)
+        wide_y1 = wide
+        thin, thin_y2 = resonate(centre * 2.1, 0.992, thin_y1, thin_y2)
+        thin_y1 = thin
+
+        # The neck slapping shut and open again, slowing as it goes.
+        flap_phase += 2 * math.pi * (62 * pressure + 22) / SR
+        flap = 1 + 0.34 * math.sin(flap_phase)
+
+        # Opens fast, then rides the pressure down.
+        attack = min(1.0, i / (0.004 * SR))
+        out[i] = attack * flap * pressure * (0.80 * wide + 0.55 * thin)
+
+    # And the last of it: the neck going slack, a couple of loose flaps. Built
+    # apart and filtered down to a mutter before being mixed in — left as raw
+    # noise they came out brighter than the jet they follow, which undoes the
+    # whole falling-away the rest of this is built on.
+    flaps = [0.0] * n
+    for k, at in enumerate([0.545, 0.63]):
+        j = int(at * SR)
+        for i in range(int(0.05 * SR)):
+            if j + i < n:
+                env = math.sin(math.pi * i / (0.05 * SR)) * (0.5 - 0.16 * k)
+                flaps[j + i] += env * rnd.uniform(-1, 1)
+    # Three times over: one pole rolls off at six decibels an octave, which
+    # still let four kilohertz of hiss through and made the flaps brighter and
+    # louder than the jet dying underneath them.
+    for _ in range(3):
+        flaps = one_pole_lp(flaps, 850)
+    for i in range(n):
+        out[i] += flaps[i] * 2.2
+
+    return one_pole_lp(out, 7000)
 
 
 if __name__ == "__main__":
