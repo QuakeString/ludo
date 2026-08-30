@@ -325,12 +325,19 @@ class LudoEngine {
     if (next.isOver) return next.copyWith(dice: null);
 
     final rolledMax = s.dice == s.rules.diceSides;
+    // Three ways to earn another throw, and the game is not the game without
+    // all of them: the top face, knocking somebody off, and bringing a chip
+    // home. The last one is checked against the board rather than the move,
+    // because how far round "home" is depends on which board is being played.
+    final broughtHome = s.board.isFinished(m.toProgress);
     final again = (rolledMax && s.rules.extraRollOnSix) ||
-        (m.isCapture && s.rules.captureGrantsExtraRoll);
+        (m.isCapture && s.rules.captureGrantsExtraRoll) ||
+        (broughtHome && s.rules.finishGrantsExtraRoll);
 
     if (again) {
-      // A capture-granted extra roll starts a fresh six-count; one earned by
-      // rolling the top face carries the count on, so three still forfeit.
+      // A roll earned by a capture or by a chip getting home starts a fresh
+      // six-count; one earned by rolling the top face carries the count on, so
+      // three sixes still forfeit.
       return next.copyWith(
           dice: null, consecutiveSixes: rolledMax ? s.consecutiveSixes : 0);
     }

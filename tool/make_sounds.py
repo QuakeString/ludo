@@ -41,7 +41,7 @@ def one_pole_hp(x, cutoff):
     return [v - l for v, l in zip(x, lp)]
 
 
-def strike(n, modes, noise_amp, noise_cut, noise_decay, rnd):
+def strike_sound(n, modes, noise_amp, noise_cut, noise_decay, rnd):
     """One impact: a click of filtered noise, then the body ringing.
 
     A struck object makes both — the click is the contact, the ringing is the
@@ -117,81 +117,73 @@ def chip_home():
 
 # --- a capture ---------------------------------------------------------------
 def capture():
-    """Air let out of a balloon.
+    """A snake striking.
 
-    Not a thud. A knocked-out chip is deflation, and the sound of it is a
-    balloon's neck opened: a rush of air that falls in pitch and volume as the
-    pressure drops, with the neck flapping against itself the whole way.
+    Three parts in a tenth of a second, and the order is the whole thing: a
+    hiss that rises as the head comes forward, the snap of the strike landing,
+    and then a hiss falling away as it draws back.
 
-    Three things have to be right or it reads as steam instead. The noise is
-    band-passed by a resonator that glides *down* — a jet slows as the pressure
-    behind it goes. The neck flutter is an amplitude wobble that slows with it,
-    from about sixty flaps a second to twenty-five. And a second, narrower
-    resonance an octave up gives the squeal, the part that makes it a balloon
-    and not a tyre.
+    What makes it read as a bite rather than a hit is that the noise sweeps
+    *upward* into the snap. A rising band tightening over sixty milliseconds is
+    heard as something coming at you; the same noise falling is heard as
+    something leaving. The snap itself is dry and doubled — jaws are two hard
+    surfaces meeting a moment apart, and one clean click sounds like a switch.
     """
-    rnd = random.Random(21)
-    n = int(0.80 * SR)
+    rnd = random.Random(31)
+    n = int(0.52 * SR)
     out = [0.0] * n
+    strike = int(0.085 * SR)
 
-    # Two resonators, run sample by sample because their centre frequencies
-    # move the whole time.
-    wide_y1 = wide_y2 = 0.0
-    thin_y1 = thin_y2 = 0.0
-    wobble = rnd.uniform(0, 2 * math.pi)
-    flap_phase = 0.0
-
-    for i in range(n):
-        t = i / n
+    # The lunge: noise through a resonator climbing from 700Hz to 3.4kHz, and
+    # getting louder the whole way in.
+    y1 = y2 = 0.0
+    for i in range(strike):
+        t = i / strike
         x = rnd.uniform(-1, 1)
+        centre = 700 + 2700 * (t ** 1.7)
+        r = 0.93 + 0.03 * t  # tightens as it comes
+        w = 2 * math.pi * centre / SR
+        b1 = -2 * r * math.cos(w)
+        b2 = r * r
+        y = (1 - r) * x - b1 * y1 - b2 * y2
+        y2, y1 = y1, y
+        # Steeper than it looks like it should be, and deliberately so: a
+        # tightening resonator has more gain when it is wide, so a gentle
+        # envelope comes out loudest at the start — the opposite of a lunge.
+        out[i] += y * (0.06 + 0.94 * t ** 2.6) * 2.6
 
-        # Pressure falling away: everything follows this one curve.
-        pressure = math.exp(-3.1 * t)
-
-        # The jet's pitch, wobbling as the neck flutters.
-        wobble += 2 * math.pi * 7.0 / SR
-        centre = (2500 * pressure + 620) * (1 + 0.09 * math.sin(wobble))
-
-        def resonate(freq, r, y1, y2):
-            w = 2 * math.pi * min(freq, SR * 0.45) / SR
-            b1 = -2 * r * math.cos(w)
-            b2 = r * r
-            y = (1 - r) * x - b1 * y1 - b2 * y2
-            return y, y1
-
-        wide, wide_y2 = resonate(centre, 0.955, wide_y1, wide_y2)
-        wide_y1 = wide
-        thin, thin_y2 = resonate(centre * 2.1, 0.992, thin_y1, thin_y2)
-        thin_y1 = thin
-
-        # The neck slapping shut and open again, slowing as it goes.
-        flap_phase += 2 * math.pi * (62 * pressure + 22) / SR
-        flap = 1 + 0.34 * math.sin(flap_phase)
-
-        # Opens fast, then rides the pressure down.
-        attack = min(1.0, i / (0.004 * SR))
-        out[i] = attack * flap * pressure * (0.80 * wide + 0.55 * thin)
-
-    # And the last of it: the neck going slack, a couple of loose flaps. Built
-    # apart and filtered down to a mutter before being mixed in — left as raw
-    # noise they came out brighter than the jet they follow, which undoes the
-    # whole falling-away the rest of this is built on.
-    flaps = [0.0] * n
-    for k, at in enumerate([0.545, 0.63]):
-        j = int(at * SR)
-        for i in range(int(0.05 * SR)):
+    # The bite. Two hard, dry impacts a few milliseconds apart, high and
+    # short — teeth, not a drum.
+    for k, (at, level) in enumerate([(0.0, 1.0), (0.009, 0.62)]):
+        j = strike + int(at * SR)
+        modes = [
+            (1850 + 260 * k, 0.55, 180),
+            (3100 + 400 * k, 0.42, 230),
+            (5200, 0.22, 300),
+            (420, 0.30, 90),
+        ]
+        hit = strike_sound(int(0.09 * SR), modes, 0.7, 1500, 900, rnd)
+        for i, v in enumerate(hit):
             if j + i < n:
-                env = math.sin(math.pi * i / (0.05 * SR)) * (0.5 - 0.16 * k)
-                flaps[j + i] += env * rnd.uniform(-1, 1)
-    # Three times over: one pole rolls off at six decibels an octave, which
-    # still let four kilohertz of hiss through and made the flaps brighter and
-    # louder than the jet dying underneath them.
-    for _ in range(3):
-        flaps = one_pole_lp(flaps, 850)
-    for i in range(n):
-        out[i] += flaps[i] * 2.2
+                out[j + i] += v * level
 
-    return one_pole_lp(out, 7000)
+    # Drawing back: the hiss again, falling this time, and quieter than it
+    # arrived — the snake is already leaving.
+    y1 = y2 = 0.0
+    tail_at = strike + int(0.03 * SR)
+    for i in range(tail_at, n):
+        t = (i - tail_at) / (n - tail_at)
+        x = rnd.uniform(-1, 1)
+        centre = 3000 * math.exp(-2.2 * t) + 480
+        r = 0.95
+        w = 2 * math.pi * centre / SR
+        b1 = -2 * r * math.cos(w)
+        b2 = r * r
+        y = (1 - r) * x - b1 * y1 - b2 * y2
+        y2, y1 = y1, y
+        out[i] += y * math.exp(-4.0 * t) * 0.9
+
+    return one_pole_lp(out, 9000)
 
 
 if __name__ == "__main__":

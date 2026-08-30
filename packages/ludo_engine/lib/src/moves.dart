@@ -41,7 +41,6 @@ class Move {
   final List<int> capturedTokenIds;
 
   bool get isCapture => capturedTokenIds.isNotEmpty;
-  bool get finishesToken => kind != MoveKind.enter && toProgress >= 0;
 
   int get tokenId => tokenIds.first;
 

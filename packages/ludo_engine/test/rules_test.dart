@@ -2,6 +2,7 @@ import 'package:ludo_engine/ludo_engine.dart';
 import 'package:test/test.dart';
 
 void main() {
+  extraRollTests();
   group('RuleConfig validation', () {
     test('presets are all valid', () {
       for (final preset in RuleConfig.presets) {
@@ -219,5 +220,72 @@ void main() {
     expect(
         const RuleConfig(turnTimerDots: 6, secondsPerDot: 5).turnSeconds, 30);
     expect(const RuleConfig().turnSeconds, 0, reason: 'off by default');
+  });
+}
+
+/// Three ways to earn another throw.
+void extraRollTests() {
+  const engine = LudoEngine();
+
+  test('knocking somebody off buys another roll', () {
+    var s = GameState.newGame(const RuleConfig());
+    final b = s.board;
+    // Seat 0 three squares behind a chip of seat 1.
+    final victim =
+        (3 - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
+    final tokens = [...s.tokens];
+    tokens[0] = tokens[0].copyWith(progress: 2);
+    tokens[4] = tokens[4].copyWith(progress: victim);
+    s = s.copyWith(tokens: tokens, dice: 1);
+
+    final capture = engine.legalMoves(s).firstWhere((m) => m.isCapture);
+    final after = engine.apply(s, PlayMove(capture));
+
+    expect(after.turn, 0, reason: 'the turn passed on after a capture');
+    expect(after.awaitingRoll, isTrue, reason: 'no extra roll was granted');
+  });
+
+  test('bringing a chip home buys another roll', () {
+    var s = GameState.newGame(const RuleConfig());
+    final b = s.board;
+    final tokens = [...s.tokens];
+    // One step short of home, with a one to play.
+    tokens[0] = tokens[0].copyWith(progress: b.finalProgress - 1);
+    s = s.copyWith(tokens: tokens, dice: 1);
+
+    final home = engine.legalMoves(s).firstWhere(
+          (m) => b.isFinished(m.toProgress),
+        );
+    final after = engine.apply(s, PlayMove(home));
+
+    expect(after.turn, 0, reason: 'the turn passed on after getting home');
+    expect(after.awaitingRoll, isTrue, reason: 'no extra roll was granted');
+  });
+
+  test('an ordinary move ends the turn', () {
+    var s = GameState.newGame(const RuleConfig());
+    final tokens = [...s.tokens];
+    tokens[0] = tokens[0].copyWith(progress: 4);
+    s = s.copyWith(tokens: tokens, dice: 3);
+
+    final move = engine.legalMoves(s).first;
+    final after = engine.apply(s, PlayMove(move));
+    expect(after.turn, isNot(0), reason: 'a plain move must hand the turn on');
+  });
+
+  test('the earned rolls can be switched off', () {
+    const strict = RuleConfig(
+      captureGrantsExtraRoll: false,
+      finishGrantsExtraRoll: false,
+    );
+    var s = GameState.newGame(strict);
+    final b = s.board;
+    final tokens = [...s.tokens];
+    tokens[0] = tokens[0].copyWith(progress: b.finalProgress - 1);
+    s = s.copyWith(tokens: tokens, dice: 1);
+    final home = engine.legalMoves(s).firstWhere(
+          (m) => b.isFinished(m.toProgress),
+        );
+    expect(engine.apply(s, PlayMove(home)).turn, isNot(0));
   });
 }

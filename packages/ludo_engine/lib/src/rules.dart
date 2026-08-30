@@ -27,7 +27,8 @@ class RuleConfig {
     this.entryRoll = 6,
     this.extraRollOnSix = true,
     this.tripleSixForfeits = true,
-    this.captureGrantsExtraRoll = false,
+    this.captureGrantsExtraRoll = true,
+    this.finishGrantsExtraRoll = true,
     this.safeSquares = SafeSquares.startsAndStars,
     this.exactHomeEntry = true,
     this.mustCaptureToWin = false,
@@ -58,7 +59,18 @@ class RuleConfig {
 
   final bool extraRollOnSix;
   final bool tripleSixForfeits;
+
+  /// Knocking an opponent off buys another roll.
   final bool captureGrantsExtraRoll;
+
+  /// Bringing a chip home buys another roll.
+  ///
+  /// Both of these are on by default, because both are how the game is
+  /// actually played: a six, a capture and a chip home each earn another
+  /// throw. The capture rule was here but switched off, and this one was
+  /// missing altogether, so two of the three ways of earning a turn did
+  /// nothing.
+  final bool finishGrantsExtraRoll;
   final SafeSquares safeSquares;
 
   /// Home must be entered on an exact count; an overshoot is not a legal move.
@@ -142,6 +154,7 @@ class RuleConfig {
     bool? extraRollOnSix,
     bool? tripleSixForfeits,
     bool? captureGrantsExtraRoll,
+    bool? finishGrantsExtraRoll,
     SafeSquares? safeSquares,
     bool? exactHomeEntry,
     bool? mustCaptureToWin,
@@ -167,6 +180,8 @@ class RuleConfig {
       tripleSixForfeits: tripleSixForfeits ?? this.tripleSixForfeits,
       captureGrantsExtraRoll:
           captureGrantsExtraRoll ?? this.captureGrantsExtraRoll,
+      finishGrantsExtraRoll:
+          finishGrantsExtraRoll ?? this.finishGrantsExtraRoll,
       safeSquares: safeSquares ?? this.safeSquares,
       exactHomeEntry: exactHomeEntry ?? this.exactHomeEntry,
       mustCaptureToWin: mustCaptureToWin ?? this.mustCaptureToWin,
@@ -243,6 +258,7 @@ class RuleConfig {
         'extraRollOnSix': extraRollOnSix,
         'tripleSixForfeits': tripleSixForfeits,
         'captureGrantsExtraRoll': captureGrantsExtraRoll,
+        'finishGrantsExtraRoll': finishGrantsExtraRoll,
         'safeSquares': safeSquares.name,
         'exactHomeEntry': exactHomeEntry,
         'mustCaptureToWin': mustCaptureToWin,
@@ -277,6 +293,8 @@ class RuleConfig {
       tripleSixForfeits: pick('tripleSixForfeits', defaults.tripleSixForfeits),
       captureGrantsExtraRoll:
           pick('captureGrantsExtraRoll', defaults.captureGrantsExtraRoll),
+      finishGrantsExtraRoll:
+          pick('finishGrantsExtraRoll', defaults.finishGrantsExtraRoll),
       safeSquares: SafeSquares.values.firstWhere(
         (s) => s.name == json['safeSquares'],
         orElse: () => defaults.safeSquares,
@@ -322,6 +340,7 @@ class RuleConfig {
     'extraRollOnSix': 'x',
     'tripleSixForfeits': 'f',
     'captureGrantsExtraRoll': 'c',
+    'finishGrantsExtraRoll': 'g',
     'safeSquares': 's',
     'exactHomeEntry': 'h',
     'mustCaptureToWin': 'm',
