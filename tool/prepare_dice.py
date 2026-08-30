@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Builds two of the game's sounds from the recorded dice throw.
+"""Builds three of the game's sounds from the recorded dice throw.
 
 The roll itself, and one impact lifted out of it for a chip landing. Taking
 the tap from the same recording is not a shortcut: the two sounds have to
@@ -123,6 +123,37 @@ def main():
     tap[: int(0.002 * RATE)] *= np.linspace(0, 1, int(0.002 * RATE))
     tap *= 0.72 / np.max(np.abs(tap))
     save("chip_step.wav", tap)
+
+    # --- landing somewhere safe ----------------------------------------
+    # The same chip, set down and settling: the tap, then a quieter one a
+    # breath later, over a short warm body the plain tap does not have.
+    #
+    # This was a struck chime before — a bell note with partials, which is a
+    # perfectly nice sound and completely wrong here. Every other sound in the
+    # game is a plastic thing on a board, and a musical tone beside them is
+    # heard as a different object in a different room. Safety should sound like
+    # something settling into place, not like a notification.
+    span = int(0.34 * RATE)
+    safe = np.zeros(span)
+    first = min(len(tap), span)
+    safe[:first] += tap[:first] * 0.95
+    echo_at = int(0.075 * RATE)
+    second = min(len(tap), span - echo_at)
+    safe[echo_at : echo_at + second] += tap[:second] * 0.55
+
+    # A low body under it, struck once and gone. Two decaying sines and nothing
+    # above them, so it reads as weight rather than as a note.
+    t = np.arange(span) / RATE
+    body = (
+        np.sin(2 * np.pi * 196 * t) * np.exp(-11 * t) * 0.30
+        + np.sin(2 * np.pi * 262 * t) * np.exp(-15 * t) * 0.18
+    )
+    safe += body
+
+    fade = int(0.05 * RATE)
+    safe[-fade:] *= np.linspace(1, 0, fade)
+    safe *= 0.80 / np.max(np.abs(safe))
+    save("safe.wav", safe)
 
 
 if __name__ == "__main__":

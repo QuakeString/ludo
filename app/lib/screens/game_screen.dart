@@ -364,8 +364,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _maybeTakeComputerTurn();
   }
 
-  /// Whether the move ends on a square nobody can be knocked off.
+  /// Whether the move ends somewhere nobody can knock the chip off.
+  ///
+  /// Coming out of the yard does not count, even though a start square is a
+  /// safe square and that is exactly where a chip enters. Reaching safety is
+  /// something earned by crossing the board; being placed on your own doorstep
+  /// is a different event, and giving the two one sound made them sound alike
+  /// — which is what was wrong with both of them.
   bool _landsSomewhereSafe(Move move) {
+    if (move.kind == MoveKind.enter) return false;
     final arm = _state.armOf(_state.tokens[move.tokenId].owner);
     final ring = _state.board.ringIndex(arm, move.toProgress);
     return ring != null && _state.safeRingSquares.contains(ring);
