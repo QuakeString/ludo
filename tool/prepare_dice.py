@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""Turns the recorded dice throw into the game's dice_roll.wav.
+"""Builds two of the game's sounds from the recorded dice throw.
+
+The roll itself, and one impact lifted out of it for a chip landing. Taking
+the tap from the same recording is not a shortcut: the two sounds have to
+belong to the same table, and a synthesised tap next to a recorded throw was
+audibly a different material in a different room.
 
 The other three sounds are synthesised — see make_sounds.py. This one is not:
 a synthesised die kept coming out as glass, all long ringing modes, where a
@@ -21,8 +26,23 @@ import numpy as np
 import soundfile as sf
 
 SRC = Path("tool/sources/dice_roll_source.mp3")
-OUT = Path("app/assets/sounds/dice_roll.wav")
+OUT = Path("app/assets/sounds")
 RATE = 44100  # what the rest of the sounds use
+
+# The impact to lift out for a chip landing. The throw's later bounces are
+# quieter and better separated — this one has 190ms of clear air in front of
+# it — and a chip being set down is a softer thing than a die being thrown.
+TAP_AT = 0.560
+
+
+def one_pole_lowpass(x, cutoff, sr):
+    a = np.exp(-2 * np.pi * cutoff / sr)
+    out = np.zeros_like(x)
+    prev = 0.0
+    for i, v in enumerate(x):
+        prev = (1 - a) * v + a * prev
+        out[i] = prev
+    return out
 
 
 def one_pole_highpass(x, cutoff, sr):
@@ -33,6 +53,17 @@ def one_pole_highpass(x, cutoff, sr):
         prev = (1 - a) * v + a * prev
         lp[i] = prev
     return x - lp
+
+
+def save(name, audio, rate=RATE):
+    frames = (audio * 32767).astype("<i2").tobytes()
+    OUT.mkdir(parents=True, exist_ok=True)
+    with wave.open(str(OUT / name), "wb") as w:
+        w.setnchannels(1)
+        w.setsampwidth(2)
+        w.setframerate(rate)
+        w.writeframes(frames)
+    print(f"{name}: {len(audio) / rate:.2f}s, {len(frames)} bytes")
 
 
 def main():
@@ -67,19 +98,31 @@ def main():
         np.linspace(0, len(audio) - 1, n), np.arange(len(audio)), audio
     )
 
+    # Taken off the top. The recording is a hard crack close to the
+    # microphone; through a phone it came out sharp, all edge and no wood.
+    # Mixing back a little of the original keeps the attack from going soft.
+    dull = one_pole_lowpass(audio, 5200, RATE)
+    audio = 0.72 * dull + 0.28 * audio
+
     # A touch of soft clipping before normalising: it lifts the body of the
     # roll without letting the first crack hit the ceiling.
     audio = np.tanh(audio * 1.25) / np.tanh(1.25)
     audio *= 0.89 / np.max(np.abs(audio))
+    save("dice_roll.wav", audio)
 
-    frames = (audio * 32767).astype("<i2").tobytes()
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(OUT), "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(RATE)
-        w.writeframes(frames)
-    print(f"{OUT}: {len(audio) / RATE:.2f}s, {len(frames)} bytes")
+    # --- one impact, for a chip landing --------------------------------
+    tap_at = int((TAP_AT * sr - start) * RATE / sr)
+    tap = audio[tap_at - int(0.004 * RATE) : tap_at + int(0.13 * RATE)].copy()
+
+    # Duller again, and shorter. A pawn set on a board is a smaller, softer
+    # event than a die thrown at one, and this plays once per square — a tap
+    # with any ring left in it becomes a nuisance by the third square.
+    tap = one_pole_lowpass(tap, 2600, RATE)
+    tail = int(0.06 * RATE)
+    tap[-tail:] *= np.linspace(1, 0, tail) ** 1.5
+    tap[: int(0.002 * RATE)] *= np.linspace(0, 1, int(0.002 * RATE))
+    tap *= 0.72 / np.max(np.abs(tap))
+    save("chip_step.wav", tap)
 
 
 if __name__ == "__main__":

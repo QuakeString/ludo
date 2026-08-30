@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Synthesises the game's sound effects.
 
-Three of the four. The dice roll is a recording — see prepare_dice.py, and the
-note there about why synthesising that one kept coming out wrong.
+Two of the four. The dice roll and the chip landing both come out of a
+recording — see prepare_dice.py — because they have to sound like the same die
+on the same table, and a synthesised tap beside a recorded throw was audibly a
+different material in a different room.
 
 Committed as a script rather than four opaque .wav files: a sound you cannot
 regenerate is a sound nobody can adjust. Run it from the repository root.
@@ -84,30 +86,6 @@ def write(name, buf, peak=0.86, fade=0.02):
     print(f"{name}: {len(buf) / SR:.2f}s, {len(frames)} bytes")
 
 
-# --- a chip landing ----------------------------------------------------------
-# A plastic peg set down on a printed board: duller and shorter than the die,
-# with no long ring at all.
-def chip_step():
-    """A plastic peg set down on a printed board.
-
-    The first attempt was low-passed almost to a thud and lasted a sixth of a
-    second, which is a sound you can play a hundred times without anyone
-    noticing it is there. A piece meeting a board has a bright edge to it, so
-    the top end stays and the peg is allowed to ring for a moment.
-    """
-    rnd = random.Random(3)
-    n = int(0.22 * SR)
-    modes = [
-        (1240, 0.55, 70),
-        (2010, 0.40, 88),
-        (3150, 0.24, 110),
-        (4600, 0.12, 150),
-        (214, 0.34, 34),
-    ]
-    out = strike(n, modes, 0.55, 1200, 620, rnd)
-    return one_pole_lp(out, 9000)
-
-
 # --- reaching home -----------------------------------------------------------
 def chip_home():
     """Two notes going up, struck like small bells.
@@ -173,8 +151,7 @@ def capture():
 
 
 if __name__ == "__main__":
-    # dice_roll.wav is not made here — prepare_dice.py builds it from the
-    # recording, and regenerating it from this script would overwrite that.
-    write("chip_step.wav", chip_step())
+    # dice_roll.wav and chip_step.wav are not made here — prepare_dice.py cuts
+    # both from the recording, and running this would overwrite them.
     write("chip_home.wav", chip_home())
     write("capture.wav", capture())
