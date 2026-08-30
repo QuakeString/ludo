@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Synthesises the game's sound effects.
 
+Three of the four. The dice roll is a recording — see prepare_dice.py, and the
+note there about why synthesising that one kept coming out wrong.
+
 Committed as a script rather than four opaque .wav files: a sound you cannot
 regenerate is a sound nobody can adjust. Run it from the repository root.
 
@@ -79,49 +82,6 @@ def write(name, buf, peak=0.86, fade=0.02):
         w.setframerate(SR)
         w.writeframes(frames)
     print(f"{name}: {len(buf) / SR:.2f}s, {len(frames)} bytes")
-
-
-# --- the die -----------------------------------------------------------------
-# An acrylic cube on a wooden board. The cube's own modes are high and die
-# away fast; the board answers with a low thump that lasts a little longer.
-def die_clack(rnd, pitch=1.0, wood=1.0):
-    n = int(0.20 * SR)
-    modes = [
-        (2050 * pitch, 0.55, 62),
-        (3260 * pitch, 0.38, 78),
-        (4720 * pitch, 0.24, 96),
-        (6350 * pitch, 0.13, 120),
-        (238 * (0.9 + 0.2 * pitch), 0.34 * wood, 26),
-        (392 * (0.9 + 0.2 * pitch), 0.18 * wood, 33),
-    ]
-    return strike(n, modes, 0.5, 1600, 520, rnd)
-
-
-def dice_roll():
-    """Shaken, thrown, bouncing, settling.
-
-    The timing carries most of it: bounces come closer together and quieter as
-    the die loses energy, the way a dropped thing actually behaves. Evenly
-    spaced clacks sound like a machine.
-    """
-    rnd = random.Random(11)
-    buf = [0.0] * int(0.95 * SR)
-
-    # Two soft knocks in the hand before the throw.
-    for at, gain in ((0.00, 0.30), (0.075, 0.24)):
-        mix(buf, die_clack(rnd, pitch=1.06, wood=0.4), at, gain)
-
-    # The throw, then the bounces.
-    t, gap, gain = 0.20, 0.115, 1.0
-    for k in range(9):
-        mix(buf, die_clack(rnd, pitch=1.0 + rnd.uniform(-0.07, 0.07)), t, gain)
-        t += gap * rnd.uniform(0.86, 1.14)
-        gap *= 0.80
-        gain *= 0.80
-
-    # And the last, quietest tip onto its face.
-    mix(buf, die_clack(rnd, pitch=0.95, wood=1.4), t + 0.06, 0.16)
-    return buf
 
 
 # --- a chip landing ----------------------------------------------------------
@@ -213,7 +173,8 @@ def capture():
 
 
 if __name__ == "__main__":
-    write("dice_roll.wav", dice_roll())
+    # dice_roll.wav is not made here — prepare_dice.py builds it from the
+    # recording, and regenerating it from this script would overwrite that.
     write("chip_step.wav", chip_step())
     write("chip_home.wav", chip_home())
     write("capture.wav", capture())
