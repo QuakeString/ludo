@@ -1,0 +1,82 @@
+# Builds an Android app you can put on a phone.
+#
+# There is no Mac in this pipeline, so there is no iOS build here and there
+# cannot be one: an installable iOS app needs Xcode to compile it and an Apple
+# developer identity to sign it, neither of which a Linux runner has.
+#
+# The APK is signed with Flutter's debug key. That is enough to install and
+# play — it is not enough for the Play Store, which needs a real upload key.
+name: Android
+
+on:
+  push:
+    branches: [claude/ludo-board-game-design-qd5nm3]
+    paths:
+      - 'app/**'
+      - 'packages/**'
+      - '.github/workflows/android.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+          cache: true
+
+      - name: Fetch packages
+        working-directory: app
+        run: flutter pub get
+
+      # One APK carrying every processor, rather than a set split per ABI:
+      # it is a larger download, and it is the one that always installs on
+      # whichever phone it is handed to.
+      - name: Build
+        working-directory: app
+        run: |
+          flutter build apk --release \
+            --build-name="1.0.${GITHUB_RUN_NUMBER}" \
+            --build-number="${GITHUB_RUN_NUMBER}"
+          mkdir -p ../out
+          cp build/app/outputs/flutter-apk/app-release.apk ../out/ludo.apk
+          ls -la ../out
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ludo-apk
+          path: out/ludo.apk
+
+      # A release on a fixed tag, so the download link never changes and can
+      # be opened straight from a phone.
+      - name: Publish
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: phone
+          name: Ludo for Android
+          body: |
+            The current build, straight off the branch.
+
+            **[Download ludo.apk](https://github.com/${{ github.repository }}/releases/download/phone/ludo.apk)**
+
+            Android will warn you before installing an app from outside the
+            Play Store; allow it for your browser and the install goes through.
+            Signed with a debug key, so it installs and plays but is not Play
+            Store material.
+
+            Built from `${{ github.sha }}` (run ${{ github.run_number }}).
+          files: out/ludo.apk
+          prerelease: true
+          make_latest: false
