@@ -1,6 +1,7 @@
 import 'board.dart';
 import 'dice.dart';
 import 'rules.dart';
+import 'stats.dart';
 
 /// One token. Immutable; moving produces a new instance.
 class Token {
@@ -66,6 +67,7 @@ class GameState {
     required this.nextPairId,
     required this.finishOrder,
     required this.rng,
+    required this.stats,
   });
 
   /// A fresh game. [seed] fixes the dice sequence, so a game can be replayed
@@ -92,6 +94,7 @@ class GameState {
       nextPairId: 0,
       finishOrder: const [],
       rng: DiceRng.fromSeed(seed),
+      stats: MatchStats.blank(rules.players, rules.diceSides),
     );
   }
 
@@ -119,6 +122,13 @@ class GameState {
   /// The dice. Not a number anybody outside the engine should read — see
   /// [toJson], which keeps it off the wire on purpose.
   final DiceRng rng;
+
+  /// A tally of every throw and every move, kept as the game runs.
+  ///
+  /// Nothing in the rules reads it and nothing should: it is a record of what
+  /// happened, not part of what may happen next. Kept on the state anyway so
+  /// it survives a save and a reload like everything else about a game.
+  final MatchStats stats;
 
   BoardSpec get board => rules.board;
   bool get awaitingRoll => dice == null;
@@ -191,6 +201,7 @@ class GameState {
     int? nextPairId,
     List<int>? finishOrder,
     DiceRng? rng,
+    MatchStats? stats,
   }) {
     return GameState(
       rules: rules,
@@ -203,6 +214,7 @@ class GameState {
       nextPairId: nextPairId ?? this.nextPairId,
       finishOrder: finishOrder ?? this.finishOrder,
       rng: rng ?? this.rng,
+      stats: stats ?? this.stats,
     );
   }
 
@@ -247,14 +259,16 @@ class GameState {
         'caps': captures,
         'pair': nextPairId,
         'done': finishOrder,
+        'stat': stats.toJson(),
         if (withDice) 'rng': rng.toJson(),
       };
 
   factory GameState.fromJson(Map<String, Object?> j) {
     List<int> ints(Object? v) =>
         [for (final x in (v as List? ?? const [])) (x as num).toInt()];
+    final rules = RuleConfig.fromJson(j['rules'] as Map<String, Object?>);
     return GameState(
-      rules: RuleConfig.fromJson(j['rules'] as Map<String, Object?>),
+      rules: rules,
       seatArms: List.unmodifiable(ints(j['arms'])),
       tokens: List.unmodifiable([
         for (final t in (j['tokens'] as List))
@@ -267,6 +281,7 @@ class GameState {
       nextPairId: (j['pair'] as num?)?.toInt() ?? 0,
       finishOrder: List.unmodifiable(ints(j['done'])),
       rng: DiceRng.fromJson(j['rng']),
+      stats: MatchStats.fromJson(j['stat'], rules.players, rules.diceSides),
     );
   }
 

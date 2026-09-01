@@ -121,6 +121,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   OnlineSession? get _session => widget.session;
   bool get _online => _session != null;
 
+  /// How long this game has been on the screen.
+  ///
+  /// Kept here and not in the engine, which has no clock and must not get one:
+  /// the whole point of that code is that a seed and a list of actions replay
+  /// a game exactly, and a wall clock is the one thing that cannot be replayed.
+  /// So the rules count throws and moves, and the screen counts minutes.
+  final Stopwatch _clock = Stopwatch();
+
   @override
   void initState() {
     super.initState();
@@ -128,6 +136,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _state =
         session?.state ?? GameState.newGame(widget.rules, seed: widget.seed);
     _geometry = BoardGeometry.forSpec(_state.board);
+    _clock.start();
     _spin = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 2500),
@@ -399,6 +408,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _flash = null;
       _celebrated = false;
     });
+    _clock
+      ..reset()
+      ..start();
     _maybeTakeComputerTurn();
   }
 
@@ -770,9 +782,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // this is the one place that cannot miss it.
     if (_state.isOver && !_celebrated) {
       _celebrated = true;
-      WidgetsBinding.instance.addPostFrameCallback(
-        (_) => Sfx.instance.play(Sound.victory, volume: 0.9),
-      );
+      _clock.stop();
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        Sfx.instance.play(Sound.victory, volume: 0.9);
+        // Under the fanfare, and quieter than it. The bangs are the room
+        // reacting; the fanfare is the thing being said.
+        Sfx.instance.play(Sound.crackers, volume: 0.62);
+      });
     }
     // The rings turn and the house on turn flushes; both are boundaried
     // overlays, so the ticker costs frames for them and never for the board.
@@ -941,6 +957,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 state: _state,
                 aiSeats: widget.aiSeats,
                 nameOf: _nameOf,
+                elapsed: _clock.elapsed,
                 // Online a rematch is the room's business, not this device's.
                 onPlayAgain: session == null ? _startFreshGame : null,
                 onLeave: () => Navigator.of(context).maybePop(),

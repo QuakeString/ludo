@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Synthesises the game's sound effects.
 
-Two of the five. The dice roll and the chip landing both come out of a
+Four of the six. The dice roll and the chip landing both come out of a
 recording — see prepare_dice.py — because they have to sound like the same die
 on the same table, and a synthesised tap beside a recorded throw was audibly a
 different material in a different room.
@@ -88,30 +88,87 @@ def write(name, buf, peak=0.86, fade=0.02):
 
 # --- reaching home -----------------------------------------------------------
 def chip_home():
-    """Two notes going up, struck like small bells.
+    """A chip arriving: set down, then a little rising flourish over it.
 
-    Arriving is the one good thing that happens to a chip, so this is the only
-    sound in the game with a pitch you could hum.
+    Two notes struck like small bells was the first attempt and it was too
+    plain to be worth hearing — the shape of a notification, not of finishing
+    something. Arriving home is the one unambiguously good thing that happens
+    to a chip in a whole game, and it should sound like an event.
+
+    Three things make it one. The chip is set down first, on wood, so the
+    sound is anchored to the same board everything else happens on. Then a
+    rising figure that resolves on the octave, which is what makes it read as
+    arrival rather than as an alert: it goes somewhere and stops there. And the
+    last note is left shimmering, its partials beating slightly against each
+    other, so the sound thins out instead of being cut off.
     """
     rnd = random.Random(5)
-    n = int(0.85 * SR)
+    n = int(1.15 * SR)
     buf = [0.0] * n
 
-    def bell(freq, amp, decay):
-        out = [0.0] * n
-        # Slightly stretched partials, which is what stops it sounding like an
-        # organ and starts it sounding struck.
-        for ratio, level, extra in ((1.0, 1.0, 1.0), (2.02, 0.42, 1.5), (3.05, 0.2, 2.1)):
-            w = 2 * math.pi * freq * ratio / SR
-            for i in range(n):
-                out[i] += level * math.sin(w * i) * math.exp(-i / SR * decay * extra)
-        # A breath of noise on the attack, for the strike itself.
-        for i in range(int(0.01 * SR)):
-            out[i] += rnd.uniform(-1, 1) * 0.25 * math.exp(-i / SR * 900)
-        return [v * amp for v in out]
+    def chime(freq, amp, decay, at, shimmer=0.0):
+        """One struck metal note.
 
-    mix(buf, bell(784.0, 0.85, 4.6), 0.0)  # G5
-    mix(buf, bell(1174.7, 0.7, 4.2), 0.115)  # D6, a fifth above
+        The partials are stretched, and stretched by uneven amounts, which is
+        the whole difference between a glockenspiel and an organ: a bar's
+        overtones are not whole multiples of its fundamental, and ears know it.
+        """
+        length = n - int(at * SR)
+        if length <= 0:
+            return
+        out = [0.0] * length
+        for ratio, level, faster in (
+            (1.0, 1.0, 1.0),
+            (2.76, 0.34, 1.35),
+            (5.40, 0.16, 1.9),
+            (8.93, 0.07, 2.6),
+        ):
+            w = 2 * math.pi * freq * ratio / SR
+            phase = rnd.uniform(0, 2 * math.pi)
+            for i in range(length):
+                out[i] += level * math.sin(w * i + phase) * math.exp(
+                    -i / SR * decay * faster
+                )
+        # A second voice a hair sharp, so the tail beats slowly against itself
+        # rather than sitting dead still. Only on the note that is held.
+        if shimmer:
+            w = 2 * math.pi * freq * 1.004 / SR
+            for i in range(length):
+                out[i] += shimmer * math.sin(w * i) * math.exp(-i / SR * decay)
+        # The mallet. Without it a note starts out of nowhere, which is the
+        # sound of a synthesiser and not of anything being hit.
+        for i in range(int(0.006 * SR)):
+            out[i] += rnd.uniform(-1, 1) * 0.30 * math.exp(-i / SR * 1400)
+        mix(buf, [v * amp for v in out], at)
+
+    # The chip meeting the board: low, short, wooden. Quiet enough to be felt
+    # rather than listened to.
+    tap = strike_sound(
+        int(0.07 * SR),
+        [(320, 0.5, 120), (760, 0.3, 190), (1500, 0.14, 300)],
+        0.5,
+        900,
+        700,
+        rnd,
+    )
+    mix(buf, tap, 0.0, 0.34)
+
+    # C6, G6, C7 — up a fifth, then up a fourth to the octave. Short, short,
+    # held.
+    chime(1046.50, 0.62, 7.0, 0.030)
+    chime(1567.98, 0.66, 6.4, 0.105)
+    chime(2093.00, 0.78, 2.6, 0.185, shimmer=0.30)
+
+    # Sparkle over the top of the last note: high noise, gated into a fast
+    # tremolo so it glitters instead of hissing.
+    spark = [rnd.uniform(-1, 1) for _ in range(n)]
+    spark = one_pole_hp(spark, 5200)
+    start = int(0.185 * SR)
+    for i in range(start, n):
+        t = (i - start) / SR
+        tremolo = 0.5 + 0.5 * math.sin(2 * math.pi * 17 * t)
+        buf[i] += spark[i] * tremolo * 0.16 * math.exp(-t * 5.5)
+
     return buf
 
 
@@ -236,9 +293,111 @@ def victory():
     return buf
 
 
+# --- crackers ----------------------------------------------------------------
+def crackers():
+    """Fireworks going off — the noise of the room, not another tune.
+
+    It plays under the fanfare, so it deliberately has no pitch of its own:
+    two melodies at once fight, but a melody over a crowd of bangs is a
+    celebration. Everything here is noise shaped in time.
+
+    Three layers. A string of small cracks, thickest at the start and
+    scattering away — a chain of firecrackers is not evenly spaced, and evenly
+    spaced is instantly heard as a machine. Two shells that go off properly,
+    each a low thump with a spray of crackle falling out of it, the second one
+    announced by a rising whistle. And under all of it a tail of soft
+    reflections, because bangs outdoors come back off things and bangs with no
+    tail sound like they happened inside a box.
+    """
+    rnd = random.Random(2024)
+    n = int(2.2 * SR)
+    out = [0.0] * n
+
+    def crack(level, bright):
+        """One firecracker: a click of very high noise over a small thump."""
+        m = int(0.075 * SR)
+        burst = [rnd.uniform(-1, 1) * math.exp(-i / SR * 320) for i in range(m)]
+        burst = one_pole_hp(burst, bright)
+        body = [
+            0.45 * math.sin(2 * math.pi * 140 * i / SR) * math.exp(-i / SR * 90)
+            for i in range(m)
+        ]
+        # The very first sample or two of a bang is the loudest part of it, so
+        # the attack is left completely unsmoothed.
+        return [(b + c) * level for b, c in zip(burst, body)]
+
+    # The chain. Density falls away across the whole thing, and the gaps are
+    # drawn at random rather than stepped, so no two are alike.
+    at = 0.02
+    while at < 1.75:
+        loud = 0.30 + 0.55 * rnd.random()
+        mix(out, crack(loud, 2200 + rnd.random() * 2600), at)
+        # Gaps grow as the chain dies down: fast at the start, thinning out.
+        at += 0.012 + 0.10 * rnd.random() * (0.25 + at)
+
+    def shell(at, boom_freq, spread):
+        """A shell: the thump, then crackle raining down out of it."""
+        m = int(0.9 * SR)
+        body = [0.0] * m
+        for i in range(m):
+            t = i / SR
+            # Two low tones a little apart, so the thump has some size to it
+            # instead of being one clean note.
+            body[i] += 0.9 * math.sin(2 * math.pi * boom_freq * t) * math.exp(-t * 11)
+            body[i] += 0.5 * math.sin(2 * math.pi * boom_freq * 1.6 * t) * math.exp(
+                -t * 16
+            )
+        # The initial rip: broadband, very short.
+        rip = [rnd.uniform(-1, 1) * math.exp(-i / SR * 260) for i in range(int(0.1 * SR))]
+        rip = one_pole_hp(rip, 800)
+        for i, v in enumerate(rip):
+            body[i] += v * 0.85
+        mix(out, body, at, 0.8)
+        # And the sparks: twenty-odd small cracks strewn through the second
+        # after it, getting quieter as they fall.
+        for _ in range(26):
+            when = at + 0.05 + spread * rnd.random() ** 0.7
+            fade = max(0.0, 1 - (when - at) / spread)
+            mix(out, crack(0.20 * fade, 4000 + rnd.random() * 3000), when)
+
+    # A whistle climbing into the second shell. Rising pitch is the one cue
+    # that says "something is about to go off" before it does.
+    rise_at, rise_for = 0.62, 0.30
+    phase = 0.0
+    for i in range(int(rise_for * SR)):
+        t = i / (rise_for * SR)
+        freq = 620 + 1750 * t ** 1.6
+        phase += 2 * math.pi * freq / SR
+        j = int(rise_at * SR) + i
+        if j < n:
+            # Fades in and then ducks out just before the bang, so the bang is
+            # the loudest thing and not a continuation of the whistle.
+            out[j] += 0.20 * math.sin(phase) * math.sin(math.pi * t) ** 0.6
+
+    shell(0.16, 62.0, 0.62)
+    shell(0.94, 48.0, 0.85)
+
+    # The room: a handful of delayed, softened copies. Cheaper than a real
+    # reverb and doing the only job wanted here, which is to put the bangs
+    # somewhere with walls a long way off.
+    tail = one_pole_lp(out, 2400)
+    for delay, gain in ((0.055, 0.20), (0.101, 0.14), (0.163, 0.09)):
+        d = int(delay * SR)
+        for i in range(d, n):
+            out[i] += tail[i - d] * gain
+
+    # Fade the last third out under the fanfare, which is still ringing.
+    from_at = int(1.5 * SR)
+    for i in range(from_at, n):
+        out[i] *= 1 - (i - from_at) / (n - from_at)
+
+    return out
+
+
 if __name__ == "__main__":
     # dice_roll.wav and chip_step.wav are not made here — prepare_dice.py cuts
     # both from the recording, and running this would overwrite them.
     write("chip_home.wav", chip_home())
     write("victory.wav", victory())
+    write("crackers.wav", crackers())
     write("capture.wav", capture())

@@ -56,4 +56,10 @@ abstract final class Sound {
   static const capture = 'capture';
   static const safe = 'safe';
   static const victory = 'victory';
+
+  /// Fireworks under the fanfare on the game-over screen. A second sound
+  /// rather than one longer one, because they are two different things: the
+  /// fanfare says the game is finished, and this says the room is pleased
+  /// about it. Kept separate they can also be levelled against each other.
+  static const crackers = 'crackers';
 }

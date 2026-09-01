@@ -221,9 +221,13 @@ class _RollPointerState extends State<_RollPointer>
   //
   // A real sixty-frame slide, then. It runs only while somebody actually has
   // to roll, which is the honest saving — an idle screen animates nothing.
+  // 625ms each way, so a there-and-back is 1250ms — the same beat the house
+  // border flushes on. Two things asking for the same thing at once should ask
+  // in time with each other; at different speeds they read as two separate
+  // pieces of nagging rather than one signal.
   late final AnimationController _travel = AnimationController(
     vsync: this,
-    duration: const Duration(milliseconds: 820),
+    duration: const Duration(milliseconds: 625),
   )..repeat(reverse: true);
 
   late final Animation<double> _t = CurvedAnimation(

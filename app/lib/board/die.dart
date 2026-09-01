@@ -240,10 +240,15 @@ class _WellPainter extends CustomPainter {
     );
     final rr = RRect.fromRectAndRadius(rect, Radius.circular(s * 0.17));
 
-    // The floor of the hollow: darkest at the top-left, where the near wall
-    // shades it, opening out toward the bottom-right. This gradient, running
-    // the opposite way to the one on the die itself, is what makes one read as
-    // carved in and the other as standing out.
+    // The floor of the hollow: a little darker at the top-left, where the near
+    // wall shades it, opening out toward the bottom-right. This gradient runs
+    // the opposite way to the one on the die itself, which is what makes one
+    // read as carved in and the other as standing out.
+    //
+    // Held deliberately shallow. Depth here is a hint, not a feature: the die
+    // is the thing to look at, and a socket cut dark enough to be admired is a
+    // grey hole sitting in the middle of a pale panel. The first attempt was,
+    // and it drew the eye away from the die it was meant to hold.
     canvas.drawRRect(
       rr,
       Paint()
@@ -251,7 +256,7 @@ class _WellPainter extends CustomPainter {
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color.lerp(palette.dieIdle, Colors.black, 0.22)!,
+            Color.lerp(palette.dieIdle, Colors.black, 0.07)!,
             palette.dieIdle,
           ],
         ).createShader(rect),
@@ -263,12 +268,12 @@ class _WellPainter extends CustomPainter {
     canvas.save();
     canvas.clipRRect(rr);
     canvas.drawRRect(
-      rr.shift(Offset(s * 0.045, s * 0.045)),
+      rr.shift(Offset(s * 0.035, s * 0.035)),
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = s * 0.10
-        ..color = Colors.black.withValues(alpha: 0.20)
-        ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.05),
+        ..strokeWidth = s * 0.07
+        ..color = Colors.black.withValues(alpha: 0.085)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.045),
     );
     canvas.restore();
 
@@ -278,15 +283,15 @@ class _WellPainter extends CustomPainter {
       rr.shift(Offset(0, s * 0.02)),
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.2
-        ..color = Colors.white.withValues(alpha: 0.30),
+        ..strokeWidth = 1.1
+        ..color = Colors.white.withValues(alpha: 0.22),
     );
     canvas.drawRRect(
       rr,
       Paint()
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.1
-        ..color = palette.dieEdge,
+        ..strokeWidth = 1
+        ..color = palette.dieEdge.withValues(alpha: 0.7),
     );
   }
 

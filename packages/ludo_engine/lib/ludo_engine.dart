@@ -13,4 +13,5 @@ export 'src/dice.dart';
 export 'src/engine.dart';
 export 'src/moves.dart';
 export 'src/rules.dart';
+export 'src/stats.dart';
 export 'src/state.dart';

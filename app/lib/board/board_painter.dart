@@ -308,11 +308,31 @@ class BoardPainter extends CustomPainter {
       // not anybody is sitting there — an unseated arm still shows where its
       // chips would stand. The arrangement follows the count, so three chips
       // make a triangle rather than a square with a corner missing.
+      //
+      // A seat that somebody is actually playing gets its rests ringed in its
+      // own colour, darkened. Unringed they were all the same grey, so an
+      // empty house in a four-handed game looked exactly like an empty house
+      // on an arm nobody is using, and the difference between "their chips are
+      // all out on the board" and "nobody lives here" is worth seeing.
+      final seated = state.seatArms.contains(arm);
       for (final slot in geometry.yardSlots(
         arm,
         count: state.rules.tokensPerPlayer,
       )) {
-        canvas.drawCircle(px(slot), cell * 0.38, Paint()..color = palette.slot);
+        final at = px(slot);
+        final r = cell * 0.38;
+        canvas.drawCircle(at, r, Paint()..color = palette.slot);
+        if (seated) {
+          canvas.drawCircle(
+            at,
+            r,
+            Paint()
+              ..style = PaintingStyle.stroke
+              ..strokeWidth = cell * 0.07
+              ..color = Color.lerp(colour, Colors.black, 0.34)!
+                  .withValues(alpha: 0.55),
+          );
+        }
       }
     }
   }

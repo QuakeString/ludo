@@ -3,6 +3,7 @@ import 'package:ludo_engine/ludo_engine.dart';
 
 import '../board/confetti.dart';
 import '../theme/seat_colors.dart';
+import 'match_stats.dart';
 
 /// How a seat finished: where it placed, and what it did on the way.
 class Placing {
@@ -71,6 +72,7 @@ class GameOverSheet extends StatelessWidget {
     required this.aiSeats,
     required this.onPlayAgain,
     required this.onLeave,
+    this.elapsed = Duration.zero,
     this.nameOf,
   });
 
@@ -81,6 +83,11 @@ class GameOverSheet extends StatelessWidget {
   /// device's.
   final VoidCallback? onPlayAgain;
   final VoidCallback onLeave;
+
+  /// How long the game took. Shown on the stats page rather than here: it is
+  /// the one number on it that a player might actually want, but it is still
+  /// not what anybody is looking for the moment they win.
+  final Duration elapsed;
   final String Function(int seat)? nameOf;
 
   @override
@@ -136,7 +143,30 @@ class GameOverSheet extends StatelessWidget {
                   ),
                   const SizedBox(height: 18),
                   for (final p in table) _Row(p: p, state: state, ai: aiSeats),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 8),
+                  // Behind a button on purpose. The counts are a development
+                  // instrument — the answer to "are these dice fair", which
+                  // has been asked twice — and putting a table of throw
+                  // frequencies in front of somebody who just won a game of
+                  // Ludo would be answering a question nobody asked.
+                  Align(
+                    alignment: Alignment.centerLeft,
+                    child: TextButton.icon(
+                      onPressed: () => showDialog<void>(
+                        context: context,
+                        builder: (_) => MatchStatsSheet(
+                          state: state,
+                          aiSeats: aiSeats,
+                          elapsed: elapsed,
+                          nameOf: nameOf,
+                        ),
+                      ),
+                      icon: const Icon(Icons.query_stats, size: 18),
+                      style: TextButton.styleFrom(foregroundColor: colour),
+                      label: const Text('Stats'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   Row(
                     children: [
                       if (onPlayAgain != null) ...[

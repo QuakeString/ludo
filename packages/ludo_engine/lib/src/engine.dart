@@ -288,12 +288,18 @@ class LudoEngine {
     }
     final (next, value) = s.rng.roll(s.rules.diceSides);
     final sixes = value == s.rules.diceSides ? s.consecutiveSixes + 1 : 0;
+    // Counted before anything is decided about it. A throw that forfeits the
+    // turn is still a throw that seat made, and leaving those out is exactly
+    // how a tally comes to disagree with what somebody watched happen.
+    final tally = s.stats.withRoll(s.turn, value);
 
     // Three sixes in a row and the turn is gone, whatever was on the board.
     if (s.rules.tripleSixForfeits && sixes >= 3) {
-      return _advanceTurn(s.copyWith(rng: next, consecutiveSixes: 0));
+      return _advanceTurn(
+          s.copyWith(rng: next, consecutiveSixes: 0, stats: tally));
     }
-    return s.copyWith(rng: next, dice: value, consecutiveSixes: sixes);
+    return s.copyWith(
+        rng: next, dice: value, consecutiveSixes: sixes, stats: tally);
   }
 
   GameState _play(GameState s, Move move) {
@@ -319,7 +325,15 @@ class LudoEngine {
       captures[s.turn] = captures[s.turn] + m.capturedTokenIds.length;
     }
 
-    var next = s.copyWith(tokens: tokens, captures: captures);
+    // Credited to the seat whose turn it is, not to the token's owner. In a
+    // team game a player who is already home rolls and moves for a partner,
+    // and those are that player's moves — they are the one making them.
+    var tally = s.stats.withMove(s.turn);
+    for (final id in m.capturedTokenIds) {
+      tally = tally.withLosses(s.tokens[id].owner, 1);
+    }
+
+    var next = s.copyWith(tokens: tokens, captures: captures, stats: tally);
     next = _recordFinishes(next);
 
     if (next.isOver) return next.copyWith(dice: null);

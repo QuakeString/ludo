@@ -6,6 +6,7 @@ import 'support/close_game.dart';
 import 'package:ludo_app/board/sounds.dart';
 import 'package:ludo_app/screens/game_over.dart';
 import 'package:ludo_app/screens/game_screen.dart';
+import 'package:ludo_app/screens/match_stats.dart';
 import 'package:ludo_engine/ludo_engine.dart';
 
 /// What happens after the last chip goes home.
@@ -78,6 +79,33 @@ void main() {
     expect(find.text('Play again'), findsOneWidget);
     expect(find.text('Leave'), findsOneWidget);
     expect(heard, contains(Sound.victory), reason: 'nobody cheered');
+    expect(heard, contains(Sound.crackers), reason: 'no fireworks');
+
+    // The numbers are behind a button, and behind it is where they stay until
+    // somebody asks — a table of throw frequencies is not what a player wants
+    // to see the moment they win.
+    expect(find.byType(MatchStatsSheet), findsNothing);
+    await tester.tap(find.text('Stats'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MatchStatsSheet), findsOneWidget);
+    expect(find.text('Played for'), findsOneWidget);
+
+    // And what it shows is the game that was actually played, not a blank
+    // sheet: this game ran for hundreds of throws.
+    final state = tester
+        .widget<GameOverSheet>(find.byType(GameOverSheet))
+        .state;
+    expect(state.stats.totalThrows, greaterThan(0));
+    expect(state.stats.totalMoves, greaterThan(0));
+    expect(
+      state.stats.totalThrows,
+      greaterThanOrEqualTo(state.stats.totalMoves),
+      reason: 'more moves than throws is not possible',
+    );
+
+    await tester.tap(find.byTooltip('Close'));
+    await tester.pumpAndSettle();
+    expect(find.byType(MatchStatsSheet), findsNothing);
 
     // And playing again really starts a new game.
     await tester.tap(find.text('Play again'));
@@ -86,5 +114,16 @@ void main() {
     expect(find.byType(GameOverSheet), findsNothing);
 
     await closeGame(tester);
+  });
+
+  test('a game clock reads as minutes and seconds, and hours when it must', () {
+    expect(formatSpan(const Duration(seconds: 9)), '0:09');
+    expect(formatSpan(const Duration(minutes: 4, seconds: 7)), '4:07');
+    expect(formatSpan(const Duration(minutes: 12, seconds: 30)), '12:30');
+    // The one that is easy to get wrong and impossible to notice: an hour and
+    // four minutes must not read as four minutes past one.
+    expect(formatSpan(const Duration(hours: 1, minutes: 4)), '1:04:00');
+    expect(formatSpan(const Duration(hours: 2, minutes: 0, seconds: 5)),
+        '2:00:05');
   });
 }
