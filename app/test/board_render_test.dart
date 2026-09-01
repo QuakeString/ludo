@@ -6,8 +6,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ludo_app/board/die.dart';
 import 'package:ludo_app/board/board_painter.dart';
 import 'package:ludo_app/board/move_animation.dart';
-import 'package:ludo_app/main.dart';
 import 'package:ludo_app/screens/game_screen.dart';
+import 'package:ludo_app/screens/setup_screen.dart';
 import 'package:ludo_app/theme/seat_colors.dart';
 import 'package:ludo_engine/ludo_engine.dart';
 import 'package:ludo_geometry/ludo_geometry.dart';
@@ -149,7 +149,7 @@ void main() {
   });
 }
 
-/// The app's home screen, without the MaterialApp wrapper fighting the test.
+/// The setup screen, without the MaterialApp wrapper fighting the test.
 class LudoAppForTest extends StatelessWidget {
   const LudoAppForTest({super.key});
 

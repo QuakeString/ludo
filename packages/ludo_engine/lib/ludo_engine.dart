@@ -15,3 +15,4 @@ export 'src/moves.dart';
 export 'src/rules.dart';
 export 'src/stats.dart';
 export 'src/state.dart';
+export 'src/teams.dart';

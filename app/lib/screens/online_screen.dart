@@ -62,6 +62,7 @@ class _OnlineScreenState extends State<OnlineScreen> {
   int _players = 4;
   int _tokens = 4;
   bool _teams = false;
+  int _shape = 0;
 
   @override
   void initState() {
@@ -132,16 +133,16 @@ class _OnlineScreenState extends State<OnlineScreen> {
     setState(() {});
   }
 
+  List<TeamShape> get _shapes => teamShapesFor(_players);
+  TeamShape? get _chosenShape => _teams && _shapes.isNotEmpty
+      ? _shapes[_shape.clamp(0, _shapes.length - 1)]
+      : null;
+
   RuleConfig get _rules => RuleConfig(
     name: 'Online',
     players: _players,
     tokensPerPlayer: _tokens,
-    teams: _teams && (_players == 4 || _players == 6)
-        ? [
-            [for (var p = 0; p < _players; p += 2) p],
-            [for (var p = 1; p < _players; p += 2) p],
-          ]
-        : null,
+    teams: _chosenShape?.groups,
     // Online, a turn that never ends is a table everyone else has to sit
     // and wait at, so the clock is on by default here: six dots of five
     // seconds each.
@@ -246,7 +247,8 @@ class _OnlineScreenState extends State<OnlineScreen> {
           value: _players,
           onChanged: (v) => setState(() {
             _players = v;
-            if (v != 4 && v != 6) _teams = false;
+            _shape = 0;
+            if (_shapes.isEmpty) _teams = false;
           }),
         ),
         const SizedBox(height: 10),
@@ -256,13 +258,27 @@ class _OnlineScreenState extends State<OnlineScreen> {
           value: _tokens,
           onChanged: (v) => setState(() => _tokens = v),
         ),
-        if (_players == 4 || _players == 6)
+        if (_shapes.isNotEmpty) ...[
           SwitchListTile(
             contentPadding: EdgeInsets.zero,
             value: _teams,
             onChanged: (v) => setState(() => _teams = v),
             title: const Text('Play as teams'),
+            subtitle: Text(
+              _chosenShape?.description ??
+                  'Sides win together — everybody home, not just you',
+            ),
           ),
+          // Six seats divide two ways, and the two are different games.
+          if (_teams && _shapes.length > 1)
+            _Choice(
+              label: 'Sides',
+              options: [for (var i = 0; i < _shapes.length; i++) i],
+              value: _shape.clamp(0, _shapes.length - 1),
+              labelOf: (i) => _shapes[i].label,
+              onChanged: (v) => setState(() => _shape = v),
+            ),
+        ],
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () => session.createRoom(_rules),
@@ -497,12 +513,17 @@ class _Choice extends StatelessWidget {
     required this.options,
     required this.value,
     required this.onChanged,
+    this.labelOf,
   });
 
   final String label;
   final List<int> options;
   final int value;
   final ValueChanged<int> onChanged;
+
+  /// What each option is called, when the number is an index into something
+  /// rather than the thing itself.
+  final String Function(int)? labelOf;
 
   @override
   Widget build(BuildContext context) {
@@ -515,7 +536,7 @@ class _Choice extends StatelessWidget {
             children: [
               for (final option in options)
                 ChoiceChip(
-                  label: Text('$option'),
+                  label: Text(labelOf?.call(option) ?? '$option'),
                   selected: option == value,
                   onSelected: (_) => onChanged(option),
                 ),
