@@ -323,14 +323,18 @@ class BoardPainter extends CustomPainter {
         final r = cell * 0.38;
         canvas.drawCircle(at, r, Paint()..color = palette.slot);
         if (seated) {
+          // A hairline, and no more than that. The ring only has to answer
+          // "is anybody playing this arm" for a house that happens to be
+          // empty; drawn heavily it becomes a target painted on the board and
+          // competes with the chips it is meant to sit quietly behind.
           canvas.drawCircle(
             at,
             r,
             Paint()
               ..style = PaintingStyle.stroke
-              ..strokeWidth = cell * 0.07
-              ..color = Color.lerp(colour, Colors.black, 0.34)!
-                  .withValues(alpha: 0.55),
+              ..strokeWidth = cell * 0.028
+              ..color = Color.lerp(colour, Colors.black, 0.22)!
+                  .withValues(alpha: 0.34),
           );
         }
       }
