@@ -349,10 +349,11 @@ class LudoEngine {
     if (legalMoves(s).isNotEmpty) {
       throw IllegalActionError('you have a legal move; passing is not allowed');
     }
-    // A six still buys another roll even when it could not be played.
-    if (s.dice == s.rules.diceSides && s.rules.extraRollOnSix) {
-      return s.copyWith(dice: null);
-    }
+    // The turn goes on, whatever was rolled. A six buys another roll by being
+    // *played* — it is the move that earns the extra throw, not the number. A
+    // six with nowhere to go is a wasted six, and the board passes on, which is
+    // what happens at a real table: you cannot sit there re-rolling a six you
+    // are unable to use.
     return _advanceTurn(s.copyWith(consecutiveSixes: 0));
   }
 

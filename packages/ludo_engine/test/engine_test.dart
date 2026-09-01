@@ -233,7 +233,7 @@ void main() {
       expect(engine.apply(stuck, const PassTurn()).turn, 1);
     });
 
-    test('an unplayable six still buys another roll', () {
+    test('an unplayable six passes the turn on like any other number', () {
       final finalP = BoardSpec.cross.finalProgress;
       // Three tokens home, the last one two short — a six overshoots it.
       final s = situation(classic,
@@ -242,8 +242,10 @@ void main() {
       expect(s.isOver, isFalse);
 
       final after = engine.apply(s, const PassTurn());
-      expect(after.turn, 0, reason: 'the six keeps the turn');
+      expect(after.turn, 1,
+          reason: 'a six you cannot play is a wasted six, not a free re-roll');
       expect(after.awaitingRoll, isTrue);
+      expect(after.consecutiveSixes, 0);
     });
 
     test('passing with a move available is refused', () {

@@ -113,26 +113,36 @@ class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
 
-    // Not this seat's turn: an empty place, waiting for the die to come round.
-    if (!widget.live) {
-      return _EmptyPlace(size: widget.size, palette: palette);
-    }
+    // The socket is always there, under the die as much as without it. That is
+    // the whole reason it reads as a place a die goes: you can see the die
+    // sitting in it, and you can see it lift out of it and drop back during a
+    // throw. Drawn only when empty, it was just a mark on the panel.
+    final well = _DieWell(size: widget.size, palette: palette);
 
-    final die = AnimatedBuilder(
-      animation: _roll,
-      builder: (context, _) => CustomPaint(
-        size: Size.square(widget.size),
-        painter: _CubePainter(
-          value: _showing,
-          colour: colourOfArm(widget.arm),
-          face: palette.die,
-          pip: palette.pip,
-          t: _roll.value,
-          fromX: _fromX,
-          fromY: _fromY,
-          spin: _spin,
+    // Not this seat's turn: an empty socket, waiting for the die to come round.
+    if (!widget.live) return well;
+
+    final die = Stack(
+      alignment: Alignment.center,
+      children: [
+        well,
+        AnimatedBuilder(
+          animation: _roll,
+          builder: (context, _) => CustomPaint(
+            size: Size.square(widget.size),
+            painter: _CubePainter(
+              value: _showing,
+              colour: colourOfArm(widget.arm),
+              face: palette.die,
+              pip: palette.pip,
+              t: _roll.value,
+              fromX: _fromX,
+              fromY: _fromY,
+              spin: _spin,
+            ),
+          ),
         ),
-      ),
+      ],
     );
 
     return widget.onTap == null
@@ -157,6 +167,14 @@ const rollDieKey = ValueKey<String>('roll-die');
 /// is easy to break by accident and impossible to see in a still.
 double dieHalfEdge(double size, double t) => _CubePainter.halfFor(size, t);
 
+/// How wide the socket the die rests in is, as a fraction of its box.
+///
+/// Exposed because the whole point of it is a comparison with the die, and a
+/// comparison is exactly the kind of thing that quietly stops holding: it was
+/// once drawn narrower than the die it was supposed to hold, which made it
+/// read as a small flat square sitting behind a big one.
+const double dieWellSpan = _WellPainter._span;
+
 /// The number a settled die actually shows when it has been rolled [value].
 ///
 /// Exposed so a test can assert the one thing a die must never get wrong: the
@@ -177,30 +195,103 @@ int faceShownFor(int value) {
   return _CubePainter._values[best];
 }
 
-/// The resting place of a seat that does not currently hold the die.
-class _EmptyPlace extends StatelessWidget {
-  const _EmptyPlace({required this.size, required this.palette});
+/// The place a die sits in, whether or not there is one in it.
+///
+/// A hollow, not an outline. It has to read as the place the die goes, and a
+/// thin square drawn *smaller* than the die said the opposite — a die could
+/// not fit in it, so it looked like a different object rather than an empty
+/// version of the same one. Cut wider than the die and shaded like a recess,
+/// it reads as a socket with nothing in it, and the die arriving reads as the
+/// die landing in its socket.
+class _DieWell extends StatelessWidget {
+  const _DieWell({required this.size, required this.palette});
 
   final double size;
   final BoardPalette palette;
 
   @override
-  Widget build(BuildContext context) {
-    return SizedBox(
-      width: size,
-      height: size,
-      child: Center(
-        child: Container(
-          width: size * 0.62,
-          height: size * 0.62,
-          decoration: BoxDecoration(
-            border: Border.all(color: palette.dieEdge, width: 1),
-            borderRadius: BorderRadius.circular(size * 0.10),
-          ),
-        ),
-      ),
+  Widget build(BuildContext context) => SizedBox(
+    width: size,
+    height: size,
+    child: CustomPaint(painter: _WellPainter(palette: palette)),
+  );
+}
+
+/// The socket a die sits in when the seat has one.
+class _WellPainter extends CustomPainter {
+  const _WellPainter({required this.palette});
+
+  final BoardPalette palette;
+
+  /// How wide the hollow is, as a fraction of the box.
+  ///
+  /// The die at rest spans about 0.70 of its box, so this leaves a clear
+  /// margin of hole all the way round it — which is the only way the eye reads
+  /// "it fits in there" rather than "it is sitting on top of that".
+  static const _span = 0.88;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final s = size.shortestSide;
+    final rect = Rect.fromCenter(
+      center: size.center(Offset.zero),
+      width: s * _span,
+      height: s * _span,
+    );
+    final rr = RRect.fromRectAndRadius(rect, Radius.circular(s * 0.17));
+
+    // The floor of the hollow: darkest at the top-left, where the near wall
+    // shades it, opening out toward the bottom-right. This gradient, running
+    // the opposite way to the one on the die itself, is what makes one read as
+    // carved in and the other as standing out.
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Color.lerp(palette.dieIdle, Colors.black, 0.22)!,
+            palette.dieIdle,
+          ],
+        ).createShader(rect),
+    );
+
+    // The near wall, thrown across the top and left of the floor. Clipped to
+    // the hollow so the shadow stays inside it — a blur that spilled out would
+    // make the socket look raised.
+    canvas.save();
+    canvas.clipRRect(rr);
+    canvas.drawRRect(
+      rr.shift(Offset(s * 0.045, s * 0.045)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = s * 0.10
+        ..color = Colors.black.withValues(alpha: 0.20)
+        ..maskFilter = MaskFilter.blur(BlurStyle.normal, s * 0.05),
+    );
+    canvas.restore();
+
+    // The lip: a light catch along the bottom-right outside edge, where the
+    // surface turns back up out of the hole.
+    canvas.drawRRect(
+      rr.shift(Offset(0, s * 0.02)),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.2
+        ..color = Colors.white.withValues(alpha: 0.30),
+    );
+    canvas.drawRRect(
+      rr,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.1
+        ..color = palette.dieEdge,
     );
   }
+
+  @override
+  bool shouldRepaint(_WellPainter old) => old.palette != palette;
 }
 
 /// Draws the cube.

@@ -57,6 +57,9 @@ class RuleConfig {
   /// Roll needed to leave the yard. 0 means any roll will do.
   final int entryRoll;
 
+  /// A six earns another throw — but only when the six is actually played. A
+  /// six with no legal move behind it is a wasted six and the turn passes on,
+  /// the same as any other number you cannot use.
   final bool extraRollOnSix;
   final bool tripleSixForfeits;
 

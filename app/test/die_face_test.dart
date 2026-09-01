@@ -8,6 +8,22 @@ import 'package:ludo_app/board/die.dart';
 /// different distance from the one the player could see.
 void main() {
   _throwTests();
+
+  test('the die fits inside the place it rests in, with room to spare', () {
+    const box = 54.0;
+    // The widest the die is ever drawn while settled: half an edge, doubled,
+    // and the near corners pushed out a little by the perspective.
+    const perspective = 7.0 / (7.0 - 1.0);
+    final die = dieHalfEdge(box, 1) * 2 * perspective;
+    final well = box * dieWellSpan;
+
+    expect(
+      well,
+      greaterThan(die),
+      reason: 'the socket is narrower than the die it is meant to hold',
+    );
+  });
+
   test('every face shows the number that was rolled', () {
     for (var value = 1; value <= 6; value++) {
       expect(

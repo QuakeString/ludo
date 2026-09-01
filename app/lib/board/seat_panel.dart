@@ -170,14 +170,22 @@ class SeatPanel extends StatelessWidget {
           panel,
           if (awaitingRoll)
             Positioned(
-              right: compact ? -34.0 : -44.0,
+              right: compact ? -26.0 : -32.0,
+              // Deaf to touch, and that is the point. The pointer's box used to
+              // reach back over the right-hand third of the die — an icon glyph
+              // carries a lot of empty margin — so a tap anywhere but the die's
+              // centre landed on the arrow and did nothing at all. It is
+              // decoration; nothing about it should ever take a press.
+              //
               // Boundaried, and this is not a micro-optimisation. Without it a
-              // repaint of this one small icon travels up to the nearest
+              // repaint of this one small arrow travels up to the nearest
               // boundary — the whole screen — and re-rasterises the entire
               // board sixty times a second. Measured: one full CPU core for an
               // arrow, and nothing at all once it is fenced off.
-              child: RepaintBoundary(
-                child: _RollPointer(colour: colour, compact: compact),
+              child: IgnorePointer(
+                child: RepaintBoundary(
+                  child: _RollPointer(colour: colour, compact: compact),
+                ),
               ),
             ),
         ],
@@ -231,7 +239,12 @@ class _RollPointerState extends State<_RollPointer>
 
   @override
   Widget build(BuildContext context) {
-    final size = widget.compact ? 58.0 : 74.0;
+    // Painted, not an icon. A glyph is a letter in a font: it comes with the
+    // font's own margins baked in, so the box needed to draw an arrow this big
+    // was half again as wide as the arrow, and that invisible half sat on top
+    // of the die. Drawn directly, the box is the arrow.
+    final w = widget.compact ? 20.0 : 26.0;
+    final h = widget.compact ? 26.0 : 33.0;
     return AnimatedBuilder(
       animation: _t,
       builder: (context, child) => Transform.translate(
@@ -239,11 +252,76 @@ class _RollPointerState extends State<_RollPointer>
         offset: Offset(3 - _t.value * 9, 0),
         child: Opacity(opacity: 0.62 + 0.38 * _t.value, child: child),
       ),
-      // Built once and carried through every frame: the icon does not change,
+      // Built once and carried through every frame: the shape does not change,
       // only where it is and how strongly it shows.
-      child: Icon(Icons.arrow_left_rounded, size: size, color: widget.colour),
+      child: CustomPaint(
+        size: Size(w, h),
+        painter: _Chevron(colour: widget.colour),
+      ),
     );
   }
+}
+
+/// A solid triangle pointing left, with its corners taken off.
+///
+/// Rounded because a hard-cornered triangle at this size reads as a warning
+/// sign; this one is only saying "over here".
+class _Chevron extends CustomPainter {
+  const _Chevron({required this.colour});
+
+  final Color colour;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width, h = size.height;
+    final r = h * 0.16;
+    final pts = <Offset>[
+      Offset(0, h / 2), // the point
+      Offset(w, 0),
+      Offset(w, h),
+    ];
+
+    final path = Path();
+    for (var i = 0; i < 3; i++) {
+      final cur = pts[i];
+      final prev = pts[(i + 2) % 3];
+      final next = pts[(i + 1) % 3];
+      final toPrev = prev - cur, toNext = next - cur;
+      final a = cur + toPrev / toPrev.distance * r;
+      final b = cur + toNext / toNext.distance * r;
+      if (i == 0) {
+        path.moveTo(a.dx, a.dy);
+      } else {
+        path.lineTo(a.dx, a.dy);
+      }
+      path.quadraticBezierTo(cur.dx, cur.dy, b.dx, b.dy);
+    }
+    path.close();
+
+    // A shadow under it, so it reads as sitting above the board rather than
+    // printed on it.
+    canvas.drawPath(
+      path.shift(const Offset(0, 1.5)),
+      Paint()
+        ..color = Colors.black.withValues(alpha: 0.22)
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 2),
+    );
+    canvas.drawPath(
+      path,
+      Paint()
+        ..shader = LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            Color.lerp(colour, Colors.white, 0.30)!,
+            colour,
+          ],
+        ).createShader(Offset.zero & size),
+    );
+  }
+
+  @override
+  bool shouldRepaint(_Chevron old) => old.colour != colour;
 }
 
 /// A place for a photo. Until profiles exist it is the seat's colour with an

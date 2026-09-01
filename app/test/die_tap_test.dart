@@ -133,5 +133,57 @@ void main() {
       isNotNull,
       reason: 'a tap that moved three pixels was thrown away',
     );
+    await closeGame(tester);
+  });
+
+  testWidgets('every corner of the die rolls it, not just the middle', (
+    tester,
+  ) async {
+    // "I need to click near to center." The arrow pointing at the die was an
+    // icon, and an icon glyph brings the font's own margins with it: the box
+    // was half again as wide as the arrow drawn in it, and that invisible
+    // half lay across the right-hand third of the die, quietly eating every
+    // press that landed there. Nothing looked wrong, which is why it took
+    // three goes to find.
+    //
+    // So this walks the die's whole face rather than trusting its middle.
+    final die = find.byKey(rollDieKey);
+    final missed = <Offset>[];
+
+    await open(tester);
+    final rect = tester.getRect(die.first);
+    await closeGame(tester);
+
+    // Two pixels in from each edge — inside the button, and as near the rim as
+    // a finger can be while still meaning to press it.
+    const pad = 2.0;
+    final spots = <Offset>[
+      rect.center,
+      Offset(rect.left + pad, rect.top + pad),
+      Offset(rect.right - pad, rect.top + pad),
+      Offset(rect.left + pad, rect.bottom - pad),
+      Offset(rect.right - pad, rect.bottom - pad),
+      Offset(rect.right - pad, rect.center.dy),
+      Offset(rect.left + pad, rect.center.dy),
+      Offset(rect.center.dx, rect.top + pad),
+      Offset(rect.center.dx, rect.bottom - pad),
+    ];
+
+    for (final at in spots) {
+      await open(tester);
+      expect(boardState(tester).awaitingRoll, isTrue);
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 20));
+      if (boardState(tester).dice == null) {
+        missed.add(at - rect.center);
+      }
+      await closeGame(tester);
+    }
+
+    expect(
+      missed,
+      isEmpty,
+      reason: 'taps this far from the die\'s centre did nothing: $missed',
+    );
   });
 }
