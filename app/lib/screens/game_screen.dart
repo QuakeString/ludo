@@ -726,6 +726,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       // The pointer hangs into the gap between this rail and the board, which
       // is the one piece of space every screen has.
       pointerBelow: top,
+      // The same letter that is written on this seat's house.
+      teamLetter: rules.isTeamGame
+          ? String.fromCharCode(65 + rules.teamOf(seat))
+          : null,
     );
   }
 
@@ -752,7 +756,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final side = math.min(size.width, size.height);
     final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
     final cell = _geometry.cellSize * side;
-    final chipWidth = cell * (_state.board.arms == 4 ? 0.78 : 0.66);
+    final chipWidth = cell * chipShare(_state.board.arms);
     // Round the chip's foot, not the whole square it stands on. At twice the
     // chip's width the ring swallowed its neighbours' squares too, and on a
     // crowded square it circled the crowd rather than marking a piece.

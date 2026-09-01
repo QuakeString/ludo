@@ -96,6 +96,12 @@ class BoardPainter extends CustomPainter {
       case BoardLayer.glow:
         _paintGlow(canvas, px, cell);
       case BoardLayer.chips:
+        // Above the house flush, which is painted between the furniture and
+        // here and repaints the very band the letters sit on — drawn with the
+        // furniture they were there in a still and gone the moment a seat took
+        // its turn, which is exactly when you look. Under the chips, though:
+        // this is the seat's own corner and the chips have first claim on it.
+        _paintTeamMarks(canvas, px, cell);
         _paintChips(canvas, px, cell);
       case BoardLayer.motions:
         _paintMotions(canvas, px, cell);
@@ -348,6 +354,105 @@ class BoardPainter extends CustomPainter {
         }
       }
     }
+  }
+
+  /// A letter in each house saying which side it plays for.
+  ///
+  /// In a team game the whole point is that two houses are one player, and
+  /// nothing on the board said so: four colours sat round a board looking
+  /// exactly as they do in a free-for-all, and which of them were partners was
+  /// something you had to remember from the setup screen or work out from who
+  /// declined to knock you off.
+  ///
+  /// A letter rather than a shared colour or a shared border. Colour is
+  /// already spoken for — it is how a seat is named, and two seats sharing one
+  /// would stop being two seats. A letter adds a second, independent thing to
+  /// read, which is what a second, independent fact needs.
+  ///
+  /// It goes in the corner of the house nearest the middle of the board, on
+  /// the coloured band rather than on the white inside, because the inside
+  /// belongs to the chips.
+  void _paintTeamMarks(Canvas canvas, Offset Function(Pt) px, double cell) {
+    if (!state.rules.isTeamGame) return;
+
+    for (var seat = 0; seat < state.rules.players; seat++) {
+      final arm = state.armOf(seat);
+      final letter = String.fromCharCode(65 + state.rules.teamOf(seat));
+
+      final Offset at;
+      if (geometry is CrossGeometry) {
+        final (tl, br) = (geometry as CrossGeometry).yardSquare(arm);
+        final rect = Rect.fromPoints(px(tl), px(br));
+        final middle = px(const Pt(0.5, 0.5));
+        // The corner of the square nearest the middle of the board — which is
+        // the one corner of a house that is always a solid block of colour,
+        // whichever of the four houses it is.
+        at = Offset(
+          (rect.left - middle.dx).abs() < (rect.right - middle.dx).abs()
+              ? rect.left + cell * 0.5
+              : rect.right - cell * 0.5,
+          (rect.top - middle.dy).abs() < (rect.bottom - middle.dy).abs()
+              ? rect.top + cell * 0.5
+              : rect.bottom - cell * 0.5,
+        );
+      } else {
+        // The house is a triangle with its point toward the middle, and that
+        // point is the roomiest part of its band — nearly a square deep,
+        // against less than half a square along either side. So the letter
+        // goes a little way back from the point, and is drawn smaller than on
+        // the cross, because the wedge it sits in is narrow even at its best.
+        final tri = geometry.yardShape(arm);
+        final apex = px(tri.a);
+        final centroid = (px(tri.a) + px(tri.b) + px(tri.c)) / 3;
+        at = apex + (centroid - apex) * 0.155;
+      }
+      _letter(
+        canvas,
+        at,
+        letter,
+        cell * (geometry is CrossGeometry ? 0.62 : 0.5),
+      );
+    }
+  }
+
+  /// One letter, centred on [at] — centred on the letter, not on its box.
+  ///
+  /// The distinction is the whole of this function. A line of text is taller
+  /// than the letter in it: there is room above for accents and room below for
+  /// the tails of g and y, and a capital A uses neither. Centring the box
+  /// therefore leaves the letter sitting visibly high in it, which in the
+  /// middle of a paragraph nobody notices and in the corner of a coloured band
+  /// looks like it was dropped there rather than placed.
+  ///
+  /// So it is positioned from the baseline instead, with the capital's own
+  /// height straddling [at]. The 0.711 is Roboto's cap height as a fraction of
+  /// its point size — the app sets no font, so Roboto is what it gets.
+  void _letter(Canvas canvas, Offset at, String letter, double size) {
+    final painter = TextPainter(
+      text: TextSpan(
+        text: letter,
+        style: TextStyle(
+          fontSize: size,
+          fontWeight: FontWeight.w800,
+          // Dark on the seat's own colour. The house colours do not follow the
+          // theme — a red house is the same red at midnight — so one ink works
+          // for both, and black on all six of them beats white on four of them.
+          color: Colors.black.withValues(alpha: 0.62),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+    )..layout();
+
+    const capHeightRatio = 0.711;
+    final baseline =
+        painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    painter.paint(
+      canvas,
+      Offset(
+        at.dx - painter.width / 2,
+        at.dy + size * capHeightRatio / 2 - baseline,
+      ),
+    );
   }
 
   /// The breathing outline round the house of whoever has to roll.

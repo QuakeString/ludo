@@ -27,6 +27,7 @@ class SeatPanel extends StatelessWidget {
     this.onRoll,
     this.compact = false,
     this.pointerBelow = true,
+    this.teamLetter,
   });
 
   /// The arm this seat plays from — which is what decides its colour.
@@ -61,6 +62,10 @@ class SeatPanel extends StatelessWidget {
 
   /// Six seats have to fit two rows of three on a phone.
   final bool compact;
+
+  /// Which side this seat plays for, as the same letter written on its house.
+  /// Null outside a team game, where there are no sides to tell apart.
+  final String? teamLetter;
 
   /// Which side of the panel the roll pointer hangs off — down for a panel
   /// above the board, up for one below it. Either way it lands in the gap
@@ -100,6 +105,13 @@ class SeatPanel extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           _Avatar(arm: arm, compact: compact, robot: isComputer),
+          if (teamLetter != null) ...[
+            SizedBox(width: compact ? 3 : 4),
+            // The panel is where you look during a turn; the board is where
+            // you look between them. The pairing has to be legible in both, or
+            // it is legible in neither.
+            _TeamBadge(letter: teamLetter!, colour: colour, compact: compact),
+          ],
           SizedBox(width: compact ? 6 : 8),
           // Flexible, so a long name gives way rather than overflowing when
           // three panels share a phone's width at six seats.
@@ -373,6 +385,45 @@ class _Chevron extends CustomPainter {
   @override
   bool shouldRepaint(_Chevron old) =>
       old.colour != colour || old.pointUp != pointUp;
+}
+
+/// The seat's side, as a letter.
+class _TeamBadge extends StatelessWidget {
+  const _TeamBadge({
+    required this.letter,
+    required this.colour,
+    required this.compact,
+  });
+
+  final String letter;
+  final Color colour;
+  final bool compact;
+
+  @override
+  Widget build(BuildContext context) {
+    final r = compact ? 13.0 : 15.0;
+    return Container(
+      width: r,
+      height: r,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        // Outlined in the seat's colour rather than filled with it: filled, it
+        // becomes a second avatar and the eye stops on it instead of reading
+        // past it to the name.
+        border: Border.all(color: colour.withValues(alpha: 0.75), width: 1.2),
+        borderRadius: BorderRadius.circular(4),
+      ),
+      child: Text(
+        letter,
+        style: TextStyle(
+          fontSize: compact ? 8.5 : 9.5,
+          fontWeight: FontWeight.w800,
+          color: colour,
+          height: 1,
+        ),
+      ),
+    );
+  }
 }
 
 /// A place for a photo. Until profiles exist it is the seat's colour with an
