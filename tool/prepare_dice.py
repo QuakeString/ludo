@@ -55,6 +55,62 @@ def one_pole_highpass(x, cutoff, sr):
     return x - lp
 
 
+def follower(x, attack_ms, release_ms, sr):
+    """An envelope that rises at one speed and falls at another."""
+    up = np.exp(-1.0 / (attack_ms * 1e-3 * sr))
+    down = np.exp(-1.0 / (release_ms * 1e-3 * sr))
+    out = np.zeros_like(x)
+    prev = 0.0
+    for i, v in enumerate(np.abs(x)):
+        a = up if v > prev else down
+        prev = (1 - a) * v + a * prev
+        out[i] = prev
+    return out
+
+
+def soften_transients(x, sr, amount=0.62, floor=0.30):
+    """Takes the edge off every impact without touching what follows it.
+
+    This is what "harsh" actually is, and it is not a frequency: it is the
+    spike at the front of each bounce. A cube landing on bare wood a few inches
+    from a microphone puts a huge peak against a small body — a crest factor of
+    twenty or more — and a phone speaker reproduces that as a click in the ear
+    however much treble is taken off afterwards. Filtering it only makes a dull
+    click.
+
+    So the peaks are pulled down and the body is left alone. Two envelopes
+    follow the signal, one quick enough to see the spike and one slow enough to
+    see only the roll; where the quick one runs ahead of the slow one, the gain
+    comes down in proportion. What is left is the same throw landing on
+    something that gives a little — which is exactly the difference between a
+    die on a bare table and a die on a cloth.
+    """
+    fast = follower(x, 0.3, 14, sr)
+    slow = follower(x, 26, 130, sr)
+    excess = np.maximum(fast, 1e-6) / np.maximum(slow, 1e-4)
+    gain = np.clip(np.power(np.maximum(excess, 1.0), -amount), floor, 1.0)
+    # Smoothed, or the gain change is itself a signal and adds its own buzz.
+    return x * one_pole_lowpass(gain, 900, sr)
+
+
+def soft_room(x, sr):
+    """A few early reflections, filtered down.
+
+    A hard surface in a bare room sends the top back at you; cloth and wood
+    absorb it and return mostly low-mid. Copies of the roll, delayed by a few
+    tens of milliseconds and rolled off hard, are heard as the surface being
+    soft rather than as an effect — and they are most of what makes the sound
+    complex instead of flat, because they arrive between the bounces rather
+    than on them.
+    """
+    warm = one_pole_lowpass(one_pole_lowpass(x, 1500, sr), 1500, sr)
+    out = x.copy()
+    for delay_ms, gain in ((11, 0.26), (23, 0.19), (37, 0.13), (58, 0.08)):
+        d = int(delay_ms * 1e-3 * sr)
+        out[d:] += warm[:-d] * gain
+    return out
+
+
 def save(name, audio, rate=RATE):
     frames = (audio * 32767).astype("<i2").tobytes()
     OUT.mkdir(parents=True, exist_ok=True)
@@ -98,25 +154,37 @@ def main():
         np.linspace(0, len(audio) - 1, n), np.arange(len(audio)), audio
     )
 
-    # Taken off the top, twice over. The recording is a hard crack close to the
-    # microphone; through a phone it came out sharp, all edge and no wood.
+    # The edge off the impacts, before anything else. Two rounds of taking
+    # treble off did not fix "harsh", and could not have: the problem was never
+    # up there. See soften_transients.
+    audio = soften_transients(audio, RATE)
+
+    # Taken off the top, four poles' worth. The recording is a hard crack close
+    # to the microphone; through a phone it came out sharp, all edge and no
+    # wood.
     #
     # One pole at 5.2kHz was not enough — six decibels an octave leaves plenty
-    # of the top end standing, and the roll still read as high. Two poles at
-    # 3.2kHz take it down properly, and a little of the dry signal mixed back
-    # keeps the attack from going soft along with it.
-    dull = one_pole_lowpass(one_pole_lowpass(audio, 3800, RATE), 3800, RATE)
-    audio = 0.84 * dull + 0.16 * audio
+    # of the top end standing. Two at 3.8kHz helped and still left it bright
+    # enough to hurt. Four at 2.9kHz is a real slope, and with the peaks
+    # already down it can be this steep without the roll turning to mush: it is
+    # the crack that was carrying the edge, not the air above it.
+    dull = audio
+    for _ in range(4):
+        dull = one_pole_lowpass(dull, 2900, RATE)
+    audio = 0.93 * dull + 0.07 * audio
 
     # And weight put back underneath. Rolling off the top alone makes a sound
     # quieter, not lower; the bottom has to come up to meet it.
     low = one_pole_lowpass(one_pole_lowpass(audio, 320, RATE), 320, RATE)
-    audio = audio + 0.65 * low
+    audio = audio + 0.72 * low
+
+    # The surface it lands on, and the room around it.
+    audio = soft_room(audio, RATE)
 
     # A touch of soft clipping before normalising: it lifts the body of the
     # roll without letting the first crack hit the ceiling.
     audio = np.tanh(audio * 1.25) / np.tanh(1.25)
-    audio *= 0.89 / np.max(np.abs(audio))
+    audio *= 0.84 / np.max(np.abs(audio))
     save("dice_roll.wav", audio)
 
     # --- one impact, for a chip landing --------------------------------
@@ -126,7 +194,7 @@ def main():
     # Duller again, and shorter. A pawn set on a board is a smaller, softer
     # event than a die thrown at one, and this plays once per square — a tap
     # with any ring left in it becomes a nuisance by the third square.
-    tap = one_pole_lowpass(tap, 2600, RATE)
+    tap = one_pole_lowpass(one_pole_lowpass(tap, 2300, RATE), 2300, RATE)
     tail = int(0.06 * RATE)
     tap[-tail:] *= np.linspace(1, 0, tail) ** 1.5
     tap[: int(0.002 * RATE)] *= np.linspace(0, 1, int(0.002 * RATE))

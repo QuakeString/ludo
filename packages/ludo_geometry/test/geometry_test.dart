@@ -338,6 +338,24 @@ void main() {
         }
       }
     });
+
+    test('and fills the box it is given', () {
+      // The other half of the claim above, and the half that was quietly
+      // false: everything fitted, with a margin of nearly six percent down
+      // each side that nothing was using — a strip of dead board wider than a
+      // chip, on the one screen with none to spare.
+      final xs = [for (final p in g.plateOutline()) p.x]..sort();
+      final ys = [for (final p in g.plateOutline()) p.y]..sort();
+
+      // The shape is a twelve-gon taller than it is wide, so the height is
+      // what fills and the width is what is left over. Two corners sit within
+      // ten degrees of straight up and down; none within twenty of straight
+      // out to the side.
+      expect(ys.first, closeTo(0, 0.002), reason: 'a gap above the board');
+      expect(ys.last, closeTo(1, 0.002), reason: 'a gap below the board');
+      expect(xs.first, lessThan(0.03), reason: 'too much margin at the left');
+      expect(xs.last, greaterThan(0.97), reason: 'too much margin at the right');
+    });
   });
 }
 

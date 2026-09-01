@@ -26,6 +26,7 @@ class SeatPanel extends StatelessWidget {
     this.awaitingRoll = false,
     this.onRoll,
     this.compact = false,
+    this.pointerBelow = true,
   });
 
   /// The arm this seat plays from — which is what decides its colour.
@@ -60,6 +61,11 @@ class SeatPanel extends StatelessWidget {
 
   /// Six seats have to fit two rows of three on a phone.
   final bool compact;
+
+  /// Which side of the panel the roll pointer hangs off — down for a panel
+  /// above the board, up for one below it. Either way it lands in the gap
+  /// between this rail and the board, pointing back at the die.
+  final bool pointerBelow;
 
   @override
   Widget build(BuildContext context) {
@@ -170,7 +176,20 @@ class SeatPanel extends StatelessWidget {
           panel,
           if (awaitingRoll)
             Positioned(
-              right: compact ? -26.0 : -32.0,
+              // Under the die, or over it — never off the panel's right-hand
+              // end. Beside the die it fell clean off the screen for the seat
+              // whose panel sits against the right edge, which on a six-handed
+              // board is one seat in three: the arrow saying "you are the one
+              // to roll" was the one thing that player could not see.
+              //
+              // Above and below there is always room, because the gap between
+              // a rail and the board is the one piece of space that exists on
+              // every screen this game runs on.
+              right: (compact ? 6.0 : 9.0) +
+                  (compact ? 44.0 : 54.0) / 2 -
+                  _pointerWidth(compact) / 2,
+              top: pointerBelow ? null : -(_pointerHeight(compact) - 1),
+              bottom: pointerBelow ? -(_pointerHeight(compact) - 1) : null,
               // Deaf to touch, and that is the point. The pointer's box used to
               // reach back over the right-hand third of the die — an icon glyph
               // carries a lot of empty margin — so a tap anywhere but the die's
@@ -184,7 +203,11 @@ class SeatPanel extends StatelessWidget {
               // arrow, and nothing at all once it is fenced off.
               child: IgnorePointer(
                 child: RepaintBoundary(
-                  child: _RollPointer(colour: colour, compact: compact),
+                  child: _RollPointer(
+                    colour: colour,
+                    compact: compact,
+                    pointUp: pointerBelow,
+                  ),
                 ),
               ),
             ),
@@ -194,15 +217,37 @@ class SeatPanel extends StatelessWidget {
   }
 }
 
+double _pointerWidth(bool compact) => compact ? 22.0 : 28.0;
+double _pointerHeight(bool compact) => compact ? 15.0 : 19.0;
+
+/// How much clear space a rail needs on its board side for the roll pointer.
+///
+/// The pointer hangs outside the panel, and outside is somebody else's space:
+/// the board is drawn after the rail, so an arrow poking into the board's rows
+/// was simply painted over — a tip of it showed and the rest did not. Rather
+/// than reach across two widgets to fix the paint order, the rail asks for the
+/// room it needs and the arrow stays inside it.
+///
+/// It costs the board nothing on a phone held upright, where the board's size
+/// is set by the screen's width and there is height to spare.
+double rollPointerLane(bool compact) => _pointerHeight(compact) + 3;
+
 /// A chevron nudging toward the die of whoever has to roll.
 ///
 /// It travels rather than blinks: a moving thing is found by the eye without
 /// being looked for, which is the whole job of "it is your turn".
 class _RollPointer extends StatefulWidget {
-  const _RollPointer({required this.colour, required this.compact});
+  const _RollPointer({
+    required this.colour,
+    required this.compact,
+    required this.pointUp,
+  });
 
   final Color colour;
   final bool compact;
+
+  /// True when the pointer sits below the die and points up at it.
+  final bool pointUp;
 
   @override
   State<_RollPointer> createState() => _RollPointerState();
@@ -247,43 +292,44 @@ class _RollPointerState extends State<_RollPointer>
     // font's own margins baked in, so the box needed to draw an arrow this big
     // was half again as wide as the arrow, and that invisible half sat on top
     // of the die. Drawn directly, the box is the arrow.
-    final w = widget.compact ? 20.0 : 26.0;
-    final h = widget.compact ? 26.0 : 33.0;
+    final w = _pointerWidth(widget.compact);
+    final h = _pointerHeight(widget.compact);
+    final toward = widget.pointUp ? -1.0 : 1.0;
+
     return AnimatedBuilder(
       animation: _t,
       builder: (context, child) => Transform.translate(
-        // Travels toward the die, which is to its left.
-        offset: Offset(3 - _t.value * 9, 0),
+        // Travels toward the die, which is above it or below it.
+        offset: Offset(0, toward * (3 - _t.value * 8)),
         child: Opacity(opacity: 0.62 + 0.38 * _t.value, child: child),
       ),
       // Built once and carried through every frame: the shape does not change,
       // only where it is and how strongly it shows.
       child: CustomPaint(
         size: Size(w, h),
-        painter: _Chevron(colour: widget.colour),
+        painter: _Chevron(colour: widget.colour, pointUp: widget.pointUp),
       ),
     );
   }
 }
 
-/// A solid triangle pointing left, with its corners taken off.
+/// A solid triangle, corners taken off, pointing up or down.
 ///
 /// Rounded because a hard-cornered triangle at this size reads as a warning
 /// sign; this one is only saying "over here".
 class _Chevron extends CustomPainter {
-  const _Chevron({required this.colour});
+  const _Chevron({required this.colour, required this.pointUp});
 
   final Color colour;
+  final bool pointUp;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = size.width, h = size.height;
-    final r = h * 0.16;
-    final pts = <Offset>[
-      Offset(0, h / 2), // the point
-      Offset(w, 0),
-      Offset(w, h),
-    ];
+    final r = w * 0.16;
+    final pts = pointUp
+        ? <Offset>[Offset(w / 2, 0), Offset(w, h), Offset(0, h)]
+        : <Offset>[Offset(w / 2, h), Offset(0, 0), Offset(w, 0)];
 
     final path = Path();
     for (var i = 0; i < 3; i++) {
@@ -325,7 +371,8 @@ class _Chevron extends CustomPainter {
   }
 
   @override
-  bool shouldRepaint(_Chevron old) => old.colour != colour;
+  bool shouldRepaint(_Chevron old) =>
+      old.colour != colour || old.pointUp != pointUp;
 }
 
 /// A place for a photo. Until profiles exist it is the seat's colour with an

@@ -313,7 +313,6 @@ class HexGeometry implements BoardGeometry {
   // simply scales the whole board back up to fill the space it is given.
   static const _u = 560.0;
   static const _c = 30.0; // cell edge
-  static const _centre = _u / 2;
 
   /// Outermost track row. The innermost then lands at 94, which is what makes
   /// the track continuous — see the note on [_armSlotFor].
@@ -326,6 +325,28 @@ class HexGeometry implements BoardGeometry {
   /// corners are exactly these, which is what makes everything else land.
   static const _rimOut = _rOut + _c / 2; // 259
   static const _rimSide = _c * 1.5; // 45
+
+  /// Blows the finished board up until it touches the top and bottom of the
+  /// box it is given.
+  ///
+  /// The plate is a twelve-gon whose corners sit at radius 262.9, but they do
+  /// not sit at convenient angles: two of them land within ten degrees of
+  /// straight up and straight down, and none within twenty degrees of straight
+  /// out to the side. So the shape is 518 tall and only 494 wide, and drawn
+  /// inside a 560-unit square it left a margin of nearly six percent down each
+  /// side — a strip of dead board wider than a chip, on a phone, which is the
+  /// one screen with none to spare.
+  ///
+  /// Scaling about the centre by the height's shortfall puts the top and bottom
+  /// corners on the edge and cuts the side margin to a little over two percent,
+  /// which is as far as a shape taller than it is wide can go. Applied on the
+  /// way out of [_pt], so every radius above stays in plain board units where a
+  /// square is thirty across.
+  static const _fill = _u / (2 * _rimTop);
+
+  /// How far the topmost corner reaches: the rim corner nearest the vertical,
+  /// which is 9.86 degrees off the arm pointing straight down.
+  static const _rimTop = 259.031; // hypot(259, 45) * sin(99.86 degrees)
 
   /// (radius, lateral offset) of a chip's resting place in a home base.
   ///
@@ -358,7 +379,7 @@ class HexGeometry implements BoardGeometry {
   ];
 
   @override
-  double get cellSize => _c / _u;
+  double get cellSize => _c / _u * _fill;
 
   double _armAngle(int arm) => -90 + 60.0 * arm;
   double _yardAngle(int arm) => _armAngle(arm) + 30;
@@ -368,8 +389,8 @@ class HexGeometry implements BoardGeometry {
     final a = angleDeg * math.pi / 180;
     final ux = math.cos(a), uy = math.sin(a);
     return Pt(
-      (_centre + ux * radius - uy * lateral) / _u,
-      (_centre + uy * radius + ux * lateral) / _u,
+      0.5 + (ux * radius - uy * lateral) / _u * _fill,
+      0.5 + (uy * radius + ux * lateral) / _u * _fill,
     );
   }
 

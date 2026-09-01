@@ -24,6 +24,15 @@ enum BoardLayer { furniture, glow, chips, motions }
 /// else draws that border, because two numbers meaning one thing drift.
 const double houseInset = 0.74;
 
+/// How much of a square a chip takes up.
+///
+/// Both numbers went up: on a phone a chip was a bead you had to look for
+/// rather than a piece you could see, and the six-arm board — whose squares
+/// are the smaller of the two to begin with — was where it was worst. The
+/// hexagon still gets the smaller share because its track bends, so two chips
+/// on neighbouring squares sit closer together than two on a straight run.
+double chipShare(int arms) => arms == 4 ? 0.88 : 0.78;
+
 /// Draws a whole board from engine state plus geometry.
 ///
 /// The painter knows nothing about rules — it asks the engine what is legal and
@@ -96,7 +105,7 @@ class BoardPainter extends CustomPainter {
   /// Chips mid-move, drawn above everything else.
   void _paintMotions(Canvas canvas, Offset Function(Pt) px, double cell) {
     if (motions.isEmpty) return;
-    final chipWidth = cell * (spec.arms == 4 ? 0.78 : 0.66);
+    final chipWidth = cell * chipShare(spec.arms);
     for (final entry in motions.entries) {
       final token = state.tokens[entry.key];
       final m = entry.value;
@@ -417,7 +426,7 @@ class BoardPainter extends CustomPainter {
   // --- chips ---------------------------------------------------------------
 
   void _paintChips(Canvas canvas, Offset Function(Pt) px, double cell) {
-    final chipWidth = cell * (spec.arms == 4 ? 0.78 : 0.66);
+    final chipWidth = cell * chipShare(spec.arms);
     final movable = {for (final m in legalMoves) ...m.tokenIds};
     final layout = chipLayout(state, geometry);
 

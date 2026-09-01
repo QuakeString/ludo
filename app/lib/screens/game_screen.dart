@@ -573,18 +573,31 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// left-to-right order. Anything else is a small lie the player has to
   /// decode every turn — red's house top-left with red's die at the bottom of
   /// the screen reads as two different players.
+  ///
+  /// Split at the median rather than at the middle of the board, which is not
+  /// the same thing and on a hexagon is badly not the same thing: two of its
+  /// six houses sit exactly halfway down, so testing each house against the
+  /// centre line put both of them below it and dealt a six-handed game two
+  /// panels along the top and four crammed along the bottom. Ranking the
+  /// houses and cutting the list in half gives three and three, and gives the
+  /// two level houses one rail each — which also makes each rail a contiguous
+  /// run round the board rather than an arbitrary set.
   (List<int>, List<int>) _seatRows() {
     final n = _state.rules.players;
-
     final houses = {for (var seat = 0; seat < n; seat++) seat: _houseOf(seat)};
-    final above = [
-      for (var seat = 0; seat < n; seat++)
-        if (houses[seat]!.y < 0.5) seat,
-    ]..sort((a, b) => houses[a]!.x.compareTo(houses[b]!.x));
-    final below = [
-      for (var seat = 0; seat < n; seat++)
-        if (houses[seat]!.y >= 0.5) seat,
-    ]..sort((a, b) => houses[a]!.x.compareTo(houses[b]!.x));
+
+    final ranked = [for (var seat = 0; seat < n; seat++) seat]..sort((a, b) {
+      final byHeight = houses[a]!.y.compareTo(houses[b]!.y);
+      // Level houses go left to the top rail and right to the bottom, so the
+      // one on each side of the screen stays on that side of the screen.
+      return byHeight != 0 ? byHeight : houses[a]!.x.compareTo(houses[b]!.x);
+    });
+
+    final split = (n + 1) ~/ 2;
+    final above = ranked.take(split).toList()
+      ..sort((a, b) => houses[a]!.x.compareTo(houses[b]!.x));
+    final below = ranked.skip(split).toList()
+      ..sort((a, b) => houses[a]!.x.compareTo(houses[b]!.x));
     return (above, below);
   }
 
@@ -609,7 +622,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// changes height changes the board's size, and a board that resizes
   /// mid-roll flickers.
   static double _seatBandHeight(RuleConfig rules) =>
-      (rules.players > 4 ? 54.0 : 64.0) + 12;
+      (rules.players > 4 ? 54.0 : 64.0) +
+      12 +
+      rollPointerLane(rules.players > 4);
 
   Widget _seatRow({required bool top}) {
     final (above, below) = _seatRows();
@@ -617,8 +632,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final rules = _state.rules;
     if (seats.isEmpty) return SizedBox(height: _seatBandHeight(rules));
 
+    // The extra goes on the board side, which is where the roll pointer hangs.
+    final lane = rollPointerLane(rules.players > 4);
     return Padding(
-      padding: EdgeInsets.fromLTRB(0, top ? 4 : 8, 0, top ? 8 : 4),
+      padding: EdgeInsets.fromLTRB(
+        0,
+        top ? 4 : 8 + lane,
+        0,
+        top ? 8 + lane : 4,
+      ),
       child: SizedBox(
         height: rules.players > 4 ? 54 : 64,
         child: rules.players > 4
@@ -629,7 +651,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 children: [
                   for (final seat in seats) ...[
                     if (seat != seats.first) const SizedBox(width: 7),
-                    Expanded(child: _panelFor(seat)),
+                    Expanded(child: _panelFor(seat, top: top)),
                   ],
                 ],
               )
@@ -643,7 +665,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     Positioned.fill(
                       child: CustomSingleChildLayout(
                         delegate: _OverHouse(_houseOf(seat).x),
-                        child: _panelFor(seat),
+                        child: _panelFor(seat, top: top),
                       ),
                     ),
                 ],
@@ -652,7 +674,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     );
   }
 
-  Widget _panelFor(int seat) {
+  Widget _panelFor(int seat, {required bool top}) {
     final rules = _state.rules;
     final session = _session;
     final limit = rules.turnSeconds;
@@ -701,6 +723,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       awaitingRoll:
           seat == _state.turn && _state.awaitingRoll && !_state.isOver,
       compact: rules.players > 4,
+      // The pointer hangs into the gap between this rail and the board, which
+      // is the one piece of space every screen has.
+      pointerBelow: top,
     );
   }
 
