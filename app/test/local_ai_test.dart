@@ -52,10 +52,26 @@ void main() {
 
     // If the handover were missing, the screen would be stuck announcing the
     // computer's turn with nothing ever happening.
-    final stuck = find.textContaining('Computer (normal) — roll the dice');
+    //
+    // Stuck is the claim, so stuck is what gets tested. The computer takes a
+    // beat before it plays and catching it mid-beat is not a fault; asserting
+    // the text was simply absent was a proxy for this, and a flaky one — it
+    // broke the moment the waits either side were shortened, with nothing
+    // actually wrong.
+    // Waiting for the turn to come back is both the real claim and the only
+    // way to end the test cleanly: "Tap the die to roll" appears when the
+    // board is idle and it is a person's throw, which is exactly the moment
+    // when nothing is left running. Stopping as soon as the computer's name
+    // left the screen ended the test in the middle of its move and the
+    // framework rightly complained about the timer still ticking.
+    var backToThePlayer = false;
+    for (var i = 0; i < 120 && !backToThePlayer; i++) {
+      await tester.pump(const Duration(milliseconds: 120));
+      backToThePlayer = find.text('Tap the die to roll').evaluate().isNotEmpty;
+    }
     expect(
-      stuck,
-      findsNothing,
+      backToThePlayer,
+      isTrue,
       reason: 'the board is waiting on a computer that will never play',
     );
   });

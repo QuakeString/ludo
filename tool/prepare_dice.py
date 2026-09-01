@@ -98,11 +98,20 @@ def main():
         np.linspace(0, len(audio) - 1, n), np.arange(len(audio)), audio
     )
 
-    # Taken off the top. The recording is a hard crack close to the
+    # Taken off the top, twice over. The recording is a hard crack close to the
     # microphone; through a phone it came out sharp, all edge and no wood.
-    # Mixing back a little of the original keeps the attack from going soft.
-    dull = one_pole_lowpass(audio, 5200, RATE)
-    audio = 0.72 * dull + 0.28 * audio
+    #
+    # One pole at 5.2kHz was not enough — six decibels an octave leaves plenty
+    # of the top end standing, and the roll still read as high. Two poles at
+    # 3.2kHz take it down properly, and a little of the dry signal mixed back
+    # keeps the attack from going soft along with it.
+    dull = one_pole_lowpass(one_pole_lowpass(audio, 3800, RATE), 3800, RATE)
+    audio = 0.84 * dull + 0.16 * audio
+
+    # And weight put back underneath. Rolling off the top alone makes a sound
+    # quieter, not lower; the bottom has to come up to meet it.
+    low = one_pole_lowpass(one_pole_lowpass(audio, 320, RATE), 320, RATE)
+    audio = audio + 0.65 * low
 
     # A touch of soft clipping before normalising: it lifts the body of the
     # roll without letting the first crack hit the ceiling.

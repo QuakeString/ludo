@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/close_game.dart';
+
 import 'package:ludo_app/board/board_painter.dart';
 import 'package:ludo_app/board/die.dart';
 import 'package:ludo_app/screens/game_screen.dart';
@@ -84,6 +87,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 120));
     }
     expect(find.byType(GameScreen), findsOneWidget);
+    await closeGame(tester);
   });
 
   testWidgets('four spellings of one move is not a choice either', (
@@ -114,6 +118,7 @@ void main() {
           'a six with a full yard sat waiting for a tap that is not a '
           'choice anybody can make wrongly',
     );
+    await closeGame(tester);
   });
 
   testWidgets('the only move plays itself — nobody taps a chip', (

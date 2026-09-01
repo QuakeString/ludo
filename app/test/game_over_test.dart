@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/close_game.dart';
+
 import 'package:ludo_app/board/sounds.dart';
 import 'package:ludo_app/screens/game_over.dart';
 import 'package:ludo_app/screens/game_screen.dart';
@@ -81,5 +84,7 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect(find.byType(GameOverSheet), findsNothing);
+
+    await closeGame(tester);
   });
 }

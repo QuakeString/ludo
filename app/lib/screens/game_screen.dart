@@ -54,12 +54,31 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   /// How long a settled die is left on show before the game moves itself on.
   ///
-  /// It has to clear the tumble first — the number is not readable until the
-  /// cube stops — and then stay up long enough to actually be read. The old
-  /// value was 900ms in total against a 780ms tumble, so the face you were
-  /// meant to be looking at was up for a tenth of a second and the turn
-  /// appeared to skip without ever showing a number.
-  static const _readDieMillis = dieRollMillis + 850;
+  /// Both of these clear the tumble first — the number is not readable until
+  /// the cube stops — and then hold. An early version held for 900ms in total
+  /// against a 780ms tumble, so the face you were meant to read was up for a
+  /// tenth of a second and the turn appeared to skip without showing a number.
+  ///
+  /// They differ because the two waits are doing different jobs. When a move
+  /// follows, the chip setting off is itself the answer, so the pause only has
+  /// to be long enough to read the number and no longer. When nothing follows,
+  /// the number is the entire event and deserves a beat more.
+  static const _autoMoveMillis = dieRollMillis + 380;
+  static const _deadRollMillis = dieRollMillis + 650;
+
+  /// A tap on the die that arrived before the die was ready.
+  ///
+  /// The die is only a button while it is actually your throw to make, and
+  /// between turns there are stretches — a number being read, a chip walking,
+  /// a knocked-off chip trudging home — where it is not. Tapping then used to
+  /// do nothing at all, which reads as the game ignoring you rather than as
+  /// the game being busy. The tap is kept and spent the moment it can be.
+  DateTime? _wantsRoll;
+
+  /// How long a waiting tap is worth honouring. Long enough to cover a chip
+  /// walking home; short enough that a tap you have forgotten about does not
+  /// throw the dice by itself a minute later.
+  static const _wantsRollFor = Duration(seconds: 5);
 
   late GameState _state;
   late BoardGeometry _geometry;
@@ -73,7 +92,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// position *before* the move, and the travelling chips are drawn on top —
   /// so the board and the animation can never disagree.
   MoveAnimation? _playing;
+
+  /// The wait between a die settling and the game acting on it.
   Timer? _scheduled;
+
+  /// The computer's thinking beat, and the pause before it plays.
+  ///
+  /// Its own timer rather than the one above. They used to share a single
+  /// slot, so whichever was scheduled second silently cancelled the first —
+  /// and a cancelled computer beat is a board that never moves again.
+  Timer? _thinking;
 
   /// One per square a chip is about to land on. A move is heard as it happens
   /// rather than announced once it is over.
@@ -120,6 +148,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   void dispose() {
     _scheduled?.cancel();
+    _thinking?.cancel();
     _silence();
     _matchSub?.cancel();
     _session?.removeListener(_sessionChanged);
@@ -209,7 +238,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _roll() {
-    if (_busy) return;
+    // Not ready is not the same as not wanted. Remember it and spend it the
+    // moment the board is free.
+    if (_busy || !_state.awaitingRoll || _state.isOver) {
+      if (!_state.isOver) _wantsRoll = DateTime.now();
+      return;
+    }
+    _wantsRoll = null;
+
     final session = _session;
     if (session != null) {
       // Online the dice are the server's. Asking is all this device does.
@@ -246,7 +282,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ? 'Rolled ${_state.dice} — no legal move'
           : 'Rolled ${_state.dice} — only one move';
     });
-    _after(_readDieMillis, () {
+    _after(moves.isEmpty ? _deadRollMillis : _autoMoveMillis, () {
       // Re-checked rather than remembered: online the server may have moved
       // the game on while the die was on show.
       if (!_myMove || _state.awaitingRoll) return;
@@ -352,6 +388,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// Deals a new game at this table, with new dice.
   void _startFreshGame() {
     _scheduled?.cancel();
+    _thinking?.cancel();
+    _wantsRoll = null;
     _silence();
     setState(() {
       _playing = null;
@@ -425,7 +463,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final level = widget.aiSeats[_state.turn]!;
     final ai = LudoAi(level: level);
 
-    _after(600, () {
+    _think(600, () {
       if (_state.isOver || _busy || !_isComputer(_state.turn)) return;
       if (_state.awaitingRoll) {
         _apply(const RollDice());
@@ -443,21 +481,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         // settled, which is why a computer's turn could look like nothing
         // happened at all.
         setState(() => _flash = 'Rolled ${_state.dice} — no legal move');
-        _after(_readDieMillis, () {
+        _think(_deadRollMillis, () {
           _apply(const PassTurn());
           _maybeTakeComputerTurn();
         });
       } else {
         // Long enough for the die to stop; the chip walking then says the
         // rest, so it does not need the full reading pause.
-        _after(dieRollMillis + 250, () => _play(move));
+        _think(dieRollMillis + 250, () => _play(move));
       }
     });
   }
 
+  /// Waits, then acts — the human side of a turn.
   void _after(int millis, VoidCallback action) {
     _scheduled?.cancel();
     _scheduled = Timer(Duration(milliseconds: millis), () {
+      if (mounted) action();
+    });
+  }
+
+  /// Waits, then acts — the computer's side of a turn, on its own timer.
+  void _think(int millis, VoidCallback action) {
+    _thinking?.cancel();
+    _thinking = Timer(Duration(milliseconds: millis), () {
       if (mounted) action();
     });
   }
@@ -627,8 +674,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           : (session.room?.seats.length ?? 0) > seat
           ? session.room!.seats[seat].connected
           : true,
-      // The die is the roll button for whoever may roll.
-      onRoll: (seat == _state.turn && _myMove && _state.awaitingRoll)
+      // The die is the roll button for whoever may roll — and it stays a
+      // button through the moments when the roll cannot be made yet, so that
+      // an early tap is caught rather than dropped on the floor.
+      onRoll:
+          (seat == _state.turn &&
+              !_state.isOver &&
+              !_isComputer(seat) &&
+              (_session == null || _session!.isMyTurn))
           ? _roll
           : null,
       // The pointer shows for whoever has to roll, whether or not this device
@@ -696,6 +749,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final moves = _myMove ? _legalMoves : const <Move>[];
     final session = _session;
     final glowSeat = _state.awaitingRoll && !_state.isOver ? _state.turn : null;
+
+    // A tap that arrived early, spent as soon as the board is free. Every path
+    // that can free it — a move settling, a hold expiring, the server's word —
+    // comes through build, so this is the one place that catches them all.
+    final waiting = _wantsRoll;
+    if (waiting != null) {
+      if (DateTime.now().difference(waiting) > _wantsRollFor) {
+        _wantsRoll = null;
+      } else if (_myMove && _state.awaitingRoll) {
+        _wantsRoll = null;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) _roll();
+        });
+      }
+    }
 
     // Once, on the frame the game ends. Every path into this screen — a local
     // move settling, the computer's turn, the server's word — arrives here, so

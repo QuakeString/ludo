@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'support/close_game.dart';
+
 import 'package:ludo_app/board/sounds.dart';
 import 'package:ludo_app/screens/game_screen.dart';
 import 'package:ludo_engine/ludo_engine.dart';
@@ -60,6 +63,7 @@ void main() {
       reason: 'nobody was ever knocked off',
     );
     expect(heard, contains(Sound.home), reason: 'nobody ever got home');
+    await closeGame(tester);
   });
 
   testWidgets('a chip taps once for every square it lands on', (tester) async {
@@ -110,6 +114,7 @@ void main() {
       isTrue,
       reason: 'every move made a single sound instead of one per square',
     );
+    await closeGame(tester);
   });
 
   testWidgets('landing somewhere safe sounds different from landing anywhere', (
@@ -148,6 +153,7 @@ void main() {
       contains(Sound.safe),
       reason: 'nothing was ever heard reaching a star',
     );
+    await closeGame(tester);
   });
 
   testWidgets('the knock lands with the capture, not with the walk home', (
