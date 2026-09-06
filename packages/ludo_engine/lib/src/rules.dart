@@ -19,6 +19,29 @@ enum PairCapture {
 /// Nothing about a variant is hard-coded: presets, the rule-builder UI and the
 /// shareable rule code all produce one of these, and the same object is
 /// enforced on the client and on the server.
+/// What a run of sixes does.
+///
+/// It was a single boolean called tripleSixForfeits, defaulting to on, and it
+/// was the wrong rule for the way this game is played. The forfeit belongs to
+/// tables where a six is *banked* — you roll, keep the six, roll again, and
+/// only then move — where three banked sixes have to be cancelled or the turn
+/// never ends. Here a roll is played the moment it lands: nothing is being
+/// banked, so there is nothing to cancel, and cancelling it anyway took the
+/// turn away for no reason a player could see.
+///
+/// The banked-roll game is a rule of its own and will bring its own answer to
+/// a run of sixes when it is built. Until it exists, so does not the mode that
+/// only makes sense inside it.
+enum SixRun {
+  /// Sixes keep buying throws for as long as they keep coming.
+  unlimited,
+
+  /// The third six never comes up. After two, the die is thrown again with the
+  /// top face left out of it — so the throw still happens, still counts, and
+  /// is always something that can be played.
+  capped,
+}
+
 class RuleConfig {
   const RuleConfig({
     this.name = 'Classic',
@@ -26,7 +49,7 @@ class RuleConfig {
     this.tokensPerPlayer = 4,
     this.entryRoll = 6,
     this.extraRollOnSix = true,
-    this.tripleSixForfeits = true,
+    this.sixRun = SixRun.capped,
     this.captureGrantsExtraRoll = true,
     this.finishGrantsExtraRoll = true,
     this.safeSquares = SafeSquares.startsAndStars,
@@ -61,7 +84,9 @@ class RuleConfig {
   /// six with no legal move behind it is a wasted six and the turn passes on,
   /// the same as any other number you cannot use.
   final bool extraRollOnSix;
-  final bool tripleSixForfeits;
+
+  /// What a run of sixes does. See [SixRun].
+  final SixRun sixRun;
 
   /// Knocking an opponent off buys another roll.
   final bool captureGrantsExtraRoll;
@@ -155,7 +180,7 @@ class RuleConfig {
     int? tokensPerPlayer,
     int? entryRoll,
     bool? extraRollOnSix,
-    bool? tripleSixForfeits,
+    SixRun? sixRun,
     bool? captureGrantsExtraRoll,
     bool? finishGrantsExtraRoll,
     SafeSquares? safeSquares,
@@ -180,7 +205,7 @@ class RuleConfig {
       tokensPerPlayer: tokensPerPlayer ?? this.tokensPerPlayer,
       entryRoll: entryRoll ?? this.entryRoll,
       extraRollOnSix: extraRollOnSix ?? this.extraRollOnSix,
-      tripleSixForfeits: tripleSixForfeits ?? this.tripleSixForfeits,
+      sixRun: sixRun ?? this.sixRun,
       captureGrantsExtraRoll:
           captureGrantsExtraRoll ?? this.captureGrantsExtraRoll,
       finishGrantsExtraRoll:
@@ -259,7 +284,7 @@ class RuleConfig {
         'tokensPerPlayer': tokensPerPlayer,
         'entryRoll': entryRoll,
         'extraRollOnSix': extraRollOnSix,
-        'tripleSixForfeits': tripleSixForfeits,
+        'sixRun': sixRun.name,
         'captureGrantsExtraRoll': captureGrantsExtraRoll,
         'finishGrantsExtraRoll': finishGrantsExtraRoll,
         'safeSquares': safeSquares.name,
@@ -293,7 +318,18 @@ class RuleConfig {
       tokensPerPlayer: pick('tokensPerPlayer', defaults.tokensPerPlayer),
       entryRoll: pick('entryRoll', defaults.entryRoll),
       extraRollOnSix: pick('extraRollOnSix', defaults.extraRollOnSix),
-      tripleSixForfeits: pick('tripleSixForfeits', defaults.tripleSixForfeits),
+      // Read by name, with the boolean it replaced still understood: a game
+      // saved or a room opened before this was a rule of its own is still a
+      // game. Its "sixes forfeit" reads as unlimited, that mode having gone
+      // with the banked-roll variant it belongs to — the closest honest
+      // answer, since the alternative is silently capping a run the saved
+      // game may already be in the middle of.
+      sixRun: SixRun.values.firstWhere(
+        (r) => r.name == json['sixRun'],
+        orElse: () => json['tripleSixForfeits'] == null
+            ? defaults.sixRun
+            : SixRun.unlimited,
+      ),
       captureGrantsExtraRoll:
           pick('captureGrantsExtraRoll', defaults.captureGrantsExtraRoll),
       finishGrantsExtraRoll:
@@ -341,7 +377,7 @@ class RuleConfig {
     'tokensPerPlayer': 't',
     'entryRoll': 'e',
     'extraRollOnSix': 'x',
-    'tripleSixForfeits': 'f',
+    'sixRun': 'f',
     'captureGrantsExtraRoll': 'c',
     'finishGrantsExtraRoll': 'g',
     'safeSquares': 's',

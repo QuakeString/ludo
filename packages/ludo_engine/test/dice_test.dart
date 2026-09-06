@@ -21,7 +21,7 @@ void main() {
     // but it would look like one face coming up short.
     final rules = RuleConfig(
       diceSides: sides,
-      tripleSixForfeits: false,
+      sixRun: SixRun.unlimited,
     );
     var s = GameState.newGame(rules, seed: seed);
     final out = <int>[];

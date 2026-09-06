@@ -254,22 +254,71 @@ void main() {
           throwsA(isA<IllegalActionError>()));
     });
 
-    test('three sixes in a row forfeit the turn', () {
-      // Drive the RNG until we find a seed that rolls three sixes running.
-      var s = GameState.newGame(classic, seed: 7).copyWith(consecutiveSixes: 2);
-      var found = false;
-      for (var seed = 1; seed < 400 && !found; seed++) {
-        final probe = GameState.newGame(classic, seed: seed)
-            .copyWith(consecutiveSixes: 2);
-        if (engine.peekRoll(probe) == 6) {
-          s = probe;
-          found = true;
-        }
+    test('a third six never comes up', () {
+      // Reported from a phone: "I got 6, moved, got 6, moved, then it did not
+      // give me a roll, it switched to another player." The rule in the way
+      // was that a third six forfeited the turn — a rule from tables where a
+      // six is banked rather than played at once, and one this game has no
+      // business enforcing. Now the third six simply does not happen: the
+      // throw still comes, and it is always something that can be played.
+      const rules = RuleConfig(players: 2);
+      expect(rules.sixRun, SixRun.capped, reason: 'not the default rule');
+
+      for (var seed = 1; seed < 300; seed++) {
+        final s = GameState.newGame(rules, seed: seed)
+            .copyWith(consecutiveSixes: LudoEngine.sixesInARow);
+        final face = engine.peekRoll(s);
+        expect(face, lessThan(6), reason: 'seed $seed threw a third six');
+
+        final after = engine.apply(s, const RollDice());
+        expect(after.dice, face, reason: 'the throw did not happen');
+        expect(after.turn, 0, reason: 'the turn was taken away anyway');
+        expect(after.consecutiveSixes, 0, reason: 'the run did not reset');
       }
-      expect(found, isTrue, reason: 'needed a seed that rolls a six');
-      final after = engine.apply(s, const RollDice());
-      expect(after.turn, 1, reason: 'the third six loses the turn');
-      expect(after.dice, isNull);
+    });
+
+    test('two sixes in a row are fine, and each buys another throw', () {
+      const rules = RuleConfig(players: 2);
+      var s = GameState.newGame(rules, seed: 1);
+      for (var i = 1; i <= LudoEngine.sixesInARow; i++) {
+        s = s.copyWith(dice: 6, consecutiveSixes: i);
+        final legal = engine.legalMoves(s);
+        expect(legal, isNotEmpty, reason: 'six number $i had nothing to play');
+        s = engine.apply(s, PlayMove(legal.first));
+        expect(s.turn, 0, reason: 'playing six number $i lost the turn');
+        expect(s.awaitingRoll, isTrue, reason: 'six number $i bought nothing');
+        expect(s.consecutiveSixes, i, reason: 'the run was forgotten');
+      }
+    });
+
+    test('the capped throw is still even across the faces it can show', () {
+      // Leaving a face out is only correct if what is left stays uniform.
+      // Asking the generator for five faces rather than six is exactly that;
+      // asking for six and re-rolling the sixes would not have been.
+      const rules = RuleConfig(players: 2);
+      final counts = List.filled(7, 0);
+      var s = GameState.newGame(rules, seed: 99);
+      for (var i = 0; i < 30000; i++) {
+        final capped = s.copyWith(consecutiveSixes: LudoEngine.sixesInARow);
+        counts[engine.peekRoll(capped)]++;
+        final (next, _) = s.rng.roll(6);
+        s = s.copyWith(rng: next);
+      }
+      expect(counts[6], 0, reason: 'a six got through');
+      for (var f = 1; f <= 5; f++) {
+        expect(counts[f], closeTo(6000, 400), reason: 'face $f came up $counts');
+      }
+    });
+
+    test('a table that wants endless sixes can have them', () {
+      const rules = RuleConfig(players: 2, sixRun: SixRun.unlimited);
+      var found = false;
+      for (var seed = 1; seed < 300 && !found; seed++) {
+        final s = GameState.newGame(rules, seed: seed)
+            .copyWith(consecutiveSixes: 5);
+        if (engine.peekRoll(s) == 6) found = true;
+      }
+      expect(found, isTrue, reason: 'sixes were capped with the rule off');
     });
 
     test('rolling twice without moving is refused', () {

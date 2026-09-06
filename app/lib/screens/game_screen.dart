@@ -567,6 +567,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return Pt(x, y);
   }
 
+  /// How wide a seat's house is, as a fraction of the board.
+  ///
+  /// The panels are sized to it rather than to what is written in them, and
+  /// that is the fix for something that looked like sloppy alignment and was:
+  /// a panel wide enough to reach the edge of the screen got pinned there,
+  /// while a narrower one kept its margin. So "Yellow" sat hard against the
+  /// left edge and "Red", directly above it, did not — one long name and the
+  /// column stopped lining up.
+  ///
+  /// Sized to the house, both are the width of the house they belong to, which
+  /// makes the two rails and the board one grid rather than three things that
+  /// happen to be near each other.
+  double _houseWidth(int seat) {
+    final tri = _geometry.yardShape(_state.armOf(seat));
+    final xs = [tri.a.x, tri.b.x, tri.c.x];
+    return xs.reduce(math.max) - xs.reduce(math.min);
+  }
+
   /// Which seats sit above the board and which below.
   ///
   /// A seat's panel goes on the same side as its house, and in the same
@@ -664,7 +682,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   for (final seat in seats)
                     Positioned.fill(
                       child: CustomSingleChildLayout(
-                        delegate: _OverHouse(_houseOf(seat).x),
+                        delegate: _OverHouse(
+                          _houseOf(seat).x,
+                          _houseWidth(seat),
+                          minPanelWidth(rules.players > 4),
+                        ),
                         child: _panelFor(seat, top: top),
                       ),
                     ),
@@ -1165,13 +1187,31 @@ class _Controls extends StatelessWidget {
 /// panel can go exactly where the middle of the house is, and be clamped only
 /// when the panel would otherwise leave the rail.
 class _OverHouse extends SingleChildLayoutDelegate {
-  const _OverHouse(this.fraction);
+  const _OverHouse(this.fraction, this.width, this.floor);
 
   /// Where the middle of the house is, across the board.
   final double fraction;
 
+  /// How wide the house is, as the same fraction. The panel is given exactly
+  /// this much — see [_GameScreenState._houseWidth] — so that two panels in a
+  /// column line up whatever their names happen to be.
+  final double width;
+
+  /// Below which the panel's own contents will not fit. A house two fifths of
+  /// a board across is plenty on a phone and not plenty on a short window,
+  /// where the board is small because the height is what ran out.
+  final double floor;
+
   @override
-  BoxConstraints getConstraintsForChild(BoxConstraints c) => c.loosen();
+  BoxConstraints getConstraintsForChild(BoxConstraints c) {
+    // The floor is itself capped at half the rail, because two of these share
+    // it — better a pair of panels that touch than a pair that overlap. Both
+    // are widened by the same amount either way, so the two columns stay
+    // level, which is the point of sizing them together at all.
+    final want = math.max(c.maxWidth * width, math.min(floor, c.maxWidth / 2));
+    return BoxConstraints.tightFor(width: want)
+        .enforce(BoxConstraints(maxHeight: c.maxHeight));
+  }
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
@@ -1183,5 +1223,6 @@ class _OverHouse extends SingleChildLayoutDelegate {
   }
 
   @override
-  bool shouldRelayout(_OverHouse old) => old.fraction != fraction;
+  bool shouldRelayout(_OverHouse old) =>
+      old.fraction != fraction || old.width != width || old.floor != floor;
 }

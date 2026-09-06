@@ -13,12 +13,31 @@ class LudoEngine {
   // --- dice ----------------------------------------------------------------
 
   /// The roll a state would produce next, without advancing it.
-  int peekRoll(GameState s) => s.rng.peek(s.rules.diceSides);
+  int peekRoll(GameState s) => s.rng.peek(_facesFor(s));
 
   // --- queries -------------------------------------------------------------
 
   /// Every legal move for the player on turn, given the pending roll.
   /// Empty while awaiting a roll, or when the roll cannot be played.
+  /// How many sixes a seat may throw in a row under [SixRun.capped].
+  ///
+  /// Two, so the third never appears. Named because the roll and everything
+  /// that predicts the roll have to agree on it.
+  static const sixesInARow = 2;
+
+  /// The faces available on the next throw.
+  ///
+  /// One short of the full die when a seat has already had its run of sixes:
+  /// [DiceRng.roll] draws evenly across 1..n, so asking it for one fewer face
+  /// is exactly "anything but a six", still even across the five that are
+  /// left. The alternative — draw a six and then throw the turn away — is the
+  /// rule this replaces, and from a chair it looked like the game skipping
+  /// you: the number never even reached the board.
+  int _facesFor(GameState s) =>
+      s.rules.sixRun == SixRun.capped && s.consecutiveSixes >= sixesInARow
+          ? s.rules.diceSides - 1
+          : s.rules.diceSides;
+
   List<Move> legalMoves(GameState s) {
     final roll = s.dice;
     if (roll == null || s.isOver) return const [];
@@ -286,18 +305,13 @@ class LudoEngine {
     if (!s.awaitingRoll) {
       throw IllegalActionError('already rolled a ${s.dice}');
     }
-    final (next, value) = s.rng.roll(s.rules.diceSides);
+    final (next, value) = s.rng.roll(_facesFor(s));
     final sixes = value == s.rules.diceSides ? s.consecutiveSixes + 1 : 0;
     // Counted before anything is decided about it. A throw that forfeits the
     // turn is still a throw that seat made, and leaving those out is exactly
     // how a tally comes to disagree with what somebody watched happen.
     final tally = s.stats.withRoll(s.turn, value);
 
-    // Three sixes in a row and the turn is gone, whatever was on the board.
-    if (s.rules.tripleSixForfeits && sixes >= 3) {
-      return _advanceTurn(
-          s.copyWith(rng: next, consecutiveSixes: 0, stats: tally));
-    }
     return s.copyWith(
         rng: next, dice: value, consecutiveSixes: sixes, stats: tally);
   }

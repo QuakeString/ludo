@@ -113,9 +113,13 @@ class SeatPanel extends StatelessWidget {
             _TeamBadge(letter: teamLetter!, colour: colour, compact: compact),
           ],
           SizedBox(width: compact ? 6 : 8),
-          // Flexible, so a long name gives way rather than overflowing when
-          // three panels share a phone's width at six seats.
-          Flexible(
+          // Expanded, not Flexible: it takes the slack as well as giving it
+          // up. Giving way keeps a long name from overflowing when three
+          // panels share a phone at six seats; taking the slack is what holds
+          // the die against the panel's right-hand edge, which is where the
+          // arrow pointing at it is placed from. Merely flexible, a short name
+          // left the die stranded mid-panel with the arrow under empty space.
+          Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
@@ -184,6 +188,14 @@ class SeatPanel extends StatelessWidget {
       child: Stack(
         clipBehavior: Clip.none,
         alignment: Alignment.centerRight,
+        // The width it is given is the width it takes. A Stack loosens what it
+        // passes down by default, so the panel sized itself to its own text
+        // instead — and two panels in a column stopped lining up the moment
+        // one seat's name was longer than the other's. "Yellow" sat hard
+        // against the edge of the screen while "Red", directly above it, kept
+        // a margin. Passed through, both are the width of the house they
+        // belong to.
+        fit: StackFit.passthrough,
         children: [
           panel,
           if (awaitingRoll)
@@ -228,6 +240,18 @@ class SeatPanel extends StatelessWidget {
     );
   }
 }
+
+/// The narrowest a seat panel can be drawn without its contents colliding.
+///
+/// The avatar and the die are fixed sizes and the name between them can give
+/// up all of its width, so this is simply the sum of the parts that cannot
+/// shrink, plus a few pixels so the name is not always nothing. Stated here,
+/// beside the numbers it is made of, because the layout that sizes panels to
+/// the house they sit over has to know when a house has become too small to
+/// hold one — on a short screen it does.
+double minPanelWidth(bool compact) => compact
+    ? 12 + 24 + 6 + 6 + 44 + 12 // padding, avatar, gaps, die, a little name
+    : 18 + 28 + 8 + 8 + 54 + 14;
 
 double _pointerWidth(bool compact) => compact ? 22.0 : 28.0;
 double _pointerHeight(bool compact) => compact ? 15.0 : 19.0;
