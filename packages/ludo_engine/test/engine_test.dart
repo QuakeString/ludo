@@ -37,6 +37,22 @@ int progressForRing(GameState s, int player, int ring) {
   return (ring - b.startRing(s.armOf(player)) + b.trackLength) % b.trackLength;
 }
 
+/// The progress [victim] needs so that it is standing exactly where [attacker]
+/// arrives at [progress].
+///
+/// Said this way round on purpose. These tests used to put the victim on ring
+/// 3 and the attacker on progress 3, which is the same square only while seat
+/// 0 happens to start at ring 0 — an accident of who sits where, and one that
+/// stopped holding the moment the first seat moved to the bottom-left corner
+/// of the board.
+int standingWhereItLands(
+  GameState s,
+  int attacker,
+  int progress,
+  int victim,
+) =>
+    progressForRing(s, victim, s.board.ringIndex(s.armOf(attacker), progress)!);
+
 void main() {
   const classic = RuleConfig(); // 4 players, 4 tokens, roll 6 to start
 
@@ -114,7 +130,7 @@ void main() {
   group('capturing', () {
     test('landing on an opponent sends it back to its yard', () {
       var s = situation(classic, at: {0: 2}, dice: 1);
-      final victimProgress = progressForRing(s, 1, 3);
+      final victimProgress = standingWhereItLands(s, 0, 3, 1);
       s = situation(classic, at: {0: 2, 4: victimProgress}, dice: 1);
 
       final move = engine.legalMoves(s).single;
@@ -173,7 +189,7 @@ void main() {
     test('a capture can grant another roll when the rules say so', () {
       final rules = classic.copyWith(captureGrantsExtraRoll: true);
       var s = GameState.newGame(rules);
-      final victim = progressForRing(s, 1, 3);
+      final victim = standingWhereItLands(s, 0, 3, 1);
       s = situation(rules, at: {0: 2, 4: victim}, dice: 1);
       final next = engine.apply(s, PlayMove(engine.legalMoves(s).single));
       expect(next.turn, 0, reason: 'still my turn');

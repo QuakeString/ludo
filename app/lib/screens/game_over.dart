@@ -95,9 +95,11 @@ class GameOverSheet extends StatelessWidget {
     final palette = BoardPalette.of(context);
     final table = placings(state);
     final champion = table.first;
-    final colour = colourOfArm(state.armOf(champion.seat));
+    final arms = state.board.arms;
+    final colour = colourOfArm(state.armOf(champion.seat), arms);
     final name =
-        nameOf?.call(champion.seat) ?? nameOfArm(state.armOf(champion.seat));
+        nameOf?.call(champion.seat) ??
+            nameOfArm(state.armOf(champion.seat), arms);
 
     return Stack(
       children: [
@@ -215,7 +217,7 @@ class _Row extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
     final arm = state.armOf(p.seat);
-    final colour = colourOfArm(arm);
+    final colour = colourOfArm(arm, state.board.arms);
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 5),
       child: Row(
@@ -245,7 +247,7 @@ class _Row extends StatelessWidget {
           const SizedBox(width: 9),
           Expanded(
             child: Text(
-              nameOfArm(arm),
+              nameOfArm(arm, state.board.arms),
               overflow: TextOverflow.ellipsis,
               style: const TextStyle(fontWeight: FontWeight.w600),
             ),

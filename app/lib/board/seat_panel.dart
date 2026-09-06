@@ -14,6 +14,7 @@ class SeatPanel extends StatelessWidget {
   const SeatPanel({
     super.key,
     required this.arm,
+    required this.arms,
     required this.name,
     required this.home,
     required this.total,
@@ -32,6 +33,10 @@ class SeatPanel extends StatelessWidget {
 
   /// The arm this seat plays from — which is what decides its colour.
   final int arm;
+
+  /// How many arms the board has. The two boards seat the colours differently,
+  /// so an arm number alone does not name a colour.
+  final int arms;
   final String name;
 
   /// Chips finished, out of [total].
@@ -75,11 +80,12 @@ class SeatPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
-    final colour = colourOfArm(arm);
+    final colour = colourOfArm(arm, arms);
     final die = RepaintBoundary(
       child: DieFace(
         value: dice,
         arm: arm,
+        arms: arms,
         size: compact ? 44 : 54,
         live: onTurn,
         // The die is the roll button. There is no second one anywhere else.
@@ -104,7 +110,7 @@ class SeatPanel extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _Avatar(arm: arm, compact: compact, robot: isComputer),
+          _Avatar(arm: arm, arms: arms, compact: compact, robot: isComputer),
           if (teamLetter != null) ...[
             SizedBox(width: compact ? 3 : 4),
             // The panel is where you look during a turn; the board is where
@@ -455,11 +461,13 @@ class _TeamBadge extends StatelessWidget {
 class _Avatar extends StatelessWidget {
   const _Avatar({
     required this.arm,
+    required this.arms,
     required this.compact,
     required this.robot,
   });
 
   final int arm;
+  final int arms;
   final bool compact;
   final bool robot;
 
@@ -468,7 +476,7 @@ class _Avatar extends StatelessWidget {
     final r = compact ? 12.0 : 14.0;
     return CircleAvatar(
       radius: r,
-      backgroundColor: colourOfArm(arm),
+      backgroundColor: colourOfArm(arm, arms),
       child: Icon(
         robot ? Icons.smart_toy : Icons.person,
         size: r * 1.05,

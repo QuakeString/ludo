@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math' as math;
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
@@ -28,6 +29,61 @@ Future<ui.Image> wholeBoard(GameState state, BoardGeometry geometry, int side) {
     ).paint(canvas, size);
   }
   return recorder.endRecording().toImage(side, side);
+}
+
+
+/// How many pixels near [centre] belong to each of the given seats.
+///
+/// Classified by nearest seat colour rather than by which channel leads. The
+/// old way — "red if the red channel is ahead of the others" — only works for
+/// colours that happen to be primaries, and stopped meaning anything the
+/// moment the boards were repainted and a seat could be yellow or magenta.
+Map<int, int> countSeats(
+  ByteData pixels,
+  int side,
+  Offset centre,
+  double cell,
+  GameState state,
+  List<int> seats,
+) {
+  final wanted = {
+    for (final seat in seats)
+      seat: colourOfArm(state.armOf(seat), state.board.arms),
+  };
+  final found = {for (final seat in seats) seat: 0};
+
+  for (var y = (centre.dy - cell * 1.6).round();
+      y < (centre.dy + cell * 1.6).round();
+      y++) {
+    for (var x = (centre.dx - cell * 1.6).round();
+        x < (centre.dx + cell * 1.6).round();
+        x++) {
+      if (x < 0 || y < 0 || x >= side || y >= side) continue;
+      final i = (y * side + x) * 4;
+      final r = pixels.getUint8(i);
+      final g = pixels.getUint8(i + 1);
+      final b = pixels.getUint8(i + 2);
+
+      var best = -1;
+      var bestGap = double.infinity;
+      for (final entry in wanted.entries) {
+        final c = entry.value;
+        final gap = math.sqrt(
+          math.pow(r - (c.r * 255), 2) +
+              math.pow(g - (c.g * 255), 2) +
+              math.pow(b - (c.b * 255), 2),
+        );
+        if (gap < bestGap) {
+          bestGap = gap;
+          best = entry.key;
+        }
+      }
+      // A chip is shaded, so no pixel of it is the flat seat colour — but it
+      // is far nearer its own colour than the board's white or anyone else's.
+      if (bestGap < 110) found[best] = found[best]! + 1;
+    }
+  }
+  return found;
 }
 
 void main() {
@@ -89,31 +145,12 @@ void main() {
 
     final cell = geometry.cellSize * side;
     final centre = Offset(layout[0]!.x * side, layout[0]!.y * side);
-    var reds = 0, blues = 0;
-    for (
-      var y = (centre.dy - cell * 1.6).round();
-      y < (centre.dy + cell * 1.6).round();
-      y++
-    ) {
-      for (
-        var x = (centre.dx - cell * 1.6).round();
-        x < (centre.dx + cell * 1.6).round();
-        x++
-      ) {
-        if (x < 0 || y < 0 || x >= side || y >= side) continue;
-        final i = (y * side + x) * 4;
-        final r = pixels.getUint8(i);
-        final g = pixels.getUint8(i + 1);
-        final b = pixels.getUint8(i + 2);
-        // Classified by which channel leads rather than by matching a colour:
-        // a chip is shaded, so no pixel of it is the flat seat colour.
-        if (r > b + 40 && r > g + 40) reds++;
-        if (b > r + 40 && b > g + 20) blues++;
-      }
-    }
+    final seen = countSeats(pixels, side, centre, cell, state, [0, 2]);
 
-    expect(reds, greaterThan(60), reason: 'no red chip on the shared square');
-    expect(blues, greaterThan(60), reason: 'the blue chip is hidden under it');
+    expect(seen[0], greaterThan(60),
+        reason: 'no chip of the first seat on the shared square');
+    expect(seen[2], greaterThan(60),
+        reason: 'the other seat is hidden underneath it');
 
     // Counting pixels says both are there; only an eye says they look right.
     final png = await (await wholeBoard(
@@ -156,7 +193,7 @@ void main() {
     File('build/board-previews/crowded-three.png')
         .writeAsBytesSync(png!.buffer.asUint8List());
 
-    // Red, green and blue must all reach the square.
+    // All three seats must reach the square.
     final (pixels, _) = await raster(
       BoardPainter(
         state: state,
@@ -169,30 +206,10 @@ void main() {
     );
     final cell = geometry.cellSize * side;
     final centre = Offset(layout[0]!.x * side, layout[0]!.y * side);
-    var reds = 0, greens = 0, blues = 0;
-    for (
-      var y = (centre.dy - cell * 2).round();
-      y < (centre.dy + cell * 2).round();
-      y++
-    ) {
-      for (
-        var x = (centre.dx - cell * 2).round();
-        x < (centre.dx + cell * 2).round();
-        x++
-      ) {
-        if (x < 0 || y < 0 || x >= side || y >= side) continue;
-        final i = (y * side + x) * 4;
-        final r = pixels.getUint8(i);
-        final g = pixels.getUint8(i + 1);
-        final b = pixels.getUint8(i + 2);
-        if (r > b + 40 && r > g + 40) reds++;
-        if (g > r + 30 && g > b + 30) greens++;
-        if (b > r + 40 && b > g + 20) blues++;
-      }
+    final seen = countSeats(pixels, side, centre, cell * 1.25, state, [0, 1, 2]);
+    for (final seat in [0, 1, 2]) {
+      expect(seen[seat], greaterThan(60), reason: 'seat $seat is buried');
     }
-    expect(reds, greaterThan(60), reason: 'red is buried');
-    expect(greens, greaterThan(60), reason: 'green is buried');
-    expect(blues, greaterThan(60), reason: 'blue is buried');
   });
 
   test('finished chips rest in their own wedge, not on each other', () {

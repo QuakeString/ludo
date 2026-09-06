@@ -20,6 +20,12 @@ int progressForRing(GameState s, int player, int ring) {
   return (ring - b.startRing(s.armOf(player)) + b.trackLength) % b.trackLength;
 }
 
+/// The progress a victim needs to be standing where seat 0 lands on
+/// [progress] — rather than on some absolute ring that only coincides with it
+/// while seat 0 happens to start the track at ring zero.
+int standingWhereSeatZeroLands(GameState s, int progress, int victim) =>
+    progressForRing(s, victim, s.board.ringIndex(s.armOf(0), progress)!);
+
 void main() {
   const classic = RuleConfig();
 
@@ -109,7 +115,7 @@ void main() {
   group('normal', () {
     test('takes a capture over a plain advance', () {
       var s = GameState.newGame(classic);
-      final victim = progressForRing(s, 1, 3);
+      final victim = standingWhereSeatZeroLands(s, 3, 1);
       s = situation(classic, at: {0: 2, 1: 30, 4: victim}, dice: 1);
       final move = const LudoAi(level: AiLevel.normal).chooseMove(s)!;
       expect(move.isCapture, isTrue);
@@ -119,7 +125,7 @@ void main() {
   group('hard', () {
     test('takes an available capture', () {
       var s = GameState.newGame(classic);
-      final victim = progressForRing(s, 1, 3);
+      final victim = standingWhereSeatZeroLands(s, 3, 1);
       s = situation(classic, at: {0: 2, 1: 30, 4: victim}, dice: 1);
       final move = const LudoAi(level: AiLevel.hard, depth: 2).chooseMove(s)!;
       expect(move.isCapture, isTrue);

@@ -304,8 +304,12 @@ void animationTests() {
       () {
         var s = GameState.newGame(const RuleConfig());
         final b = s.board;
+        // Where seat 0 lands after its move, not ring 3 — the two are the
+        // same square only while seat 0 starts the track at ring zero.
+        final landing = b.ringIndex(s.armOf(0), 3)!;
         final victim =
-            (3 - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
+            (landing - b.startRing(s.armOf(1)) + b.trackLength) %
+            b.trackLength;
         final tokens = [...s.tokens];
         tokens[0] = tokens[0].copyWith(progress: 2);
         tokens[4] = tokens[4].copyWith(progress: victim);
@@ -352,8 +356,11 @@ void animationTests() {
     test('a captured chip goes back at one steady speed', () {
       var s = GameState.newGame(const RuleConfig());
       final b = s.board;
+      // Where seat 0 lands after its move, not ring 3 — the two are the same
+      // square only while seat 0 starts the track at ring zero.
+      final landing = b.ringIndex(s.armOf(0), 3)!;
       final victim =
-          (3 - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
+          (landing - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
       final tokens = [...s.tokens];
       tokens[0] = tokens[0].copyWith(progress: 2);
       tokens[4] = tokens[4].copyWith(progress: victim);

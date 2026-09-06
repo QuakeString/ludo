@@ -1,36 +1,78 @@
 import 'package:flutter/material.dart';
 
-/// The six seat colours, in seat order.
+/// The six colours a table can be painted in.
 ///
-/// Chosen so no two neighbours on the board are confusable and all six stay
-/// distinct for red–green colour deficiency — seat position and the chip's
-/// white rim carry the difference, never hue alone.
+/// Chosen so no two are confusable and all six stay distinct for red–green
+/// colour deficiency — position and the chip's white rim carry the difference,
+/// never hue alone. This is the palette, not the layout: which colour sits in
+/// which corner is [colourOfArm]'s business, and differs between the boards.
+const ludoRed = Color(0xFFE14B4B);
+const ludoGreen = Color(0xFF3FA35C);
+const ludoBlue = Color(0xFF3B72D9);
+const ludoYellow = Color(0xFFE3B23C);
+const ludoOrange = Color(0xFFEF8022);
+const ludoMagenta = Color(0xFFCE3D93);
+
 const seatColors = <Color>[
-  Color(0xFFE14B4B), // red
-  Color(0xFF3FA35C), // green
-  Color(0xFF3B72D9), // blue
-  Color(0xFFE3B23C), // yellow
-  Color(0xFF7E57C2), // purple
-  Color(0xFFEF8022), // orange
+  ludoRed,
+  ludoGreen,
+  ludoBlue,
+  ludoYellow,
+  ludoMagenta,
+  ludoOrange,
 ];
 
-const seatNames = <String>[
+/// Parallel to [seatColors] — a map keyed by Color cannot be const.
+const _names = <String>[
   'Red',
   'Green',
   'Blue',
   'Yellow',
-  'Purple',
+  'Magenta',
   'Orange',
 ];
 
-/// The colour and name of a *place* on the board.
+/// Where each colour sits on the four-arm board, by arm: top-left, top-right,
+/// bottom-right, bottom-left.
+///
+/// Opposite arms are 0–2 and 1–3, so this seats green against blue and yellow
+/// against red.
+const _crossArms = <Color>[ludoGreen, ludoYellow, ludoBlue, ludoRed];
+
+/// And on the six-arm board, going round from the top-right.
+///
+/// Opposite arms here are 0–3, 1–4 and 2–5, which is why this list is not the
+/// four-arm one with two colours added: a single order cannot give both boards
+/// the pairs they want. On four arms red faces yellow and green faces blue; on
+/// six, red faces yellow, blue faces green and orange faces magenta. Those
+/// demand different arrangements, and pretending otherwise would break one
+/// board to keep one list.
+const _hexArms = <Color>[
+  ludoYellow, // top-right
+  ludoOrange, // right
+  ludoBlue, // bottom-right
+  ludoRed, // bottom-left
+  ludoMagenta, // left
+  ludoGreen, // top-left
+];
+
+/// The colour of a *place* on the board.
 ///
 /// A Ludo board has its colours painted on before anyone sits down; a player
 /// takes the colour of the corner they play from. Keying off the seat index
 /// instead meant an unoccupied corner had no colour of its own — which is
 /// exactly the corner that needs one, because the board still has to show it.
-Color colourOfArm(int arm) => seatColors[arm % seatColors.length];
-String nameOfArm(int arm) => seatNames[arm % seatNames.length];
+///
+/// [arms] is required rather than defaulted because the two boards genuinely
+/// disagree, and a default would let a six-arm board quietly wear the
+/// four-arm colours.
+Color colourOfArm(int arm, int arms) {
+  final places = arms == 6 ? _hexArms : _crossArms;
+  return places[arm % places.length];
+}
+
+String nameOfArm(int arm, int arms) =>
+    _names[seatColors.indexOf(colourOfArm(arm, arms))];
 
 /// Everything the board painter needs to draw in one theme.
 ///
@@ -117,7 +159,7 @@ class BoardPalette {
 ThemeData buildTheme(Brightness brightness) {
   final dark = brightness == Brightness.dark;
   final scheme = ColorScheme.fromSeed(
-    seedColor: seatColors[2],
+    seedColor: ludoBlue,
     brightness: brightness,
   ).copyWith(surface: dark ? const Color(0xFF161920) : const Color(0xFFF7F3EC));
   return ThemeData(

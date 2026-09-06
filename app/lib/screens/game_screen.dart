@@ -630,7 +630,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // people say out loud — "green is winning", never "the normal computer is
     // winning". The robot on its avatar is what marks it as not a person, and
     // it costs no width, which matters when six panels share a phone.
-    return nameOfArm(_state.armOf(seat));
+    return nameOfArm(_state.armOf(seat), _state.board.arms);
   }
 
   /// How tall a seat rail is, including its padding.
@@ -704,6 +704,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
     return SeatPanel(
       arm: _state.armOf(seat),
+      arms: _state.board.arms,
       name: _nameOf(seat),
       isComputer:
           widget.aiSeats.containsKey(seat) ||
@@ -795,7 +796,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             top: origin.dy + layout[id]!.y * side - diameter / 2,
             child: TurningRing(
               diameter: diameter,
-              colour: colourOfArm(_state.armOf(_state.tokens[id].owner)),
+              colour: colourOfArm(
+                _state.armOf(_state.tokens[id].owner),
+                _state.board.arms,
+              ),
               turns: _spin,
             ),
           ),
@@ -956,6 +960,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                               arm: _state.armOf(glowSeat),
                                               colour: colourOfArm(
                                                 _state.armOf(glowSeat),
+                                                _state.board.arms,
                                               ),
                                               side: side,
                                               beat: _spin,
@@ -1045,7 +1050,7 @@ class _TurnBar extends StatelessWidget {
       if (name != null && name.isNotEmpty) return name;
     }
     if (aiSeats.containsKey(seat)) return 'Computer (${aiSeats[seat]!.name})';
-    return nameOfArm(state.armOf(seat));
+    return nameOfArm(state.armOf(seat), state.board.arms);
   }
 
   @override
@@ -1070,7 +1075,7 @@ class _TurnBar extends StatelessWidget {
             width: 13,
             height: 13,
             decoration: BoxDecoration(
-              color: colourOfArm(state.armOf(seat)),
+              color: colourOfArm(state.armOf(seat), state.board.arms),
               shape: BoxShape.circle,
             ),
           ),

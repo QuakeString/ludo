@@ -241,7 +241,8 @@ class _Table extends StatelessWidget {
             palette: palette,
             sides: sides,
             robot: aiSeats.containsKey(seat),
-            name: nameOf?.call(seat) ?? nameOfArm(state.armOf(seat)),
+            name: nameOf?.call(seat) ??
+                nameOfArm(state.armOf(seat), state.board.arms),
           ),
         const Divider(height: 18),
         // The column totals, which are the row the argument is usually about:
@@ -323,7 +324,7 @@ class _SeatRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colour = colourOfArm(state.armOf(seat));
+    final colour = colourOfArm(state.armOf(seat), state.board.arms);
     final stats = state.stats;
     final throws = stats.throwsBy(seat);
 

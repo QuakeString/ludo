@@ -24,6 +24,7 @@ class DieFace extends StatefulWidget {
     super.key,
     required this.value,
     required this.arm,
+    required this.arms,
     this.size = 42,
     this.live = false,
     this.onTap,
@@ -35,6 +36,10 @@ class DieFace extends StatefulWidget {
 
   /// The board position this die belongs to.
   final int arm;
+
+  /// How many arms the board has — the two boards seat the colours
+  /// differently, so an arm number alone does not name one.
+  final int arms;
   final double size;
 
   /// Whether this seat is the one on turn.
@@ -132,7 +137,7 @@ class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
             size: Size.square(widget.size),
             painter: _CubePainter(
               value: _showing,
-              colour: colourOfArm(widget.arm),
+              colour: colourOfArm(widget.arm, widget.arms),
               face: palette.die,
               pip: palette.pip,
               t: _roll.value,

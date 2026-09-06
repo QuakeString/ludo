@@ -73,6 +73,14 @@ class BoardSpec {
 
   /// Seats are spread as evenly as the arms allow, so two players sit opposite
   /// each other rather than side by side.
+  /// The corner the first seat plays from: bottom-left, on both boards.
+  ///
+  /// Where a person expects to be sitting. Seats are dealt round the board
+  /// from here, so a game against the computer puts you bottom-left and a game
+  /// of two seats the pair of you diagonally opposite — which on both boards
+  /// is red against yellow.
+  int get firstSeatArm => 3;
+
   List<int> seatArms(int playerCount) {
     if (playerCount < 2 || playerCount > arms) {
       throw ArgumentError(
@@ -81,7 +89,7 @@ class BoardSpec {
     final used = <int>{};
     final out = <int>[];
     for (var i = 0; i < playerCount; i++) {
-      var arm = ((i * arms) / playerCount).round() % arms;
+      var arm = (firstSeatArm + ((i * arms) / playerCount).round()) % arms;
       while (!used.add(arm)) {
         arm = (arm + 1) % arms;
       }

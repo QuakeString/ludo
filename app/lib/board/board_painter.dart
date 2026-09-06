@@ -115,7 +115,7 @@ class BoardPainter extends CustomPainter {
     for (final entry in motions.entries) {
       final token = state.tokens[entry.key];
       final m = entry.value;
-      final colour = colourOfArm(state.armOf(token.owner));
+      final colour = colourOfArm(state.armOf(token.owner), spec.arms);
 
       // The streak the chip leaves behind it, in its own colour, thinning and
       // fading with age. Drawn oldest first and under the chip, so it reads as
@@ -283,7 +283,7 @@ class BoardPainter extends CustomPainter {
       // around them were coloured.
       canvas.drawPath(
         Path()..addPolygon([px(tri.a), px(tri.b), px(tri.c)], true),
-        Paint()..color = colourOfArm(arm).withValues(alpha: 0.9),
+        Paint()..color = colourOfArm(arm, spec.arms).withValues(alpha: 0.9),
       );
     }
   }
@@ -526,7 +526,7 @@ class BoardPainter extends CustomPainter {
   /// The colour an arm wears — its own, whether or not anybody is sitting
   /// there. An empty corner of a Ludo board is still a coloured corner; what
   /// marks it empty is that no chips are standing in it.
-  Color _armColour(int arm) => colourOfArm(arm);
+  Color _armColour(int arm) => colourOfArm(arm, spec.arms);
 
   // --- chips ---------------------------------------------------------------
 
@@ -639,7 +639,7 @@ class BoardPainter extends CustomPainter {
   }) {
     // The ring is drawn by _paintLegalRings, between the board and the chips,
     // because it turns and this layer is recorded once and replayed.
-    final colour = colourOfArm(state.armOf(token.owner));
+    final colour = colourOfArm(state.armOf(token.owner), spec.arms);
     ChipArt.paint(
       canvas,
       ground,

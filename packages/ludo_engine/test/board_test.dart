@@ -24,8 +24,13 @@ void main() {
     });
 
     test('two players sit opposite each other, four fill every arm', () {
-      expect(BoardSpec.cross.seatArms(2), [0, 2]);
-      expect(BoardSpec.cross.seatArms(4), [0, 1, 2, 3]);
+      // Dealt from the bottom-left corner, which is where a person expects
+      // to be sitting — so two seats come out diagonally opposite and four
+      // fill the board going round from there.
+      expect(BoardSpec.cross.seatArms(2), [3, 1]);
+      expect(BoardSpec.cross.seatArms(4), [3, 0, 1, 2]);
+      expect(BoardSpec.cross.seatArms(2).first, BoardSpec.cross.firstSeatArm);
+      expect(BoardSpec.hexagon.seatArms(6).first, BoardSpec.hexagon.firstSeatArm);
     });
 
     test('six players fill the hexagon and never share an arm', () {
