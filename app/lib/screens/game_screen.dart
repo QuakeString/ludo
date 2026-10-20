@@ -15,6 +15,7 @@ import '../board/sounds.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
 import '../fresh_seed.dart';
+import '../saved_game.dart';
 import 'game_over.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
@@ -32,7 +33,17 @@ class GameScreen extends StatefulWidget {
     this.seed = 1,
     this.aiSeats = const {},
     this.session,
+    this.resumeFrom,
   });
+
+  /// Picks a saved local game up where it was left.
+  GameScreen.resumed(SavedGame saved, {Key? key})
+    : this(
+        key: key,
+        rules: saved.state.rules,
+        aiSeats: saved.aiSeats,
+        resumeFrom: saved,
+      );
 
   final RuleConfig rules;
   final int seed;
@@ -44,6 +55,9 @@ class GameScreen extends StatefulWidget {
   /// the game and becomes a view of one: taps turn into intents sent to the
   /// server, and the position only ever changes because the server said so.
   final OnlineSession? session;
+
+  /// Set to carry on a local game instead of dealing a new one.
+  final SavedGame? resumeFrom;
 
   @override
   State<GameScreen> createState() => _GameScreenState();
@@ -129,12 +143,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// So the rules count throws and moves, and the screen counts minutes.
   final Stopwatch _clock = Stopwatch();
 
+  /// Time spent at this table before it was last opened — a resumed game's
+  /// clock carries on from where it stopped rather than starting again.
+  Duration _clockBefore = Duration.zero;
+  Duration get _elapsed => _clockBefore + _clock.elapsed;
+
   @override
   void initState() {
     super.initState();
     final session = _session;
+    final saved = session == null ? widget.resumeFrom : null;
     _state =
-        session?.state ?? GameState.newGame(widget.rules, seed: widget.seed);
+        session?.state ??
+        saved?.state ??
+        GameState.newGame(widget.rules, seed: widget.seed);
+    _clockBefore = saved?.elapsed ?? Duration.zero;
     _geometry = BoardGeometry.forSpec(_state.board);
     _clock.start();
     _spin = AnimationController(
@@ -149,7 +172,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (session != null) {
       _matchSub = session.matches.listen(_serverSaid);
       session.addListener(_sessionChanged);
+    } else if (saved != null) {
+      // Saved games can stop between a roll and its move. Pick the turn up
+      // exactly where it was: a roll with nothing to choose plays itself,
+      // and a computer on turn carries on.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && !_autoAdvance()) _maybeTakeComputerTurn();
+      });
     } else {
+      // A new table replaces whatever game was saved before it, at once
+      // rather than on the first roll, so the front page never offers back
+      // a game this one has already taken the place of.
+      _autosave();
       _maybeTakeComputerTurn();
     }
   }
@@ -189,8 +223,26 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _state = engine.apply(_state, action);
         _flash = null;
       });
+      _autosave();
     } on IllegalActionError catch (e) {
       setState(() => _flash = e.message);
+    }
+  }
+
+  /// Writes a local game down so it survives the app closing.
+  ///
+  /// Called after every change to the position, never during one: a move
+  /// that is still walking is saved as the roll before it, so a game killed
+  /// mid-walk comes back asking for the same choice again. A finished game is
+  /// not kept, since there is nothing left in it to continue.
+  void _autosave() {
+    if (_online) return;
+    if (_state.isOver) {
+      SavedGameStore.clear();
+    } else {
+      SavedGameStore.save(
+        SavedGame(state: _state, aiSeats: widget.aiSeats, elapsed: _elapsed),
+      );
     }
   }
 
@@ -389,6 +441,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _playing = null;
       _state = engine.apply(_state, PlayMove(animation.move));
     });
+    _autosave();
     if (_state.isOver) return;
     if (_autoAdvance()) return;
     _maybeTakeComputerTurn();
@@ -408,9 +461,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _flash = null;
       _celebrated = false;
     });
+    _clockBefore = Duration.zero;
     _clock
       ..reset()
       ..start();
+    _autosave();
     _maybeTakeComputerTurn();
   }
 
@@ -1013,7 +1068,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 state: _state,
                 aiSeats: widget.aiSeats,
                 nameOf: _nameOf,
-                elapsed: _clock.elapsed,
+                elapsed: _elapsed,
                 // Online a rematch is the room's business, not this device's.
                 onPlayAgain: session == null ? _startFreshGame : null,
                 onLeave: () => Navigator.of(context).maybePop(),
