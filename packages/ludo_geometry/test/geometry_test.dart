@@ -21,8 +21,11 @@ void main() {
     final g = CrossGeometry(BoardSpec.cross);
 
     test('the track is a closed loop of touching squares', () {
-      expect(worstStep(g), lessThan(1.45),
-          reason: 'consecutive squares must touch, edge-on or corner-on');
+      expect(
+        worstStep(g),
+        lessThan(1.45),
+        reason: 'consecutive squares must touch, edge-on or corner-on',
+      );
     });
 
     test('every ring square is distinct', () {
@@ -40,53 +43,70 @@ void main() {
         final nearest = slots
             .map((s) => (s - start).length / g.cellSize)
             .reduce((a, b) => a < b ? a : b);
-        expect(nearest, lessThan(4.0),
-            reason: 'arm $arm starts far from its own yard');
+        expect(
+          nearest,
+          lessThan(4.0),
+          reason: 'arm $arm starts far from its own yard',
+        );
       }
     });
 
-    test('a seat turns into its home column from the square before its start',
-        () {
-      const b = BoardSpec.cross;
-      for (var arm = 0; arm < 4; arm++) {
-        final turnIn = g.turnInCell(arm).centre;
-        final firstHome = g.homeCell(arm, 0).centre;
-        expect((firstHome - turnIn).length / g.cellSize, lessThan(1.45),
-            reason: 'arm $arm cannot reach its home column');
-        // And that turn-in square is where progress trackLength-2 lands.
-        final lastRing =
-            g.ringCell(b.ringIndex(arm, b.trackLength - 2)!).centre;
-        expect(lastRing, turnIn);
-      }
-    });
+    test(
+      'a seat turns into its home column from the square before its start',
+      () {
+        const b = BoardSpec.cross;
+        for (var arm = 0; arm < 4; arm++) {
+          final turnIn = g.turnInCell(arm).centre;
+          final firstHome = g.homeCell(arm, 0).centre;
+          expect(
+            (firstHome - turnIn).length / g.cellSize,
+            lessThan(1.45),
+            reason: 'arm $arm cannot reach its home column',
+          );
+          // And that turn-in square is where progress trackLength-2 lands.
+          final lastRing = g
+              .ringCell(b.ringIndex(arm, b.trackLength - 2)!)
+              .centre;
+          expect(lastRing, turnIn);
+        }
+      },
+    );
 
     test('home columns are five squares marching inward to the centre', () {
       for (var arm = 0; arm < 4; arm++) {
         var previous = g.turnInCell(arm).centre;
         for (var i = 0; i < BoardSpec.cross.homeColumn; i++) {
           final cell = g.homeCell(arm, i).centre;
-          expect((cell - previous).length / g.cellSize, closeTo(1.0, 0.01),
-              reason: 'arm $arm home square $i is not adjacent to the last');
+          expect(
+            (cell - previous).length / g.cellSize,
+            closeTo(1.0, 0.01),
+            reason: 'arm $arm home square $i is not adjacent to the last',
+          );
           previous = cell;
         }
         // The last home square sits right against the centre triangle, which
         // is three squares wide — so its centre is two squares out.
-        expect((previous - const Pt(0.5, 0.5)).length / g.cellSize,
-            closeTo(2.0, 0.05),
-            reason: 'arm $arm home column does not end at the centre');
+        expect(
+          (previous - const Pt(0.5, 0.5)).length / g.cellSize,
+          closeTo(2.0, 0.05),
+          reason: 'arm $arm home column does not end at the centre',
+        );
       }
     });
 
     test('home columns never touch the shared ring', () {
       final ring = {
         for (var i = 0; i < BoardSpec.cross.trackLength; i++)
-          '${g.ringCell(i).centre.x},${g.ringCell(i).centre.y}'
+          '${g.ringCell(i).centre.x},${g.ringCell(i).centre.y}',
       };
       for (var arm = 0; arm < 4; arm++) {
         for (var i = 0; i < BoardSpec.cross.homeColumn; i++) {
           final c = g.homeCell(arm, i).centre;
-          expect(ring.contains('${c.x},${c.y}'), isFalse,
-              reason: 'arm $arm home square $i sits on the ring');
+          expect(
+            ring.contains('${c.x},${c.y}'),
+            isFalse,
+            reason: 'arm $arm home square $i sits on the ring',
+          );
         }
       }
     });
@@ -111,14 +131,17 @@ void main() {
       const b = BoardSpec.cross;
       expect(g.tokenAt(0, -1), g.yardSlots(0).first);
       expect(g.tokenAt(0, 0), g.ringCell(b.startRing(0)).centre);
-      expect(g.tokenAt(0, b.finalProgress), isNot(const Pt(0.5, 0.5)),
-          reason: 'a finished chip rests in its own wedge, not the middle');
+      expect(
+        g.tokenAt(0, b.finalProgress),
+        isNot(const Pt(0.5, 0.5)),
+        reason: 'a finished chip rests in its own wedge, not the middle',
+      );
     });
 
     test('each seat finishes in its own wedge of the centre', () {
       const b = BoardSpec.cross;
       final rests = [
-        for (var arm = 0; arm < 4; arm++) g.tokenAt(arm, b.finalProgress)
+        for (var arm = 0; arm < 4; arm++) g.tokenAt(arm, b.finalProgress),
       ];
 
       // Four seats, four distinct resting places — chips that are home must
@@ -127,8 +150,11 @@ void main() {
 
       for (var arm = 0; arm < 4; arm++) {
         final wedge = g.centreWedges()[arm];
-        expect(_inside(wedge, rests[arm]), isTrue,
-            reason: 'arm $arm rests outside its own wedge');
+        expect(
+          _inside(wedge, rests[arm]),
+          isTrue,
+          reason: 'arm $arm rests outside its own wedge',
+        );
         // And near the middle of the board, not out on the track.
         expect((rests[arm] - const Pt(0.5, 0.5)).length, lessThan(0.12));
       }
@@ -145,8 +171,11 @@ void main() {
     final g = HexGeometry(BoardSpec.hexagon);
 
     test('the track is a closed loop of touching squares', () {
-      expect(worstStep(g), lessThan(1.45),
-          reason: 'consecutive squares must touch, edge-on or corner-on');
+      expect(
+        worstStep(g),
+        lessThan(1.45),
+        reason: 'consecutive squares must touch, edge-on or corner-on',
+      );
     });
 
     test('every ring square is distinct', () {
@@ -165,8 +194,11 @@ void main() {
             .yardSlots(arm)
             .map((s) => (s - start).length / g.cellSize)
             .reduce((a, b) => a < b ? a : b);
-        expect(nearest, lessThan(4.0),
-            reason: 'arm $arm starts far from its own yard');
+        expect(
+          nearest,
+          lessThan(4.0),
+          reason: 'arm $arm starts far from its own yard',
+        );
       }
     });
 
@@ -175,8 +207,11 @@ void main() {
         var previous = g.turnInCell(arm).centre;
         for (var i = 0; i < BoardSpec.hexagon.homeColumn; i++) {
           final cell = g.homeCell(arm, i).centre;
-          expect((cell - previous).length / g.cellSize, closeTo(1.0, 0.02),
-              reason: 'arm $arm home square $i is not adjacent to the last');
+          expect(
+            (cell - previous).length / g.cellSize,
+            closeTo(1.0, 0.02),
+            reason: 'arm $arm home square $i is not adjacent to the last',
+          );
           previous = cell;
         }
       }
@@ -189,8 +224,11 @@ void main() {
         final nearest = corners
             .map((c) => (c - apex).length / g.cellSize)
             .reduce((a, b) => a < b ? a : b);
-        expect(nearest, lessThan(0.05),
-            reason: 'arm $arm apex does not land on a corner of the centre');
+        expect(
+          nearest,
+          lessThan(0.05),
+          reason: 'arm $arm apex does not land on a corner of the centre',
+        );
       }
     });
 
@@ -204,8 +242,11 @@ void main() {
           final nearest = plate
               .map((c) => (c - corner).length / g.cellSize)
               .reduce((a, b) => a < b ? a : b);
-          expect(nearest, lessThan(0.001),
-              reason: 'arm $arm does not reach the plate edge');
+          expect(
+            nearest,
+            lessThan(0.001),
+            reason: 'arm $arm does not reach the plate edge',
+          );
         }
         expect(tri.b, isNot(tri.c));
       }
@@ -215,8 +256,11 @@ void main() {
       for (var arm = 0; arm < 6; arm++) {
         final tri = g.yardShape(arm);
         for (var i = 0; i < BoardSpec.hexagon.trackLength; i++) {
-          expect(_inside(tri, g.ringCell(i).centre), isFalse,
-              reason: 'arm $arm home base swallows track square $i');
+          expect(
+            _inside(tri, g.ringCell(i).centre),
+            isFalse,
+            reason: 'arm $arm home base swallows track square $i',
+          );
         }
       }
     });
@@ -225,8 +269,11 @@ void main() {
       for (var arm = 0; arm < 6; arm++) {
         final tri = g.yardShape(arm);
         for (final slot in g.yardSlots(arm)) {
-          expect(_inside(tri, slot), isTrue,
-              reason: 'arm $arm has a resting place outside its own house');
+          expect(
+            _inside(tri, slot),
+            isTrue,
+            reason: 'arm $arm has a resting place outside its own house',
+          );
         }
       }
     });
@@ -240,24 +287,32 @@ void main() {
         final sides = _sides(g.yardShape(arm), g);
         final longest = sides.reduce((a, b) => a > b ? a : b);
         final shortest = sides.reduce((a, b) => a < b ? a : b);
-        expect(longest - shortest, lessThan(0.1),
-            reason: 'arm $arm is not equilateral: $sides');
+        expect(
+          longest - shortest,
+          lessThan(0.1),
+          reason: 'arm $arm is not equilateral: $sides',
+        );
       }
     });
 
     test('chips in a house stand in the shape of the house', () {
       for (var arm = 0; arm < 6; arm++) {
         final tri = g.yardShape(arm);
-        final centroid = Pt((tri.a.x + tri.b.x + tri.c.x) / 3,
-            (tri.a.y + tri.b.y + tri.c.y) / 3);
+        final centroid = Pt(
+          (tri.a.x + tri.b.x + tri.c.x) / 3,
+          (tri.a.y + tri.b.y + tri.c.y) / 3,
+        );
 
         for (var count = 1; count <= 4; count++) {
           final slots = g.yardSlots(arm, count: count);
           expect(slots, hasLength(count), reason: '$count chips, $arm');
           expect(slots.toSet(), hasLength(count), reason: 'two chips overlap');
           for (final s in slots) {
-            expect(_inside(tri, s), isTrue,
-                reason: '$count chips: one stands outside its house');
+            expect(
+              _inside(tri, s),
+              isTrue,
+              reason: '$count chips: one stands outside its house',
+            );
           }
         }
 
@@ -270,23 +325,31 @@ void main() {
           gap(three[1], three[2]),
           gap(three[2], three[0]),
         ];
-        expect(sides.reduce((a, b) => a > b ? a : b) -
-                sides.reduce((a, b) => a < b ? a : b),
-            lessThan(0.1),
-            reason: 'the three do not make an equilateral triangle');
+        expect(
+          sides.reduce((a, b) => a > b ? a : b) -
+              sides.reduce((a, b) => a < b ? a : b),
+          lessThan(0.1),
+          reason: 'the three do not make an equilateral triangle',
+        );
         // Far enough out to read as a triangle, near enough to leave a band
         // of house around them. Both ends have been wrong: at half way out
         // the chips looked flung into the corners.
         for (final s in three) {
-          expect(gap(s, centroid), inInclusiveRange(30, 45),
-              reason: 'the chip triangle is either huddled or flung wide');
+          expect(
+            gap(s, centroid),
+            inInclusiveRange(30, 45),
+            reason: 'the chip triangle is either huddled or flung wide',
+          );
         }
 
         // Four are those three plus one in the middle.
         final four = g.yardSlots(arm, count: 4);
         expect(four.take(3), three);
-        expect(gap(four.last, centroid), lessThan(0.1),
-            reason: 'the fourth chip is not in the middle');
+        expect(
+          gap(four.last, centroid),
+          lessThan(0.1),
+          reason: 'the fourth chip is not in the middle',
+        );
 
         // Two stand side by side: mirrored across the house's axis, so their
         // midpoint lands on it, and near enough to read as a pair. Not on the
@@ -298,10 +361,16 @@ void main() {
         final mid = Pt((two[0].x + two[1].x) / 2, (two[0].y + two[1].y) / 2);
         final apex = tri.a;
         final baseMid = Pt((tri.b.x + tri.c.x) / 2, (tri.b.y + tri.c.y) / 2);
-        expect(gap(apex, mid) + gap(mid, baseMid), closeTo(gap(apex, baseMid), 0.5),
-            reason: 'the pair is not centred across the house');
-        expect(gap(two[0], two[1]), closeTo(52, 1),
-            reason: 'the pair is not side by side');
+        expect(
+          gap(apex, mid) + gap(mid, baseMid),
+          closeTo(gap(apex, baseMid), 0.5),
+          reason: 'the pair is not centred across the house',
+        );
+        expect(
+          gap(two[0], two[1]),
+          closeTo(52, 1),
+          reason: 'the pair is not side by side',
+        );
       }
     });
 
@@ -354,7 +423,11 @@ void main() {
       expect(ys.first, closeTo(0, 0.002), reason: 'a gap above the board');
       expect(ys.last, closeTo(1, 0.002), reason: 'a gap below the board');
       expect(xs.first, lessThan(0.03), reason: 'too much margin at the left');
-      expect(xs.last, greaterThan(0.97), reason: 'too much margin at the right');
+      expect(
+        xs.last,
+        greaterThan(0.97),
+        reason: 'too much margin at the right',
+      );
     });
   });
 }
@@ -371,7 +444,7 @@ bool _inside(Tri t, Pt p) {
 
 /// The length of a triangle's three sides, in board units of the given board.
 List<double> _sides(Tri t, BoardGeometry g) => [
-      (t.b - t.a).length / g.cellSize * 30,
-      (t.c - t.b).length / g.cellSize * 30,
-      (t.a - t.c).length / g.cellSize * 30,
-    ];
+  (t.b - t.a).length / g.cellSize * 30,
+  (t.c - t.b).length / g.cellSize * 30,
+  (t.a - t.c).length / g.cellSize * 30,
+];

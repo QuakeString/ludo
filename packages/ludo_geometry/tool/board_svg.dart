@@ -35,40 +35,46 @@ List<Pt> cellCorners(CellShape c) {
   final cos = math.cos(c.rotation), sin = math.sin(c.rotation);
   return [
     for (final (dx, dy) in [(-h, -h), (h, -h), (h, h), (-h, h)])
-      Pt(c.centre.x + dx * cos - dy * sin, c.centre.y + dx * sin + dy * cos)
+      Pt(c.centre.x + dx * cos - dy * sin, c.centre.y + dx * sin + dy * cos),
   ];
 }
 
 String polygon(List<Pt> pts, String attrs, double u) =>
     '<polygon points="${pts.map((p) => '${f(p.x * u)},${f(p.y * u)}').join(' ')}" $attrs/>';
 
-String svgFor(BoardSpec spec,
-    {required bool guides, bool measure = false}) {
+String svgFor(BoardSpec spec, {required bool guides, bool measure = false}) {
   final g = BoardGeometry.forSpec(spec);
   final u = unitOf(g);
   final out = StringBuffer();
 
-  out.writeln('<svg xmlns="http://www.w3.org/2000/svg" '
-      'viewBox="0 0 ${f(u)} ${f(u)}" width="900" height="900">');
+  out.writeln(
+    '<svg xmlns="http://www.w3.org/2000/svg" '
+    'viewBox="0 0 ${f(u)} ${f(u)}" width="900" height="900">',
+  );
   out.writeln('<rect width="${f(u)}" height="${f(u)}" fill="#F2EFE7"/>');
 
   // --- the plate ----------------------------------------------------------
   out.writeln('<g id="plate">');
-  out.writeln(polygon(g.plateOutline(),
-      'fill="#FBFAF6" stroke="#CFCABA" stroke-width="1.5"', u));
+  out.writeln(
+    polygon(
+      g.plateOutline(),
+      'fill="#FBFAF6" stroke="#CFCABA" stroke-width="1.5"',
+      u,
+    ),
+  );
   out.writeln('</g>');
 
   // --- the shared track ---------------------------------------------------
   // Start squares wear their owner's colour; the rest are plain.
-  final starts = {
-    for (var a = 0; a < spec.arms; a++) spec.startRing(a): a,
-  };
+  final starts = {for (var a = 0; a < spec.arms; a++) spec.startRing(a): a};
   out.writeln('<g id="track" stroke="#D8D3C6" stroke-width="1">');
   for (var i = 0; i < spec.trackLength; i++) {
     final owner = starts[i];
     final fill = owner == null ? '#FFFFFF' : seatColours[owner % 6];
-    out.writeln('  ${polygon(cellCorners(g.ringCell(i)), 'fill="$fill"'
-        '${owner == null ? '' : ' id="start-$owner"'}', u)}');
+    out.writeln(
+      '  ${polygon(cellCorners(g.ringCell(i)), 'fill="$fill"'
+      '${owner == null ? '' : ' id="start-$owner"'}', u)}',
+    );
   }
   out.writeln('</g>');
 
@@ -77,8 +83,9 @@ String svgFor(BoardSpec spec,
   for (var arm = 0; arm < spec.arms; arm++) {
     out.writeln('  <g id="home-column-$arm">');
     for (var i = 0; i < spec.homeColumn; i++) {
-      out.writeln('    ${polygon(cellCorners(g.homeCell(arm, i)),
-          'fill="${seatColours[arm % 6]}"', u)}');
+      out.writeln(
+        '    ${polygon(cellCorners(g.homeCell(arm, i)), 'fill="${seatColours[arm % 6]}"', u)}',
+      );
     }
     out.writeln('  </g>');
   }
@@ -94,10 +101,14 @@ String svgFor(BoardSpec spec,
       final (tl, br) = g.yardSquare(arm);
       final w = (br.x - tl.x) * u, h = (br.y - tl.y) * u;
       out.writeln('  <g id="house-$arm">');
-      out.writeln('    <rect x="${f(tl.x * u)}" y="${f(tl.y * u)}" '
-          'width="${f(w)}" height="${f(h)}" fill="$colour"/>');
-      out.writeln('    <rect x="${f(tl.x * u + 30)}" y="${f(tl.y * u + 30)}" '
-          'width="${f(w - 60)}" height="${f(h - 60)}" fill="#FBFAF6"/>');
+      out.writeln(
+        '    <rect x="${f(tl.x * u)}" y="${f(tl.y * u)}" '
+        'width="${f(w)}" height="${f(h)}" fill="$colour"/>',
+      );
+      out.writeln(
+        '    <rect x="${f(tl.x * u + 30)}" y="${f(tl.y * u + 30)}" '
+        'width="${f(w - 60)}" height="${f(h - 60)}" fill="#FBFAF6"/>',
+      );
       out.writeln('  </g>');
     } else {
       final t = g.yardShape(arm);
@@ -105,8 +116,7 @@ String svgFor(BoardSpec spec,
       final cx = pts.map((p) => p.x).reduce((a, b) => a + b) / 3;
       final cy = pts.map((p) => p.y).reduce((a, b) => a + b) / 3;
       final inner = [
-        for (final p in pts)
-          Pt(cx + (p.x - cx) * 0.80, cy + (p.y - cy) * 0.80)
+        for (final p in pts) Pt(cx + (p.x - cx) * 0.80, cy + (p.y - cy) * 0.80),
       ];
       out.writeln('  <g id="house-$arm">');
       out.writeln('    ${polygon(pts, 'fill="$colour"', u)}');
@@ -126,8 +136,9 @@ String svgFor(BoardSpec spec,
   final wedges = g.centreWedges();
   for (var k = 0; k < wedges.length; k++) {
     final w = wedges[k];
-    out.writeln('  ${polygon([w.a, w.b, w.c],
-        'fill="${seatColours[k % 6]}" id="wedge-$k"', u)}');
+    out.writeln(
+      '  ${polygon([w.a, w.b, w.c], 'fill="${seatColours[k % 6]}" id="wedge-$k"', u)}',
+    );
   }
   out.writeln('</g>');
 
@@ -143,12 +154,16 @@ String svgFor(BoardSpec spec,
       final mx = (a.x + b.x) / 2 * u, my = (a.y + b.y) / 2 * u;
       final dx = mx - u / 2, dy = my - u / 2;
       final d = math.sqrt(dx * dx + dy * dy);
-      out.writeln('  <line x1="${f(a.x * u)}" y1="${f(a.y * u)}" '
-          'x2="${f(b.x * u)}" y2="${f(b.y * u)}" '
-          'stroke="${path ? '#1B6FD1' : '#C22'}" stroke-width="4"/>');
-      out.writeln('  <text x="${f(mx + dx / d * 26)}" y="${f(my + dy / d * 26)}" '
-          'text-anchor="middle" fill="${path ? '#1B6FD1' : '#C22'}">'
-          '${f(len)}</text>');
+      out.writeln(
+        '  <line x1="${f(a.x * u)}" y1="${f(a.y * u)}" '
+        'x2="${f(b.x * u)}" y2="${f(b.y * u)}" '
+        'stroke="${path ? '#1B6FD1' : '#C22'}" stroke-width="4"/>',
+      );
+      out.writeln(
+        '  <text x="${f(mx + dx / d * 26)}" y="${f(my + dy / d * 26)}" '
+        'text-anchor="middle" fill="${path ? '#1B6FD1' : '#C22'}">'
+        '${f(len)}</text>',
+      );
     }
 
     // How much of each edge the thing behind it actually fills. A house fills
@@ -158,28 +173,36 @@ String svgFor(BoardSpec spec,
     for (var arm = 0; arm < spec.arms; arm++) {
       final ang = (-90 + 60.0 * arm) * math.pi / 180;
       final ux = math.cos(ang), uy = math.sin(ang);
-      Pt at(double r, double lat) => Pt(
-          (u / 2 + ux * r - uy * lat) / u, (u / 2 + uy * r + ux * lat) / u);
+      Pt at(double r, double lat) =>
+          Pt((u / 2 + ux * r - uy * lat) / u, (u / 2 + uy * r + ux * lat) / u);
       final a = at(259, -45), b = at(259, 45);
-      out.writeln('  <line x1="${f(a.x * u)}" y1="${f(a.y * u)}" '
-          'x2="${f(b.x * u)}" y2="${f(b.y * u)}" '
-          'stroke="#1B6FD1" stroke-width="3" stroke-dasharray="5 3"/>');
+      out.writeln(
+        '  <line x1="${f(a.x * u)}" y1="${f(a.y * u)}" '
+        'x2="${f(b.x * u)}" y2="${f(b.y * u)}" '
+        'stroke="#1B6FD1" stroke-width="3" stroke-dasharray="5 3"/>',
+      );
       final m = at(236, 0);
-      out.writeln('  <text x="${f(m.x * u)}" y="${f(m.y * u)}" '
-          'text-anchor="middle" fill="#1B6FD1" font-size="12">90.00</text>');
+      out.writeln(
+        '  <text x="${f(m.x * u)}" y="${f(m.y * u)}" '
+        'text-anchor="middle" fill="#1B6FD1" font-size="12">90.00</text>',
+      );
     }
     out.writeln('</g>');
   }
 
   if (guides) {
     out.writeln('<!-- Delete this group once you are done marking it up. -->');
-    out.writeln('<g id="guides" fill="none" stroke="#00000055" '
-        'stroke-width="0.8" stroke-dasharray="4 4">');
+    out.writeln(
+      '<g id="guides" fill="none" stroke="#00000055" '
+      'stroke-width="0.8" stroke-dasharray="4 4">',
+    );
     for (final r in [90.0, 244.0, 246.8, 259.0]) {
       out.writeln('  <circle cx="${u / 2}" cy="${u / 2}" r="${f(r)}"/>');
-      out.writeln('  <text x="${f(u / 2 + 4)}" y="${f(u / 2 - r + 12)}" '
-          'font-family="monospace" font-size="11" fill="#00000099" '
-          'stroke="none">r=${f(r)}</text>');
+      out.writeln(
+        '  <text x="${f(u / 2 + 4)}" y="${f(u / 2 - r + 12)}" '
+        'font-family="monospace" font-size="11" fill="#00000099" '
+        'stroke="none">r=${f(r)}</text>',
+      );
     }
     out.writeln('</g>');
   }
@@ -195,7 +218,8 @@ void main() {
     ('board-4', BoardSpec.cross),
   ]) {
     File('build/$name.svg').writeAsStringSync(svgFor(spec, guides: true));
-    File('build/$name-plain.svg').writeAsStringSync(svgFor(spec, guides: false));
+    File('build/$name-plain.svg')
+        .writeAsStringSync(svgFor(spec, guides: false));
     File('build/$name-measured.svg')
         .writeAsStringSync(svgFor(spec, guides: false, measure: true));
     stdout.writeln('wrote build/$name.svg');
