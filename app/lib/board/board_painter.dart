@@ -139,6 +139,8 @@ class BoardPainter extends CustomPainter {
         scale: m.scale,
         spin: m.spin,
         fade: m.fade,
+        edge: palette.chipEdge,
+        depth: palette.chipDepth,
       );
     }
   }
@@ -647,6 +649,8 @@ class BoardPainter extends CustomPainter {
       ghost ? colour.withValues(alpha: 0.55) : colour,
       badge: badge,
       tilt: tilt,
+      edge: palette.chipEdge,
+      depth: palette.chipDepth,
     );
   }
 

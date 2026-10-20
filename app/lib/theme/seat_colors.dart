@@ -95,6 +95,8 @@ class BoardPalette {
     required this.panel,
     required this.panelEdge,
     required this.faint,
+    required this.chipEdge,
+    required this.chipDepth,
   });
 
   final Color plate;
@@ -116,6 +118,11 @@ class BoardPalette {
   final Color panelEdge;
   final Color faint;
 
+  /// The dark line outside a chip's white one, and how far its body colour is
+  /// deepened from the square colour of the same seat.
+  final Color chipEdge;
+  final double chipDepth;
+
   static const light = BoardPalette(
     plate: Color(0xFFFDFBF7),
     cell: Color(0xFFFFFFFF),
@@ -131,6 +138,8 @@ class BoardPalette {
     panel: Color(0xFFFAF6EE),
     panelEdge: Color(0xFFDED6C6),
     faint: Color(0xFF7A736A),
+    chipEdge: Color(0xFF15130F),
+    chipDepth: 0.8,
   );
 
   static const dark = BoardPalette(
@@ -148,6 +157,10 @@ class BoardPalette {
     panel: Color(0xFF1B2028),
     panelEdge: Color(0xFF39414E),
     faint: Color(0xFF98A0AE),
+    // Black on a dark board would vanish; the white line does that job here,
+    // and the edge only has to keep it off the squares.
+    chipEdge: Color(0xFF000000),
+    chipDepth: 1,
   );
 
   static BoardPalette of(BuildContext context) =>
