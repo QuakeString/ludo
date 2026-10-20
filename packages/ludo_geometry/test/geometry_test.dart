@@ -64,9 +64,8 @@ void main() {
             reason: 'arm $arm cannot reach its home column',
           );
           // And that turn-in square is where progress trackLength-2 lands.
-          final lastRing = g
-              .ringCell(b.ringIndex(arm, b.trackLength - 2)!)
-              .centre;
+          final lastRing =
+              g.ringCell(b.ringIndex(arm, b.trackLength - 2)!).centre;
           expect(lastRing, turnIn);
         }
       },
@@ -444,7 +443,7 @@ bool _inside(Tri t, Pt p) {
 
 /// The length of a triangle's three sides, in board units of the given board.
 List<double> _sides(Tri t, BoardGeometry g) => [
-  (t.b - t.a).length / g.cellSize * 30,
-  (t.c - t.b).length / g.cellSize * 30,
-  (t.a - t.c).length / g.cellSize * 30,
-];
+      (t.b - t.a).length / g.cellSize * 30,
+      (t.c - t.b).length / g.cellSize * 30,
+      (t.a - t.c).length / g.cellSize * 30,
+    ];

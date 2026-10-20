@@ -73,7 +73,7 @@ String svgFor(BoardSpec spec, {required bool guides, bool measure = false}) {
     final fill = owner == null ? '#FFFFFF' : seatColours[owner % 6];
     out.writeln(
       '  ${polygon(cellCorners(g.ringCell(i)), 'fill="$fill"'
-      '${owner == null ? '' : ' id="start-$owner"'}', u)}',
+          '${owner == null ? '' : ' id="start-$owner"'}', u)}',
     );
   }
   out.writeln('</g>');
@@ -137,7 +137,11 @@ String svgFor(BoardSpec spec, {required bool guides, bool measure = false}) {
   for (var k = 0; k < wedges.length; k++) {
     final w = wedges[k];
     out.writeln(
-      '  ${polygon([w.a, w.b, w.c], 'fill="${seatColours[k % 6]}" id="wedge-$k"', u)}',
+      '  ${polygon([
+            w.a,
+            w.b,
+            w.c
+          ], 'fill="${seatColours[k % 6]}" id="wedge-$k"', u)}',
     );
   }
   out.writeln('</g>');
