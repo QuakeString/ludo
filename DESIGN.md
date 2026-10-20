@@ -224,7 +224,9 @@ Two tokens sharing a square may be **linked into a pair**:
   square** — a star square or its own home column. Pairing is a commitment, not a per-turn
   toggle.
 - **Capture:** a pair can only be taken by an **opposing pair**; a single token cannot
-  capture it.
+  capture it. The same holds for any two chips of one side sharing a square, linked or
+  not, partners included: one opponent chip cannot land on them. When one walks away
+  the one left behind is a single chip again and can be taken by one.
 - Linking is manual (tap to link) so pairing never steals a move you wanted.
 
 - **Odd roll:** a locked pair **cannot move at all**. Move another token instead; if there is
@@ -238,7 +240,8 @@ Two tokens sharing a square may be **linked into a pair**:
 
 - 4 players × 4 tokens; roll 6 to leave the yard; 6 grants an extra roll; three 6s in a
   row forfeits the turn; landing on an opponent captures (sends home) unless on a safe
-  (star) square; exact roll needed to enter home; first to bring all 4 tokens home wins.
+  (star) square; exact roll needed to enter home; first to bring all 4 tokens home wins, and the
+  rest play on for second and third until only one seat has chips left out.
 
 ### The two boards
 
