@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:ludo_server/ludo_server.dart';
@@ -25,6 +26,8 @@ Future<void> main(List<String> args) async {
   // is fine on a laptop and is what the tests use.
   final dataDir = Platform.environment['DATA_DIR'];
   final hub = LudoHub(
+    // Computers take their turns at a pace people can watch.
+    schedule: (delay, then) => Timer(delay, then),
     players: PlayerStore(
       file: dataDir == null || dataDir.isEmpty
           ? null

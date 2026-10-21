@@ -146,6 +146,19 @@ class Room {
   /// connection they were on, so the hub can let them go.
   void Function(Client client)? onKicked;
 
+  /// Runs [then] after [delay]. Set by the server, so computers take their
+  /// turns at a pace people can follow: the roll is seen, then the move.
+  /// Left unset — as in most tests — computers play at once.
+  void Function(Duration delay, void Function() then)? schedule;
+
+  /// How long a computer waits before rolling, and then before moving. Long
+  /// enough for the last move to finish walking and the die to be read.
+  static const computerRollPause = Duration(milliseconds: 1100);
+  static const computerMovePause = Duration(milliseconds: 1500);
+
+  /// A paced computer step is waiting to run.
+  bool _computerWaiting = false;
+
   /// How many turns running a player may let the clock play before the host
   /// is asked whether they stay, and how long the host has to answer.
   static const missLimit = 5;
@@ -361,6 +374,25 @@ class Room {
     return null;
   }
 
+  /// Shows the whole table one of the [throwables] flying from this player
+  /// to the seat [to]. Shares the reaction's pace, so it cannot be spammed.
+  String? throwAt(String playerId, int to, int index) {
+    if (index < 0 || index >= throwables.length) return 'no such throw';
+    if (to < 0 || to >= seats.length) return 'no such seat';
+    final mine = seats.where((s) => s.client?.playerId == playerId);
+    if (mine.isEmpty) return 'you are not at this table';
+    final seat = mine.first;
+    if (seat.index == to) return null;
+    final last = seat.reactedAt;
+    if (last != null && _now().difference(last) < reactionGap) return null;
+    seat.reactedAt = _now();
+    final message = Thrown(from: seat.index, to: to, index: index);
+    for (final c in _clients) {
+      c.send(message);
+    }
+    return null;
+  }
+
   /// Passes a line of chat round the table, tidied: control characters and
   /// runs of space go, and it is cut to [chatLimit] characters.
   String? say(String playerId, String text) {
@@ -435,13 +467,13 @@ class Room {
   /// dropped. Called after each human move, so a table never waits on a seat
   /// nobody is sitting in.
   void driveComputers({int guard = 60}) {
+    if (schedule != null) {
+      _paceComputer();
+      return;
+    }
     var steps = 0;
     while (phase == RoomPhase.playing && !game!.isOver && steps++ < guard) {
-      final seat = seats[game!.turn];
-      final level = seat.computer ??
-          (seat.client == null && seat.droppedAt != null
-              ? AiLevel.normal // covering for an absent player
-              : null);
+      final level = _computerOnTurn();
       if (level == null) return;
 
       final ai = LudoAi(level: level);
@@ -456,6 +488,55 @@ class Room {
       if (game!.isOver) phase = RoomPhase.finished;
       broadcastMatch();
     }
+  }
+
+  /// How well the seat on turn plays, when a computer is playing it: a
+  /// computer seat, or one covering for an absent player. Null for a person.
+  AiLevel? _computerOnTurn() {
+    final seat = seats[game!.turn];
+    return seat.computer ??
+        (seat.client == null && seat.droppedAt != null
+            ? AiLevel.normal // covering for an absent player
+            : null);
+  }
+
+  /// One computer action at a time, each after a pause and each sent to the
+  /// table on its own: the roll, so everyone sees the die, then the move, so
+  /// the chip walks instead of jumping.
+  void _paceComputer() {
+    if (_computerWaiting) return;
+    if (phase != RoomPhase.playing || game == null || game!.isOver) return;
+    if (_computerOnTurn() == null) return;
+    final before = game!;
+    _computerWaiting = true;
+    schedule!(
+      before.awaitingRoll ? computerRollPause : computerMovePause,
+      () {
+        _computerWaiting = false;
+        // Anything could have happened meanwhile: a move, a kick, a rematch.
+        if (!identical(game, before) || phase != RoomPhase.playing) {
+          driveComputers();
+          return;
+        }
+        final level = _computerOnTurn();
+        if (level == null) return;
+        final Move? move;
+        if (before.awaitingRoll) {
+          move = null;
+          game = engine.apply(before, const RollDice());
+        } else {
+          move = LudoAi(level: level).chooseMove(before);
+          game = engine.apply(
+              before, move == null ? const PassTurn() : PlayMove(move));
+        }
+        lastMove = move;
+        lastWasAutoPlay = false;
+        turnStartedAt = _now();
+        if (game!.isOver) phase = RoomPhase.finished;
+        broadcastMatch();
+        driveComputers();
+      },
+    );
   }
 
   /// The turn clock. Call periodically; when the seat on turn has run out of

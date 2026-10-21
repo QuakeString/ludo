@@ -201,6 +201,34 @@ void main() {
     });
   });
 
+  group('throwing at a player', () {
+    test('shows everyone who threw what at whom', () {
+      startTwo();
+      hub.handle(guest, const ThrowAt(to: 0, index: 0));
+      for (final c in [host, guest]) {
+        final seen = c.last<Thrown>();
+        expect([seen?.from, seen?.to, seen?.emoji], [1, 0, '🔨']);
+      }
+    });
+
+    test('shares the reactions\' pace', () {
+      startTwo();
+      hub.handle(guest, const ThrowAt(to: 0, index: 1));
+      hub.handle(guest, const React(0));
+      hub.handle(guest, const ThrowAt(to: 0, index: 2));
+      expect(host.inbox.whereType<Thrown>(), hasLength(1));
+      expect(host.inbox.whereType<Reaction>(), isEmpty);
+    });
+
+    test('never at yourself, an empty chair, or with something unknown', () {
+      startTwo();
+      hub.handle(guest, const ThrowAt(to: 1, index: 0));
+      hub.handle(guest, const ThrowAt(to: 9, index: 0));
+      hub.handle(guest, const ThrowAt(to: 0, index: 99));
+      expect(host.inbox.whereType<Thrown>(), isEmpty);
+    });
+  });
+
   group('pairing up', () {
     const fours = RuleConfig(
       players: 4,
@@ -412,5 +440,51 @@ void main() {
     final page = invitePage('ktp-4wq');
     expect(page, contains('ludo://join/KTP4WQ'));
     expect(page, contains(appDownload));
+  });
+
+  group('a computer at an online table', () {
+    test('rolls, then moves, each after a pause and each shown', () {
+      final waiting = <(Duration, void Function())>[];
+      hub = LudoHub(
+        random: Random(9),
+        clock: clock.call,
+        schedule: (delay, then) => waiting.add((delay, then)),
+      );
+      hub.handle(host, const CreateRoom(rules: twoSeats));
+      final code = host.last<RoomUpdate>()!.room.code;
+      hub.handle(host, const AddComputer(seat: 1));
+      hub.handle(host, const StartMatch());
+      final room = hub.rooms[code]!;
+
+      // Play the host's turns until the computer is on turn.
+      var guard = 0;
+      while (room.game!.turn == 0 && guard++ < 50) {
+        final state = room.game!;
+        if (state.awaitingRoll) {
+          hub.handle(host, Play.roll());
+          continue;
+        }
+        final moves = engine.legalMoves(state);
+        hub.handle(host, moves.isEmpty ? Play.pass() : Play.move(moves.first));
+      }
+      expect(room.game!.turn, 1);
+      expect(room.game!.awaitingRoll, isTrue);
+
+      // Nothing happens until the pause is over, and then only the roll.
+      expect(waiting, hasLength(1));
+      expect(waiting.single.$1, Room.computerRollPause);
+      final seen = host.inbox.whereType<MatchUpdate>().length;
+      waiting.removeAt(0).$2();
+      expect(room.game!.awaitingRoll, isFalse);
+      expect(host.inbox.whereType<MatchUpdate>().length, seen + 1);
+
+      // Then the move, after its own pause, sent with the move itself so the
+      // chip can be walked.
+      if (engine.legalMoves(room.game!).isNotEmpty) {
+        expect(waiting.single.$1, Room.computerMovePause);
+        waiting.removeAt(0).$2();
+        expect(host.last<MatchUpdate>()!.lastMove, isNotNull);
+      }
+    });
   });
 }

@@ -64,6 +64,11 @@ class OnlineSession extends ChangeNotifier {
   final _reactions = StreamController<Reaction>.broadcast();
   Stream<Reaction> get reactions => _reactions.stream;
 
+  final _throws = StreamController<Thrown>.broadcast();
+
+  /// Someone at the table threw something at someone.
+  Stream<Thrown> get throws => _throws.stream;
+
   /// Chat from the table, as it arrives — this player's own lines included,
   /// once the server has passed them round.
   final _chat = StreamController<Said>.broadcast();
@@ -202,6 +207,10 @@ class OnlineSession extends ChangeNotifier {
 
   void say(String text) => connection.send(Say(text));
 
+  /// Throws one of the [throwables] at the player in seat [to].
+  void throwAt(int to, int index) =>
+      connection.send(ThrowAt(to: to, index: index));
+
   /// Host only, in the lobby: trade who sits in seats [a] and [b].
   void swapSeats(int a, int b) => connection.send(SwapSeats(a, b));
 
@@ -268,6 +277,9 @@ class OnlineSession extends ChangeNotifier {
 
       case Reaction():
         _reactions.add(message);
+
+      case Thrown():
+        _throws.add(message);
 
       case Said():
         _chat.add(message);
@@ -349,6 +361,7 @@ class OnlineSession extends ChangeNotifier {
     _sub.cancel();
     _matches.close();
     _reactions.close();
+    _throws.close();
     _chat.close();
     _invites.close();
     super.dispose();

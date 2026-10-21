@@ -531,9 +531,17 @@ class BoardPainter extends CustomPainter {
   }
 
   /// The colour an arm wears — its own, whether or not anybody is sitting
-  /// there. An empty corner of a Ludo board is still a coloured corner; what
-  /// marks it empty is that no chips are standing in it.
-  Color _armColour(int arm) => palette.painted(colourOfArm(arm, spec.arms));
+  /// there. An empty corner of a Ludo board is still a coloured corner, but
+  /// one nobody plays is faded back into the table, so the eye goes to the
+  /// houses that are in the game.
+  Color _armColour(int arm) {
+    final colour = palette.painted(colourOfArm(arm, spec.arms));
+    if (state.seatArms.contains(arm)) return colour;
+    return Color.lerp(colour, palette.felt, unseatedFade)!;
+  }
+
+  /// How far an arm nobody is sitting at fades towards the table.
+  static const unseatedFade = 0.55;
 
   // --- chips ---------------------------------------------------------------
 
