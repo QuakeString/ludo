@@ -20,6 +20,8 @@ class ServerAddress {
 
   /// The WebSocket address to connect to, or null when nobody has said yet.
   static Future<Uri?> load() async {
+    final typed = _typed;
+    if (typed != null) return normalise(typed);
     try {
       final prefs = await SharedPreferences.getInstance();
       final saved = prefs.getString(_key);
@@ -45,7 +47,13 @@ class ServerAddress {
     );
   }
 
+  /// The address typed in this run of the app. Kept in memory as well as on
+  /// disk, so a save that fails cannot send the player straight back to the
+  /// "which server?" screen they have just answered.
+  static String? _typed;
+
   static Future<void> save(String address) async {
+    _typed = address.trim();
     try {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setString(_key, address.trim());
@@ -54,39 +62,52 @@ class ServerAddress {
 
   /// Turns whatever someone typed into a WebSocket address.
   ///
-  ///   203.0.113.7          → ws://203.0.113.7:8091/ws
-  ///   203.0.113.7:9000     → ws://203.0.113.7:9000/ws
-  ///   ludo.example.com     → wss://ludo.example.com/ws
-  ///   https://ludo.example.com → wss://ludo.example.com/ws
+  ///   203.0.113.7               → ws://203.0.113.7:8091/ws
+  ///   203.0.113.7:9000          → ws://203.0.113.7:9000/ws
+  ///   https://203.0.113.7:8091/ → ws://203.0.113.7:8091/ws
+  ///   http://203.0.113.7:8091/play/ → ws://203.0.113.7:8091/ws
+  ///   ludo.example.com          → wss://ludo.example.com/ws
+  ///   https://ludo.example.com  → wss://ludo.example.com/ws
   ///
   /// A bare name is assumed to sit behind HTTPS on the standard port, which is
-  /// how the bundled Caddy setup serves it; a bare IP address is assumed to be
-  /// the server itself on its own port, with no certificate.
+  /// how the bundled Caddy setup serves it. An IP address is always the server
+  /// itself on its own port, with no certificate — whatever scheme was typed
+  /// in front of it. Nobody has a certificate for a bare IP, so `https://` on
+  /// one can only ever fail, and it failed with nothing on screen to say why.
+  /// The page's own path (the address bar of /play/, say) is not where the
+  /// socket is, so the socket's path replaces it.
   static Uri? normalise(String raw) {
     var text = raw.trim();
     if (text.isEmpty) return null;
-    if (!text.contains('://')) {
-      final host = text.split('/').first.split(':').first;
-      final isIp =
-          RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(host) ||
-          host == 'localhost';
-      final hasPort = text.split('/').first.contains(':');
-      text = isIp || hasPort
-          ? 'ws://${hasPort ? text : '$text:8091'}'
-          : 'wss://$text';
-    }
+    if (!text.contains('://')) text = 'ws://$text';
     final uri = Uri.tryParse(text);
     if (uri == null || uri.host.isEmpty) return null;
-    final scheme = switch (uri.scheme) {
-      'http' => 'ws',
-      'https' => 'wss',
-      'ws' || 'wss' => uri.scheme,
-      _ => null,
-    };
+    final ip =
+        RegExp(r'^\d{1,3}(\.\d{1,3}){3}$').hasMatch(uri.host) ||
+        uri.host == 'localhost';
+    final typedScheme = raw.trim().contains('://');
+    final String? scheme;
+    if (ip) {
+      scheme = const {'http', 'https', 'ws', 'wss'}.contains(uri.scheme)
+          ? 'ws'
+          : null;
+    } else if (!typedScheme) {
+      // A bare name with a port of its own is a server reached directly.
+      scheme = uri.hasPort ? 'ws' : 'wss';
+    } else {
+      scheme = switch (uri.scheme) {
+        'http' => 'ws',
+        'https' => 'wss',
+        'ws' || 'wss' => uri.scheme,
+        _ => null,
+      };
+    }
     if (scheme == null) return null;
-    return uri.replace(
+    return Uri(
       scheme: scheme,
-      path: uri.path.isEmpty || uri.path == '/' ? '/ws' : uri.path,
+      host: uri.host,
+      port: uri.hasPort ? uri.port : (ip ? 8091 : null),
+      path: '/ws',
     );
   }
 

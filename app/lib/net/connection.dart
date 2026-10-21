@@ -48,6 +48,9 @@ class LudoConnection {
   /// player thinking about a move says nothing.
   Timer? _keepAlive;
 
+  /// How long to wait for the server to accept the connection at all.
+  static const connectTimeout = Duration(seconds: 8);
+
   /// Opens the socket and settles identity.
   ///
   /// No account, ever: the guest id from last time is offered, and if there
@@ -69,7 +72,17 @@ class LudoConnection {
     if (_channel != null) await close();
 
     final channel = WebSocketChannel.connect(uri);
-    await channel.ready;
+    // A server the phone cannot route to does not refuse the connection, it
+    // simply never answers, and the system can wait minutes before giving up.
+    // That looked like a button that did nothing. Give up sooner, and say so.
+    try {
+      await channel.ready.timeout(connectTimeout);
+    } on TimeoutException {
+      unawaited(channel.sink.close().catchError((_) {}));
+      throw TimeoutException(
+        'no answer from $uri within ${connectTimeout.inSeconds} seconds',
+      );
+    }
     _channel = channel;
 
     final welcomed = Completer<Welcome>();
