@@ -110,12 +110,12 @@ jobs:
 
       - name: The container serves and passes its own health check
         run: |
-          docker run -d --name ludo -p 8080:8080 ludo-server:ci
+          docker run -d --name ludo -p 8091:8091 ludo-server:ci
           for i in $(seq 1 30); do
-            curl -fsS http://127.0.0.1:8080/health && break
+            curl -fsS http://127.0.0.1:8091/health && break
             sleep 1
           done
-          test "$(curl -fsS http://127.0.0.1:8080/health)" = "ok"
+          test "$(curl -fsS http://127.0.0.1:8091/health)" = "ok"
           docker exec ludo /app/ludo-server --health
           docker rm -f ludo
 

@@ -513,7 +513,7 @@ resolution at directories that do not exist inside it.
 ### Running it
 
 ```bash
-docker compose up --build     # server on :8080, WebSocket at ws://localhost:8080/ws
+docker compose up --build     # server on :8091, WebSocket at ws://localhost:8091/ws
 ```
 
 Postgres is in the compose file for what comes next (accounts, friends, match history).
@@ -523,9 +523,9 @@ The game server does not touch it yet — rooms live in memory on purpose.
 
 The server runs as one Docker container on a VPS (see `DEPLOY.md` and
 `docker-compose.yml`), with players kept in `players.json` on the `ludo-data` volume. It
-listens on 8080 for plain `ws://`; the compose file's `https` profile adds Caddy in front
+listens on 8091 for plain `ws://`; the compose file's `https` profile adds Caddy in front
 for HTTPS on a domain. The app has no address built in: the player enters it once (an IP
-connects to port 8080, a domain over HTTPS) and it is remembered. Server changes on the
+connects to port 8091, a domain over HTTPS) and it is remembered. Server changes on the
 main branch publish `ghcr.io/quakestring/ludo-server:latest`.
 
 A player is an id plus a secret the server minted. Ids are public (everyone at a table

@@ -4,7 +4,7 @@ import 'package:ludo_server/ludo_server.dart';
 
 /// The game server.
 ///
-///   dart run bin/serve.dart              # listens on 8080
+///   dart run bin/serve.dart              # listens on 8091
 ///   PORT=9000 dart run bin/serve.dart
 ///   dart run bin/serve.dart --health     # asks a running server if it is up
 ///
@@ -13,7 +13,7 @@ import 'package:ludo_server/ludo_server.dart';
 /// already left — so persistence belongs to accounts and match history rather
 /// than to rooms.
 Future<void> main(List<String> args) async {
-  final port = int.tryParse(Platform.environment['PORT'] ?? '') ?? 8080;
+  final port = int.tryParse(Platform.environment['PORT'] ?? '') ?? 8091;
 
   // The container image has no shell, so the health check runs this same
   // binary with a flag and reports through the exit code.

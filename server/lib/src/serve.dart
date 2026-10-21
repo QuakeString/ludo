@@ -33,7 +33,7 @@ class RunningServer {
 /// talk to it over a real socket — the wiring between sockets, identity and
 /// the hub is exactly the part that unit tests with fake clients cannot cover.
 Future<RunningServer> startServer({
-  int port = 8080,
+  int port = 8091,
   String address = '0.0.0.0',
   LudoHub? hub,
   RateLimiter Function()? limits,

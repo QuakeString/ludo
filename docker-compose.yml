@@ -1,6 +1,6 @@
 # The online game server, ready for a VPS. See DEPLOY.md.
 #
-#   docker compose up -d                   # server on port 8080, plain ws://
+#   docker compose up -d                   # server on port 8091, plain ws://
 #   docker compose --profile https up -d   # plus Caddy with HTTPS on 80/443
 #
 # Players, friends and match history live in one JSON file on the ludo-data
@@ -13,9 +13,9 @@ services:
       context: .
       dockerfile: server/Dockerfile
     ports:
-      - "8080:8080"
+      - "8091:8091"
     environment:
-      PORT: 8080
+      PORT: 8091
       DATA_DIR: /data
     volumes:
       - ludo-data:/data
