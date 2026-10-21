@@ -18,10 +18,10 @@ docker compose up -d --build
 Check that it answers:
 
 ```sh
-curl http://localhost:8080/health      # → ok
+curl http://localhost:8091/health      # → ok
 ```
 
-Open port **8080** in the VPS firewall (and in your provider's firewall panel
+Open port **8091** in the VPS firewall (and in your provider's firewall panel
 if it has one).
 
 In the app, choose **Play with friends** or **Online**, tap **Enter address**

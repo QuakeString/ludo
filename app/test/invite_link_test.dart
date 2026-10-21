@@ -15,7 +15,7 @@ void main() {
       ),
       'KTP4WQ',
     );
-    expect(inviteCodeIn('http://203.0.113.7:8080/r/KTP4WQ?x=1'), 'KTP4WQ');
+    expect(inviteCodeIn('http://203.0.113.7:8091/r/KTP4WQ?x=1'), 'KTP4WQ');
   });
 
   test('an ordinary start is not an invite', () {
@@ -25,11 +25,11 @@ void main() {
 
   test('whatever is typed becomes a WebSocket address', () {
     String? n(String s) => ServerAddress.normalise(s)?.toString();
-    expect(n('203.0.113.7'), 'ws://203.0.113.7:8080/ws');
+    expect(n('203.0.113.7'), 'ws://203.0.113.7:8091/ws');
     expect(n(' 203.0.113.7:9000 '), 'ws://203.0.113.7:9000/ws');
     expect(n('ludo.example.com'), 'wss://ludo.example.com/ws');
     expect(n('https://ludo.example.com/'), 'wss://ludo.example.com/ws');
-    expect(n('http://203.0.113.7:8080'), 'ws://203.0.113.7:8080/ws');
+    expect(n('http://203.0.113.7:8091'), 'ws://203.0.113.7:8091/ws');
     expect(n('wss://ludo.example.com/ws'), 'wss://ludo.example.com/ws');
     expect(n(''), isNull);
     expect(n('ftp://x'), isNull);
@@ -37,8 +37,8 @@ void main() {
 
   test('the invite page lives on the same server, over the web', () {
     expect(
-      ServerAddress.inviteLink(Uri.parse('ws://203.0.113.7:8080/ws'), 'AB12CD'),
-      'http://203.0.113.7:8080/r/AB12CD',
+      ServerAddress.inviteLink(Uri.parse('ws://203.0.113.7:8091/ws'), 'AB12CD'),
+      'http://203.0.113.7:8091/r/AB12CD',
     );
     expect(
       ServerAddress.inviteLink(

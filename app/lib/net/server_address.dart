@@ -36,7 +36,7 @@ class ServerAddress {
 
   /// Turns whatever someone typed into a WebSocket address.
   ///
-  ///   203.0.113.7          → ws://203.0.113.7:8080/ws
+  ///   203.0.113.7          → ws://203.0.113.7:8091/ws
   ///   203.0.113.7:9000     → ws://203.0.113.7:9000/ws
   ///   ludo.example.com     → wss://ludo.example.com/ws
   ///   https://ludo.example.com → wss://ludo.example.com/ws
@@ -54,7 +54,7 @@ class ServerAddress {
           host == 'localhost';
       final hasPort = text.split('/').first.contains(':');
       text = isIp || hasPort
-          ? 'ws://${hasPort ? text : '$text:8080'}'
+          ? 'ws://${hasPort ? text : '$text:8091'}'
           : 'wss://$text';
     }
     final uri = Uri.tryParse(text);

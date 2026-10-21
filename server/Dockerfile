@@ -32,8 +32,8 @@ FROM scratch
 COPY --from=build /runtime/ /
 COPY --from=build /src/server/bin/ludo-server /app/ludo-server
 
-ENV PORT=8080
-EXPOSE 8080
+ENV PORT=8091
+EXPOSE 8091
 
 # No shell in the image, so this is the process itself rather than a wrapper.
 ENTRYPOINT ["/app/ludo-server"]

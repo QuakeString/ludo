@@ -982,7 +982,7 @@ class _ServerDialogState extends State<_ServerDialog> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Text(
-            'An IP address connects straight to port 8080. A domain name '
+            'An IP address connects straight to port 8091. A domain name '
             'connects over HTTPS.',
             style: TextStyle(fontSize: 13),
           ),
