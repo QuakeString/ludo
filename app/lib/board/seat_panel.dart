@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../theme/seat_colors.dart';
+import '../screens/avatars.dart';
 import 'die.dart';
 
 /// One player's place at the table: who they are, how many chips they have
@@ -29,7 +30,11 @@ class SeatPanel extends StatelessWidget {
     this.compact = false,
     this.pointerBelow = true,
     this.teamLetter,
+    this.avatar,
   });
+
+  /// The player's picture, as [Avatar] writes it, or null for none.
+  final String? avatar;
 
   /// The arm this seat plays from — which is what decides its colour.
   final int arm;
@@ -110,71 +115,90 @@ class SeatPanel extends StatelessWidget {
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
-          _Avatar(arm: arm, arms: arms, compact: compact, robot: isComputer),
-          if (teamLetter != null) ...[
-            SizedBox(width: compact ? 3 : 4),
-            // The panel is where you look during a turn; the board is where
-            // you look between them. The pairing has to be legible in both, or
-            // it is legible in neither.
-            _TeamBadge(letter: teamLetter!, colour: colour, compact: compact),
-          ],
-          SizedBox(width: compact ? 6 : 8),
           // Expanded, not Flexible: it takes the slack as well as giving it
           // up. Giving way keeps a long name from overflowing when three
           // panels share a phone at six seats; taking the slack is what holds
           // the die against the panel's right-hand edge, which is where the
-          // arrow pointing at it is placed from. Merely flexible, a short name
-          // left the die stranded mid-panel with the arrow under empty space.
+          // arrow pointing at it is placed from.
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisSize: MainAxisSize.min,
               children: [
+                // The name sits over the picture, so the two read as one
+                // person rather than a face beside a label.
                 Text(
                   name,
                   overflow: TextOverflow.ellipsis,
                   maxLines: 1,
                   style: TextStyle(
-                    fontSize: compact ? 11 : 12.5,
-                    fontWeight: onTurn ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: compact ? 10.5 : 12,
+                    height: 1.15,
+                    fontWeight: onTurn ? FontWeight.w700 : FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 1),
-                // Shrunk rather than overflowed. The chips-home count and the
-                // turn clock are a fixed width, so a bigger die or a narrower
-                // panel pushed them off the end — and an overflow stripe is
-                // the one thing on screen worse than small text.
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: Alignment.centerLeft,
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        '$home/$total',
-                        style: TextStyle(
-                          fontSize: compact ? 10 : 11,
-                          color: palette.faint,
-                          fontFeatures: const [FontFeature.tabularFigures()],
+                SizedBox(height: compact ? 2 : 3),
+                Row(
+                  children: [
+                    AvatarBubble(
+                      avatar: avatar,
+                      colour: colour,
+                      radius: compact ? 11 : 13,
+                      robot: isComputer,
+                    ),
+                    if (teamLetter != null) ...[
+                      SizedBox(width: compact ? 3 : 4),
+                      // The panel is where you look during a turn; the board
+                      // is where you look between them. The pairing has to be
+                      // legible in both, or it is legible in neither.
+                      _TeamBadge(
+                        letter: teamLetter!,
+                        colour: colour,
+                        compact: compact,
+                      ),
+                    ],
+                    SizedBox(width: compact ? 5 : 7),
+                    // Shrunk rather than overflowed. The chips-home count and
+                    // the turn clock are a fixed width, so a bigger die or a
+                    // narrower panel pushed them off the end — and an overflow
+                    // stripe is the one thing on screen worse than small text.
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              '$home/$total',
+                              style: TextStyle(
+                                fontSize: compact ? 10 : 11,
+                                color: palette.faint,
+                                fontFeatures: const [
+                                  FontFeature.tabularFigures(),
+                                ],
+                              ),
+                            ),
+                            if (onTurn && timerDots > 0) ...[
+                              const SizedBox(width: 6),
+                              for (var i = 0; i < timerDots; i++)
+                                Container(
+                                  margin: const EdgeInsets.only(right: 2.5),
+                                  width: 5,
+                                  height: 5,
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: i < dotsLit
+                                        ? colour
+                                        : colour.withValues(alpha: 0.2),
+                                  ),
+                                ),
+                            ],
+                          ],
                         ),
                       ),
-                      if (onTurn && timerDots > 0) ...[
-                        const SizedBox(width: 6),
-                        for (var i = 0; i < timerDots; i++)
-                          Container(
-                            margin: const EdgeInsets.only(right: 2.5),
-                            width: 5,
-                            height: 5,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: i < dotsLit
-                                  ? colour
-                                  : colour.withValues(alpha: 0.2),
-                            ),
-                          ),
-                      ],
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ],
             ),
@@ -215,7 +239,8 @@ class SeatPanel extends StatelessWidget {
               // Above and below there is always room, because the gap between
               // a rail and the board is the one piece of space that exists on
               // every screen this game runs on.
-              right: (compact ? 6.0 : 9.0) +
+              right:
+                  (compact ? 6.0 : 9.0) +
                   (compact ? 44.0 : 54.0) / 2 -
                   _pointerWidth(compact) / 2,
               top: pointerBelow ? null : -(_pointerHeight(compact) - 1),
@@ -256,8 +281,13 @@ class SeatPanel extends StatelessWidget {
 /// the house they sit over has to know when a house has become too small to
 /// hold one — on a short screen it does.
 double minPanelWidth(bool compact) => compact
-    ? 12 + 24 + 6 + 6 + 44 + 12 // padding, avatar, gaps, die, a little name
-    : 18 + 28 + 8 + 8 + 54 + 14;
+    ? 12 +
+          25 +
+          5 +
+          6 +
+          44 +
+          10 // padding, avatar, gaps, die, a little count
+    : 18 + 30 + 7 + 9 + 54 + 10;
 
 double _pointerWidth(bool compact) => compact ? 22.0 : 28.0;
 double _pointerHeight(bool compact) => compact ? 15.0 : 19.0;
@@ -407,10 +437,7 @@ class _Chevron extends CustomPainter {
         ..shader = LinearGradient(
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
-          colors: [
-            Color.lerp(colour, Colors.white, 0.30)!,
-            colour,
-          ],
+          colors: [Color.lerp(colour, Colors.white, 0.30)!, colour],
         ).createShader(Offset.zero & size),
     );
   }
@@ -454,36 +481,6 @@ class _TeamBadge extends StatelessWidget {
           color: colour,
           height: 1,
         ),
-      ),
-    );
-  }
-}
-
-/// A place for a photo. Until profiles exist it is the seat's colour with an
-/// initial, which is still a face rather than a blank.
-class _Avatar extends StatelessWidget {
-  const _Avatar({
-    required this.arm,
-    required this.arms,
-    required this.compact,
-    required this.robot,
-  });
-
-  final int arm;
-  final int arms;
-  final bool compact;
-  final bool robot;
-
-  @override
-  Widget build(BuildContext context) {
-    final r = compact ? 12.0 : 14.0;
-    return CircleAvatar(
-      radius: r,
-      backgroundColor: colourOfArm(arm, arms),
-      child: Icon(
-        robot ? Icons.smart_toy : Icons.person,
-        size: r * 1.05,
-        color: Colors.white,
       ),
     );
   }

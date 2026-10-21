@@ -10,6 +10,7 @@ import '../net/connection.dart';
 import '../net/online_session.dart';
 import '../net/server_address.dart';
 import '../theme/seat_colors.dart';
+import 'avatars.dart';
 import 'colour_picker.dart';
 import 'game_screen.dart';
 import 'house_rules.dart';
@@ -98,7 +99,10 @@ class _OnlineScreenState extends State<OnlineScreen> {
       if (!mounted) return;
       final session = OnlineSession(connection)
         ..addListener(_changed)
-        ..refreshProfile();
+        ..refreshProfile()
+        // Kept on this phone, and told to the server each time, so a picture
+        // chosen while it was out of reach still arrives.
+        ..setAvatar(myAvatar);
       _inviteSub = session.invites.listen(_invited);
       setState(() {
         _connection = connection;
@@ -297,9 +301,45 @@ class _OnlineScreenState extends State<OnlineScreen> {
   }
 
   /// Who this device is playing as, and any game it can go back to.
+  Future<void> _changeAvatar(OnlineSession session) async {
+    final chosen = await pickAvatar(context);
+    if (chosen == null || !mounted) return;
+    session.setAvatar(chosen);
+    setState(() {});
+  }
+
   List<Widget> _whoAmI(OnlineSession session) => [
     Row(
       children: [
+        Semantics(
+          button: true,
+          label: 'Change your picture',
+          child: InkResponse(
+            key: const ValueKey('my-avatar'),
+            onTap: () => _changeAvatar(session),
+            radius: 30,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AvatarBubble(
+                  avatar: myAvatar,
+                  colour: favouriteColour ?? ludoRed,
+                  radius: 24,
+                ),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: CircleAvatar(
+                    radius: 10,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    child: const Icon(Icons.edit, size: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Text(
             'Playing as ${session.myName}',
@@ -841,15 +881,14 @@ class _SeatRow extends StatelessWidget {
     ];
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: colour,
-        radius: 14,
-        child: seat.isComputer
-            ? const Icon(Icons.smart_toy, size: 15, color: Colors.white)
-            : isHost
-            ? const Icon(Icons.star_rounded, size: 16, color: Colors.white)
-            : null,
-      ),
+      leading: empty
+          ? CircleAvatar(backgroundColor: colour, radius: 16)
+          : AvatarBubble(
+              avatar: seat.avatar,
+              colour: colour,
+              radius: 15,
+              robot: seat.isComputer,
+            ),
       title: Text(
         empty
             ? 'Empty seat'

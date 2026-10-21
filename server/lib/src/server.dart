@@ -307,6 +307,17 @@ class LudoHub {
             (playerId: client.playerId, expires: _now().add(transferLife));
         client.send(TransferCode(code: code, minutes: transferLife.inMinutes));
 
+      case SetAvatar(avatar: final avatar):
+        final record = players[client.playerId];
+        if (record == null) return;
+        if (avatar != null && !Avatar.isValid(avatar)) {
+          client.send(const Oops('That picture could not be used.'));
+          return;
+        }
+        record.avatar = avatar;
+        players.changed();
+        _roomOf[client.playerId]?.broadcastRoom();
+
       case SetName(name: final name):
         final record = players[client.playerId];
         final cleaned = PlayerStore.cleanName(name);
@@ -632,6 +643,9 @@ class SocketClient implements Client {
   /// Read from the record each time, so a rename shows at once.
   @override
   String get displayName => player.name;
+
+  @override
+  String? get avatar => player.avatar;
 
   @override
   void send(Envelope message) {

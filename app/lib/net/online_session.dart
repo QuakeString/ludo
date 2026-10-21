@@ -196,6 +196,9 @@ class OnlineSession extends ChangeNotifier {
   /// Host only, in the lobby: trade who sits in seats [a] and [b].
   void swapSeats(int a, int b) => connection.send(SwapSeats(a, b));
 
+  /// The picture everyone at the table sees for this player.
+  void setAvatar(String? avatar) => connection.send(SetAvatar(avatar));
+
   void setName(String name) {
     error = null;
     connection.send(SetName(name));

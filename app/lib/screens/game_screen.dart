@@ -18,6 +18,7 @@ import '../fresh_seed.dart';
 import '../match_history.dart';
 import '../saved_game.dart';
 import 'game_over.dart';
+import 'avatars.dart';
 import 'house_rules.dart';
 import 'table_chat.dart';
 import '../net/online_session.dart';
@@ -789,6 +790,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return nameOfArm(_state.armOf(seat), _state.board.arms);
   }
 
+  /// The picture over a seat. Online it is whatever that player chose; against
+  /// the computer the person is this phone's player; in pass & play, where
+  /// one phone has several people, each seat gets an animal of its own.
+  String? _avatarOf(int seat) {
+    final seats = _session?.room?.seats;
+    if (seats != null) return seat < seats.length ? seats[seat].avatar : null;
+    if (_isComputer(seat)) return null;
+    if (widget.aiSeats.isNotEmpty) return myAvatar;
+    return Avatar.animal(_passPlayAnimals[seat % _passPlayAnimals.length]);
+  }
+
+  /// Lion, fox, panda, penguin, butterfly, bee: one each, never two alike.
+  static const _passPlayAnimals = [0, 4, 3, 9, 15, 16];
+
   /// How tall a seat rail is, including its padding.
   ///
   /// Fixed, and used to work out the board's square before either is laid
@@ -909,6 +924,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       teamLetter: rules.isTeamGame
           ? String.fromCharCode(65 + rules.teamOf(seat))
           : null,
+      avatar: _avatarOf(seat),
     );
   }
 
@@ -1235,6 +1251,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                             ? ChatLine(
                                 key: ValueKey(b.id),
                                 who: b.who,
+                                avatar: _avatarOf(b.seat),
                                 text: b.text!,
                                 colour: colourOfArm(
                                   _state.armOf(b.seat),

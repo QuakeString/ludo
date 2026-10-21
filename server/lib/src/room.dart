@@ -9,6 +9,9 @@ import 'package:ludo_protocol/ludo_protocol.dart';
 abstract class Client {
   String get playerId;
   String get displayName;
+
+  /// The player's picture, as [Avatar] writes it, or null.
+  String? get avatar;
   void send(Envelope message);
 }
 
@@ -28,6 +31,7 @@ class Seat {
   /// back to them and nobody else, and the table still shows whose it is.
   String? heldFor;
   String? heldName;
+  String? heldAvatar;
 
   /// When this seat last sent a reaction, so one player cannot fill everyone
   /// else's screen with them.
@@ -40,13 +44,15 @@ class Seat {
   /// people, and everything about them, move.
   void swapWith(Seat other) {
     final c = client, ai = computer, r = ready, d = droppedAt;
-    final hf = heldFor, hn = heldName, ra = reactedAt, sa = saidAt;
+    final hf = heldFor, hn = heldName, ha = heldAvatar;
+    final ra = reactedAt, sa = saidAt;
     client = other.client;
     computer = other.computer;
     ready = other.ready;
     droppedAt = other.droppedAt;
     heldFor = other.heldFor;
     heldName = other.heldName;
+    heldAvatar = other.heldAvatar;
     reactedAt = other.reactedAt;
     saidAt = other.saidAt;
     other
@@ -56,6 +62,7 @@ class Seat {
       ..droppedAt = d
       ..heldFor = hf
       ..heldName = hn
+      ..heldAvatar = ha
       ..reactedAt = ra
       ..saidAt = sa;
   }
@@ -72,6 +79,7 @@ class Seat {
         isComputer: isComputer,
         connected: connected || isComputer,
         ready: ready || isComputer,
+        avatar: client?.avatar ?? heldAvatar,
       );
 }
 
@@ -167,7 +175,8 @@ class Room {
         ..client = client
         ..droppedAt = null
         ..heldFor = null
-        ..heldName = null;
+        ..heldName = null
+        ..heldAvatar = null;
       broadcastRoom();
       _sendMatchTo(own.first);
       return null;
@@ -195,6 +204,7 @@ class Room {
         seat
           ..heldFor = playerId
           ..heldName = seat.client?.displayName
+          ..heldAvatar = seat.client?.avatar
           ..client = null
           ..droppedAt = _now();
       } else {
@@ -299,7 +309,8 @@ class Room {
       seat
         ..droppedAt = null
         ..heldFor = null
-        ..heldName = null;
+        ..heldName = null
+        ..heldAvatar = null;
     }
     phase = RoomPhase.playing;
     _reported = false;
@@ -464,6 +475,7 @@ class Room {
         ..droppedAt = null
         ..heldFor = null
         ..heldName = null
+        ..heldAvatar = null
         ..computer = phase == RoomPhase.playing ? AiLevel.normal : null;
       changed = true;
     }

@@ -53,6 +53,7 @@ dependencies:
   cupertino_icons: ^1.0.8
   # The system share sheet, for sending an invite link to any chat app.
   share_plus: ^13.3.1
+  image_picker: ^1.2.4
 
 dev_dependencies:
   flutter_test:

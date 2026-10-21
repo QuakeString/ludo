@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ludo_app/net/connection.dart';
 import 'package:ludo_app/net/online_session.dart';
 import 'package:ludo_engine/ludo_engine.dart';
+import 'package:ludo_protocol/ludo_protocol.dart' show Avatar;
 import 'package:ludo_server/ludo_server.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -287,6 +288,27 @@ void main() {
       what: 'the guest to move to the host\'s team',
     );
     expect(guest.room!.rules.teamOf(2), guest.room!.rules.teamOf(0));
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
+  test('a player\'s picture shows on their seat for everyone', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+    guest.joinRoom(host.room!.code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+
+    guest.setAvatar(Avatar.animal(16));
+    await until(
+      host,
+      () => host.room!.seats[1].avatar == Avatar.animal(16),
+      what: 'the guest\'s bee',
+    );
 
     host.dispose();
     guest.dispose();

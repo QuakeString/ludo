@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:ludo_protocol/ludo_protocol.dart';
 
 import '../theme/seat_colors.dart';
+import 'avatars.dart';
 
 /// Emoji offered from the chat bar's own button, for keyboards that make them
 /// hard to reach. Anything the phone's keyboard can type works as well.
@@ -173,8 +174,11 @@ class ChatLine extends StatelessWidget {
     required this.who,
     required this.text,
     required this.colour,
+    this.avatar,
   });
 
+  /// Their picture, as [Avatar] writes it.
+  final String? avatar;
   final String who;
   final String text;
   final Color colour;
@@ -216,11 +220,7 @@ class ChatLine extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            CircleAvatar(
-              radius: 14,
-              backgroundColor: colour,
-              child: const Icon(Icons.person, size: 15, color: Colors.white),
-            ),
+            AvatarBubble(avatar: avatar, colour: colour, radius: 14),
             const SizedBox(width: 8),
             Flexible(
               child: Padding(

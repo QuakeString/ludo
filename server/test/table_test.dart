@@ -15,6 +15,9 @@ class FakeClient implements Client {
   @override
   String displayName;
 
+  @override
+  String? avatar;
+
   final List<Envelope> inbox = [];
 
   @override
@@ -236,6 +239,26 @@ void main() {
       hub.handle(guest, const SwapSeats(0, 1));
       expect(guest.last<Oops>(), isNotNull);
       expect(hub.rooms[code]!.seats[0].client?.playerId, 'p-host');
+    });
+  });
+
+  group('pictures', () {
+    test('a player\'s picture shows on their seat at the table', () {
+      final (record, _) = hub.players.mint();
+      final me = FakeClient(record.id, record.name);
+      hub.handle(me, const SetAvatar('a:5'));
+      expect(record.avatar, 'a:5');
+      me.avatar = record.avatar;
+      hub.handle(me, const CreateRoom(rules: twoSeats));
+      expect(me.last<RoomUpdate>()!.room.seats[0].avatar, 'a:5');
+    });
+
+    test('anything that is not a picture is refused', () {
+      final (record, _) = hub.players.mint();
+      final me = FakeClient(record.id, record.name);
+      hub.handle(me, const SetAvatar('p:<img onerror=alert(1)>'));
+      expect(me.last<Oops>(), isNotNull);
+      expect(record.avatar, isNull);
     });
   });
 

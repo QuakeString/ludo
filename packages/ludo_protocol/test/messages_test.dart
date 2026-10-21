@@ -87,6 +87,8 @@ void main() {
     expect(trip(const Reaction(seat: 2, index: 1)).emoji, reactions[1]);
     expect(trip(const Say('nice one 🎉')).text, 'nice one 🎉');
     expect(trip(const SwapSeats(1, 2)).b, 2);
+    expect(trip(const SetAvatar('a:3')).avatar, 'a:3');
+    expect(trip(const SetAvatar(null)).avatar, isNull);
     expect(trip(const Said(seat: 1, text: 'gg 😂')).seat, 1);
     expect(trip(const AnswerFriend('g2', accept: true)).accept, isTrue);
     expect(trip(const SetNickname('g2', null)).nickname, isNull);
@@ -121,5 +123,15 @@ void main() {
 
   test('an unknown message is rejected rather than ignored', () {
     expect(() => Envelope.decode('{"t":"nonsense"}'), throwsFormatException);
+  });
+
+  test('avatars are an animal or a small photo, nothing else', () {
+    expect(Avatar.animalOf(Avatar.animal(7)), 7);
+    expect(Avatar.isValid('a:19'), isTrue);
+    expect(Avatar.isValid('a:20'), isFalse);
+    expect(Avatar.isValid('p:/9j/4AAQSkZJRg=='), isTrue);
+    expect(Avatar.isValid('p:<script>'), isFalse);
+    expect(Avatar.isValid('p:${'A' * Avatar.photoLimit}'), isFalse);
+    expect(Avatar.isValid('x:1'), isFalse);
   });
 }
