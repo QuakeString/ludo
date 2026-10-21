@@ -1,6 +1,6 @@
 {
-    "name": "ludo_app",
-    "short_name": "ludo_app",
+    "name": "LUDO Time",
+    "short_name": "LUDO Time",
     "start_url": ".",
     "display": "standalone",
     "background_color": "#0175C2",

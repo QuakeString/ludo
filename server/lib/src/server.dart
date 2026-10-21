@@ -196,6 +196,9 @@ class LudoHub {
       case React(index: final index):
         _withRoom(client, (room) => room.react(client.playerId, index));
 
+      case Say(text: final text):
+        _withRoom(client, (room) => room.say(client.playerId, text));
+
       case GetProfile():
         _sendProfile(client.playerId);
 
@@ -327,6 +330,7 @@ class LudoHub {
             Invite() ||
             TransferCode() ||
             Reaction() ||
+            Said() ||
             Oops() ||
             Pong():
         client.send(const Oops('the server does not accept that message'));

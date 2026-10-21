@@ -155,6 +155,8 @@ sealed class Envelope {
       'rematch' => const Rematch(),
       'react' => React.fromJson(j),
       'reaction' => Reaction.fromJson(j),
+      'say' => Say.fromJson(j),
+      'said' => Said.fromJson(j),
       'ping' => const Ping(),
       'pong' => const Pong(),
       _ => throw FormatException('unknown message "$t"'),
@@ -494,6 +496,24 @@ class React extends Envelope {
       React((j['i'] as num?)?.toInt() ?? -1);
 }
 
+/// The longest chat line, in characters. Long enough for a sentence, short
+/// enough that a line across the top of the board stays one line or two.
+const chatLimit = 140;
+
+/// A line of chat for the rest of the table. Emoji are just characters here.
+class Say extends Envelope {
+  const Say(this.text);
+  final String text;
+
+  @override
+  String get type => 'say';
+  @override
+  Map<String, Object?> payload() => {'text': text};
+
+  factory Say.fromJson(Map<String, Object?> j) =>
+      Say(j['text'] as String? ?? '');
+}
+
 // --- server to app ---------------------------------------------------------
 
 /// Where a player looking for a game has got to.
@@ -771,6 +791,23 @@ class Reaction extends Envelope {
   factory Reaction.fromJson(Map<String, Object?> j) => Reaction(
         seat: (j['seat'] as num).toInt(),
         index: (j['i'] as num).toInt(),
+      );
+}
+
+/// Somebody at the table said something.
+class Said extends Envelope {
+  const Said({required this.seat, required this.text});
+  final int seat;
+  final String text;
+
+  @override
+  String get type => 'said';
+  @override
+  Map<String, Object?> payload() => {'seat': seat, 'text': text};
+
+  factory Said.fromJson(Map<String, Object?> j) => Said(
+        seat: (j['seat'] as num).toInt(),
+        text: j['text'] as String? ?? '',
       );
 }
 

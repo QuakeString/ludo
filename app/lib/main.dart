@@ -72,7 +72,7 @@ class _LudoAppState extends State<LudoApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigator,
-      title: 'Ludo',
+      title: 'LUDO Time',
       debugShowCheckedModeBanner: false,
       // Light and dark are both first class, following the system until the
       // player overrides it in settings.

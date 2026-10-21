@@ -198,6 +198,35 @@ void main() {
     });
   });
 
+  group('chat', () {
+    test('reaches everyone at the table, from the right seat', () {
+      startTwo();
+      hub.handle(guest, const Say('  nice   one 🎉 '));
+      final heard = host.last<Said>();
+      expect(heard?.seat, 1);
+      expect(heard?.text, 'nice one 🎉');
+      expect(guest.last<Said>()?.text, 'nice one 🎉');
+    });
+
+    test('is cut to length and never sent empty', () {
+      startTwo();
+      hub.handle(guest, const Say('   '));
+      expect(host.inbox.whereType<Said>(), isEmpty);
+      hub.handle(guest, Say('😂' * 400));
+      expect(host.last<Said>()!.text.runes, hasLength(chatLimit));
+    });
+
+    test('cannot be sent faster than a line a moment', () {
+      startTwo();
+      hub.handle(guest, const Say('one'));
+      hub.handle(guest, const Say('two'));
+      expect(host.inbox.whereType<Said>(), hasLength(1));
+      clock.advance(const Duration(seconds: 1));
+      hub.handle(guest, const Say('three'));
+      expect(host.inbox.whereType<Said>(), hasLength(2));
+    });
+  });
+
   group('names', () {
     test('a chosen name is tidied, kept, and shown at the table', () {
       final (record, _) = hub.players.mint();

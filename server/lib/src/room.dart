@@ -33,6 +33,9 @@ class Seat {
   /// else's screen with them.
   DateTime? reactedAt;
 
+  /// When this seat last said something, for the same reason.
+  DateTime? saidAt;
+
   bool get isComputer => computer != null;
   bool get isEmpty => client == null && computer == null;
   bool get connected => client != null;
@@ -79,6 +82,9 @@ class Room {
 
   /// How often one seat may send a reaction.
   static const reactionGap = Duration(milliseconds: 1500);
+
+  /// How often one seat may send a line of chat.
+  static const chatGap = Duration(milliseconds: 800);
 
   final String code;
   final RuleConfig rules;
@@ -286,6 +292,24 @@ class Room {
     return null;
   }
 
+  /// Passes a line of chat round the table, tidied: control characters and
+  /// runs of space go, and it is cut to [chatLimit] characters.
+  String? say(String playerId, String text) {
+    final mine = seats.where((s) => s.client?.playerId == playerId);
+    if (mine.isEmpty) return 'you are not at this table';
+    final line = tidyChat(text);
+    if (line.isEmpty) return null;
+    final seat = mine.first;
+    final last = seat.saidAt;
+    if (last != null && _now().difference(last) < chatGap) return null;
+    seat.saidAt = _now();
+    final message = Said(seat: seat.index, text: line);
+    for (final c in _clients) {
+      c.send(message);
+    }
+    return null;
+  }
+
   // --- the match -----------------------------------------------------------
 
   /// Applies an intent from [playerId], or returns why it was refused.
@@ -451,4 +475,17 @@ class Room {
       autoPlayed: lastWasAutoPlay,
     ));
   }
+}
+
+/// [text] made fit to show: no control characters, no runs of space, at most
+/// [chatLimit] characters. Counted in code points, so an emoji is never cut
+/// in half.
+String tidyChat(String text) {
+  final flat = text
+      .replaceAll(RegExp(r'[\u0000-\u001F\u007F]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  final runes = flat.runes.toList();
+  if (runes.length <= chatLimit) return flat;
+  return String.fromCharCodes(runes.take(chatLimit)).trim();
 }

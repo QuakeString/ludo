@@ -7,7 +7,7 @@
          still asks the player before anything is installed. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
-        android:label="Ludo"
+        android:label="LUDO Time"
         android:usesCleartextTraffic="true"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">

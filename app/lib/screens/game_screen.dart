@@ -19,6 +19,7 @@ import '../match_history.dart';
 import '../saved_game.dart';
 import 'game_over.dart';
 import 'house_rules.dart';
+import 'table_chat.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
@@ -137,6 +138,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final List<MatchUpdate> _queued = [];
   StreamSubscription<MatchUpdate>? _matchSub;
   StreamSubscription<Reaction>? _reactionSub;
+  StreamSubscription<Said>? _chatSub;
 
   /// Reactions on screen right now, newest last. Each goes after a moment.
   final List<_Bubble> _bubbles = [];
@@ -183,6 +185,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (session != null) {
       _matchSub = session.matches.listen(_serverSaid);
       _reactionSub = session.reactions.listen(_reacted);
+      _chatSub = session.chat.listen(_chatted);
       session.addListener(_sessionChanged);
     } else if (saved != null) {
       // Saved games can stop between a roll and its move. Pick the turn up
@@ -207,6 +210,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _silence();
     _matchSub?.cancel();
     _reactionSub?.cancel();
+    _chatSub?.cancel();
     for (final b in _bubbles) {
       b.timer.cancel();
     }
@@ -301,15 +305,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (mounted) setState(() {});
   }
 
-  void _reacted(Reaction r) {
+  void _reacted(Reaction r) => _bubble(r.seat, emoji: r.emoji);
+
+  /// A line of chat stays up long enough to read; a reaction is a glance.
+  void _chatted(Said s) => _bubble(
+    s.seat,
+    text: s.text,
+    stay: Duration(milliseconds: 4000 + 40 * s.text.length),
+  );
+
+  void _bubble(
+    int seat, {
+    String? emoji,
+    String? text,
+    Duration stay = const Duration(milliseconds: 2600),
+  }) {
     if (!mounted) return;
     final id = _bubbleCount++;
     final bubble = _Bubble(
       id: id,
-      who: _nameOf(r.seat),
-      seat: r.seat,
-      emoji: r.emoji,
-      timer: Timer(const Duration(milliseconds: 2600), () {
+      who: seat == _session?.yourSeat ? 'You' : _nameOf(seat),
+      seat: seat,
+      emoji: emoji,
+      text: text,
+      timer: Timer(stay, () {
         if (mounted) setState(() => _bubbles.removeWhere((b) => b.id == id));
       }),
     );
@@ -1183,6 +1202,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   isComputerTurn: !_myMove && !_state.isOver,
                   onPass: () => session == null ? _passLocal() : session.pass(),
                 ),
+                if (session != null && !_state.isOver)
+                  ChatBar(onSend: session.say),
               ],
             ),
             // Laid over the top of the board rather than above it, so a note
@@ -1203,21 +1224,31 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ),
             if (_bubbles.isNotEmpty)
               Positioned(
-                top: 64,
+                top: 4,
                 left: 0,
                 right: 0,
                 child: IgnorePointer(
                   child: Column(
                     children: [
                       for (final b in _bubbles)
-                        _ReactionBubble(
-                          key: ValueKey(b.id),
-                          bubble: b,
-                          colour: colourOfArm(
-                            _state.armOf(b.seat),
-                            _state.board.arms,
-                          ),
-                        ),
+                        b.text != null
+                            ? ChatLine(
+                                key: ValueKey(b.id),
+                                who: b.who,
+                                text: b.text!,
+                                colour: colourOfArm(
+                                  _state.armOf(b.seat),
+                                  _state.board.arms,
+                                ),
+                              )
+                            : _ReactionBubble(
+                                key: ValueKey(b.id),
+                                bubble: b,
+                                colour: colourOfArm(
+                                  _state.armOf(b.seat),
+                                  _state.board.arms,
+                                ),
+                              ),
                     ],
                   ),
                 ),
@@ -1476,14 +1507,18 @@ class _Bubble {
     required this.id,
     required this.who,
     required this.seat,
-    required this.emoji,
+    this.emoji,
+    this.text,
     required this.timer,
   });
 
   final int id;
   final String who;
   final int seat;
-  final String emoji;
+  final String? emoji;
+
+  /// A line of chat, when this is one rather than a reaction.
+  final String? text;
   final Timer timer;
 }
 
@@ -1525,7 +1560,7 @@ class _ReactionBubble extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(bubble.emoji, style: const TextStyle(fontSize: 28)),
+            Text(bubble.emoji ?? '', style: const TextStyle(fontSize: 28)),
             const SizedBox(width: 8),
             Text(
               bubble.who,

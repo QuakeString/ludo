@@ -262,6 +262,28 @@ void main() {
     await guest.connection.dispose();
   });
 
+  test('a line of chat reaches the whole table, emoji and all', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+    guest.joinRoom(host.room!.code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+
+    final heard = host.chat.first;
+    final echoed = guest.chat.first;
+    guest.say('nice roll 🎲🔥');
+    final line = await heard.timeout(const Duration(seconds: 5));
+    expect(line.seat, 1);
+    expect(line.text, 'nice roll 🎲🔥');
+    expect((await echoed.timeout(const Duration(seconds: 5))).seat, 1);
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
   test('connecting again is the same player, and finds their seat', () async {
     final host = await sitDown();
     final guest = await sitDown();
