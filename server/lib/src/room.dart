@@ -24,14 +24,24 @@ class Seat {
   /// Set when a player drops; their seat is held rather than freed.
   DateTime? droppedAt;
 
+  /// Who the held seat belongs to, and what they were called, so the seat goes
+  /// back to them and nobody else, and the table still shows whose it is.
+  String? heldFor;
+  String? heldName;
+
+  /// When this seat last sent a reaction, so one player cannot fill everyone
+  /// else's screen with them.
+  DateTime? reactedAt;
+
   bool get isComputer => computer != null;
   bool get isEmpty => client == null && computer == null;
   bool get connected => client != null;
 
   SeatInfo toInfo() => SeatInfo(
         seat: index,
-        playerId: client?.playerId,
-        displayName: client?.displayName ?? (isComputer ? 'Computer' : null),
+        playerId: client?.playerId ?? heldFor,
+        displayName:
+            client?.displayName ?? heldName ?? (isComputer ? 'Computer' : null),
         isComputer: isComputer,
         connected: connected || isComputer,
         ready: ready || isComputer,
@@ -51,8 +61,10 @@ class Room {
     required this.hostId,
     this.fillEmptySeatsWithAI = true,
     int? seed,
+    Random? random,
     DateTime Function()? clock,
   })  : _seed = seed ?? Random.secure().nextInt(0x7FFFFFFF) + 1,
+        _random = random ?? Random.secure(),
         _now = clock ?? DateTime.now {
     for (var i = 0; i < rules.players; i++) {
       seats.add(Seat(i));
@@ -64,11 +76,20 @@ class Room {
   /// How long a dropped player's seat is held before the seat is given up.
   static const reconnectWindow = Duration(minutes: 5);
 
+  /// How often one seat may send a reaction.
+  static const reactionGap = Duration(milliseconds: 1500);
+
   final String code;
   final RuleConfig rules;
-  final String hostId;
+
+  /// Who may start the match and call a rematch. Passed on to the next person
+  /// at the table when the host leaves, so a table is never stuck without one.
+  String hostId;
   final bool fillEmptySeatsWithAI;
   final int _seed;
+
+  /// Seeds every game after the first, so a rematch is not a replay.
+  final Random _random;
   final DateTime Function() _now;
 
   final List<Seat> seats = [];
@@ -97,32 +118,31 @@ class Room {
   /// Seats a player, or returns why not. A player already in the room is
   /// reconnecting and gets their own seat back.
   String? join(Client client) {
-    final existing = seats.where((s) => s.client?.playerId == client.playerId);
-    if (existing.isNotEmpty) {
-      existing.first
+    // Their own seat first: already sitting in it on another connection, or
+    // held for them since they dropped.
+    final own = seats.where((s) =>
+        s.client?.playerId == client.playerId || s.heldFor == client.playerId);
+    if (own.isNotEmpty) {
+      own.first
         ..client = client
-        ..droppedAt = null;
+        ..droppedAt = null
+        ..heldFor = null
+        ..heldName = null;
       broadcastRoom();
-      _sendMatchTo(existing.first);
+      _sendMatchTo(own.first);
       return null;
     }
 
-    final held = seats.where(
-        (s) => s.droppedAt != null && s.client == null && s.computer == null);
-    // Prefer a seat this player was holding; otherwise take a free one.
-    final free = seats.where((s) => s.isEmpty && s.droppedAt == null);
-    final target =
-        free.isNotEmpty ? free.first : (held.isNotEmpty ? held.first : null);
-    if (target == null) return 'that room is full';
-    if (phase == RoomPhase.playing && free.isEmpty && held.isEmpty) {
-      return 'that match has already started';
-    }
+    // A held seat is somebody's, even while they are away, so only a seat
+    // nobody has is offered to a newcomer.
+    if (phase != RoomPhase.lobby) return 'that match has already started';
+    final free = seats.where((s) => s.isEmpty && s.heldFor == null);
+    if (free.isEmpty) return 'that room is full';
 
-    target
+    free.first
       ..client = client
       ..droppedAt = null;
     broadcastRoom();
-    if (phase == RoomPhase.playing) _sendMatchTo(target);
     return null;
   }
 
@@ -133,6 +153,8 @@ class Room {
         // Hold the seat: the game carries on with the computer covering, and
         // the player takes it back mid-match if they return in time.
         seat
+          ..heldFor = playerId
+          ..heldName = seat.client?.displayName
           ..client = null
           ..droppedAt = _now();
       } else {
@@ -142,8 +164,24 @@ class Room {
           ..droppedAt = null;
       }
     }
+    if (playerId == hostId) _passHost();
     broadcastRoom();
   }
+
+  /// Hands the host's job to whoever is still here. Nobody being here leaves
+  /// it where it is: the room is about to be closed anyway.
+  void _passHost() {
+    final here = seats.where((s) => s.client != null);
+    if (here.isNotEmpty) hostId = here.first.client!.playerId;
+  }
+
+  /// Whether [playerId] still has a place here: a seat, or one held for them.
+  bool holds(String playerId) =>
+      seats.any((s) => s.client?.playerId == playerId || s.heldFor == playerId);
+
+  /// Whether [playerId] dropped out of this match and can still come back.
+  bool isHeldFor(String playerId) =>
+      phase == RoomPhase.playing && seats.any((s) => s.heldFor == playerId);
 
   String? setReady(String playerId, bool ready) {
     for (final seat in seats) {
@@ -191,6 +229,49 @@ class Room {
     broadcastRoom();
     broadcastMatch();
     driveComputers();
+    return null;
+  }
+
+  /// Another game at the same table. The same seats, the same rules, fresh
+  /// dice; anyone who has gone is played by the computer this time.
+  String? rematch(String playerId) {
+    if (playerId != hostId) return 'only the host can start a rematch';
+    if (phase != RoomPhase.finished) return 'the match is not over yet';
+    for (final seat in seats) {
+      if (seat.client == null && !seat.isComputer) {
+        seat.computer = AiLevel.normal;
+      }
+      seat
+        ..droppedAt = null
+        ..heldFor = null
+        ..heldName = null;
+    }
+    phase = RoomPhase.playing;
+    game = GameState.newGame(rules, seed: _random.nextInt(0x7FFFFFFF) + 1);
+    lastMove = null;
+    lastWasAutoPlay = false;
+    turnStartedAt = _now();
+    broadcastRoom();
+    broadcastMatch();
+    driveComputers();
+    return null;
+  }
+
+  /// Passes one of the fixed [reactions] round the table.
+  String? react(String playerId, int index) {
+    if (index < 0 || index >= reactions.length) return 'no such reaction';
+    final mine = seats.where((s) => s.client?.playerId == playerId);
+    if (mine.isEmpty) return 'you are not at this table';
+    final seat = mine.first;
+    final last = seat.reactedAt;
+    // Too soon is dropped without a complaint: a second tap is not worth an
+    // error message.
+    if (last != null && _now().difference(last) < reactionGap) return null;
+    seat.reactedAt = _now();
+    final message = Reaction(seat: seat.index, index: index);
+    for (final c in _clients) {
+      c.send(message);
+    }
     return null;
   }
 
@@ -307,6 +388,8 @@ class Room {
       if (_now().difference(dropped) <= reconnectWindow) continue;
       seat
         ..droppedAt = null
+        ..heldFor = null
+        ..heldName = null
         ..computer = phase == RoomPhase.playing ? AiLevel.normal : null;
       changed = true;
     }

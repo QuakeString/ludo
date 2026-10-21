@@ -74,13 +74,20 @@ class GameOverSheet extends StatelessWidget {
     required this.onLeave,
     this.elapsed = Duration.zero,
     this.nameOf,
+    this.playAgainLabel = 'Play again',
+    this.note,
   });
+
+  final String playAgainLabel;
+
+  /// A line above the buttons, for what this player is waiting on.
+  final String? note;
 
   final GameState state;
   final Map<int, AiLevel> aiSeats;
 
-  /// Null online, where a rematch is the room's business rather than this
-  /// device's.
+  /// Null for a player who cannot start another game here: online, anybody
+  /// but the host.
   final VoidCallback? onPlayAgain;
   final VoidCallback onLeave;
 
@@ -169,6 +176,15 @@ class GameOverSheet extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 12),
+                  if (note != null)
+                    Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Text(
+                        note!,
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(fontSize: 13),
+                      ),
+                    ),
                   Row(
                     children: [
                       if (onPlayAgain != null) ...[
@@ -180,7 +196,7 @@ class GameOverSheet extends StatelessWidget {
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 14),
                             ),
-                            child: const Text('Play again'),
+                            child: Text(playAgainLabel),
                           ),
                         ),
                         const SizedBox(width: 10),

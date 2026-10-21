@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ludo_engine/ludo_engine.dart';
 import 'package:ludo_protocol/ludo_protocol.dart';
+import 'package:share_plus/share_plus.dart';
 
 import '../net/connection.dart';
 import '../net/online_session.dart';
@@ -19,6 +20,10 @@ const serverUri = String.fromEnvironment(
 
 /// The hosted server's address, also used for invite links. Set in `fly.toml`.
 const serverHost = 'quakestring-ludo.fly.dev';
+
+/// The link that invites somebody to [code]: a page on the server that opens
+/// the app, or offers it to a phone that does not have it yet.
+String inviteLink(String code) => 'https://$serverHost/r/$code';
 
 /// True when this build was never given a server to talk to.
 ///
@@ -48,7 +53,10 @@ bool get serverIsUnset {
 /// whole of signing in — friends and profiles are built on top of that id
 /// later, never in front of it.
 class OnlineScreen extends StatefulWidget {
-  const OnlineScreen({super.key});
+  const OnlineScreen({super.key, this.joinCode});
+
+  /// A room to go straight to, from an invite link.
+  final String? joinCode;
 
   @override
   State<OnlineScreen> createState() => _OnlineScreenState();
@@ -60,6 +68,10 @@ class _OnlineScreenState extends State<OnlineScreen> {
 
   String? _problem;
   bool _connecting = true;
+
+  /// Asking for a name before anything else, the first time online. Everyone
+  /// at a table sees it, and `Guest_4821` tells a friend nothing.
+  bool _askName = false;
 
   final _code = TextEditingController();
   int _players = 4;
@@ -107,7 +119,9 @@ class _OnlineScreenState extends State<OnlineScreen> {
         _connection = connection;
         _session = session;
         _connecting = false;
+        _askName = !session.hasChosenName;
       });
+      if (!_askName) _followInvite();
     } catch (e) {
       await connection.dispose();
       if (!mounted) return;
@@ -120,6 +134,28 @@ class _OnlineScreenState extends State<OnlineScreen> {
                   'try again.\n\n($e)';
       });
     }
+  }
+
+  /// Goes to the room an invite link named, once there is a name to go as.
+  void _followInvite() {
+    final code = widget.joinCode;
+    if (code != null) _session?.joinRoom(code);
+  }
+
+  void _named(String? name) {
+    if (name != null) _session?.setName(name);
+    setState(() => _askName = false);
+    _followInvite();
+  }
+
+  Future<void> _rename() async {
+    final session = _session;
+    if (session == null) return;
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => _RenameDialog(initial: session.myName),
+    );
+    if (name != null && name.trim().isNotEmpty) session.setName(name);
   }
 
   void _changed() {
@@ -173,6 +209,12 @@ class _OnlineScreenState extends State<OnlineScreen> {
                     // Nothing to retry when there is no server to reach.
                     onRetry: serverIsUnset ? null : _connect,
                   )
+                : _askName
+                ? _NamePrompt(
+                    suggestion: session!.myName,
+                    invited: widget.joinCode != null,
+                    onDone: _named,
+                  )
                 : session!.room != null
                 ? _Lobby(session: session, onLeave: _leaveRoom)
                 : _entrance(session),
@@ -191,15 +233,42 @@ class _OnlineScreenState extends State<OnlineScreen> {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Text(
-          'Playing as ${session.myName}',
-          style: const TextStyle(fontWeight: FontWeight.w600),
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                'Playing as ${session.myName}',
+                style: const TextStyle(fontWeight: FontWeight.w600),
+              ),
+            ),
+            TextButton.icon(
+              onPressed: _rename,
+              icon: const Icon(Icons.edit, size: 16),
+              label: const Text('Change'),
+            ),
+          ],
         ),
-        const SizedBox(height: 2),
         const Text(
           'No account needed — this device is remembered, that is all.',
           style: TextStyle(fontSize: 12.5),
         ),
+        if (session.rejoinCode != null) ...[
+          const SizedBox(height: 16),
+          Card(
+            child: ListTile(
+              leading: const Icon(Icons.replay_rounded),
+              title: const Text('Your game is still going'),
+              subtitle: Text(
+                'Room ${session.rejoinCode} is keeping your seat. The '
+                'computer is playing it until you are back.',
+              ),
+              trailing: FilledButton(
+                onPressed: () => session.joinRoom(session.rejoinCode!),
+                child: const Text('Rejoin'),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: 24),
 
         const Text(
@@ -311,11 +380,22 @@ class _Lobby extends StatelessWidget {
   final OnlineSession session;
   final VoidCallback onLeave;
 
+  void _invite(BuildContext context, String code) {
+    final link = inviteLink(code);
+    final text =
+        'Join my Ludo game! Tap $link to open it, or type the room code '
+        '$code under Play with friends.';
+    SharePlus.instance.share(ShareParams(text: text, subject: 'Ludo'));
+  }
+
   @override
   Widget build(BuildContext context) {
     final room = session.room!;
     final sitting = room.seats.where((s) => s.playerId != null || s.isComputer);
+    final people = room.seats.where((s) => s.playerId != null).length;
     final empty = room.seats.length - sitting.length;
+    final host = room.seats.where((s) => s.playerId == room.hostId);
+    final hostName = host.isEmpty ? 'the host' : host.first.displayName;
 
     // Mirror what the server will actually accept, so the button is never
     // enabled into a refusal.
@@ -331,35 +411,64 @@ class _Lobby extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       children: [
         Card(
-          child: ListTile(
-            title: Text(
-              room.code,
-              style: const TextStyle(
-                fontSize: 30,
-                fontWeight: FontWeight.w800,
-                letterSpacing: 5,
-              ),
-            ),
-            subtitle: const Text(
-              'Read this out, or send it — that is the invite',
-            ),
-            trailing: IconButton(
-              tooltip: 'Copy',
-              icon: const Icon(Icons.copy),
-              onPressed: () {
-                Clipboard.setData(ClipboardData(text: room.code));
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Room code copied')),
-                );
-              },
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 14, 8, 14),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Room code', style: TextStyle(fontSize: 12.5)),
+                Row(
+                  children: [
+                    Expanded(
+                      child: SelectableText(
+                        room.code,
+                        style: const TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: 5,
+                        ),
+                      ),
+                    ),
+                    IconButton(
+                      tooltip: 'Copy the code',
+                      icon: const Icon(Icons.copy),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: room.code));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Room code copied')),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                FilledButton.icon(
+                  onPressed: () => _invite(context, room.code),
+                  icon: const Icon(Icons.share),
+                  label: const Text('Invite friends'),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Send the link in any chat. It opens this room in the app, '
+                  'or offers the app to anyone who does not have it.',
+                  style: TextStyle(fontSize: 12.5),
+                ),
+              ],
             ),
           ),
         ),
         const SizedBox(height: 16),
+        Text(
+          '$people of ${room.seats.length} seats taken'
+          '${sitting.length > people ? ', ${sitting.length - people} by the computer' : ''}',
+          style: const TextStyle(fontWeight: FontWeight.w700),
+        ),
+        const SizedBox(height: 4),
         for (final seat in room.seats)
           _SeatRow(
             seat: seat,
             isYou: seat.playerId == session.playerId,
+            isHost: seat.playerId != null && seat.playerId == room.hostId,
             // Filling an empty seat with a computer is the host's choice. A
             // table must never quietly decide that for them.
             onAddComputer: session.isHost && seat.playerId == null
@@ -422,7 +531,7 @@ class _Lobby extends StatelessWidget {
             ),
           )
         else
-          const Center(child: Text('Waiting for the host to start…')),
+          Center(child: Text('Waiting for $hostName to start…')),
         const SizedBox(height: 10),
         TextButton(onPressed: onLeave, child: const Text('Leave room')),
       ],
@@ -431,15 +540,25 @@ class _Lobby extends StatelessWidget {
 }
 
 class _SeatRow extends StatelessWidget {
-  const _SeatRow({required this.seat, required this.isYou, this.onAddComputer});
+  const _SeatRow({
+    required this.seat,
+    required this.isYou,
+    this.isHost = false,
+    this.onAddComputer,
+  });
 
   final SeatInfo seat;
   final bool isYou;
+  final bool isHost;
   final void Function(AiLevel)? onAddComputer;
 
   @override
   Widget build(BuildContext context) {
     final empty = seat.playerId == null && !seat.isComputer;
+    final notes = [
+      if (isHost) 'Host',
+      if (!seat.connected && !empty) 'Reconnecting…',
+    ];
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(
@@ -447,6 +566,8 @@ class _SeatRow extends StatelessWidget {
         radius: 14,
         child: seat.isComputer
             ? const Icon(Icons.smart_toy, size: 15, color: Colors.white)
+            : isHost
+            ? const Icon(Icons.star_rounded, size: 16, color: Colors.white)
             : null,
       ),
       title: Text(
@@ -458,9 +579,9 @@ class _SeatRow extends StatelessWidget {
           color: empty ? Theme.of(context).disabledColor : null,
         ),
       ),
-      subtitle: seat.connected || empty
+      subtitle: notes.isEmpty
           ? null
-          : const Text('Reconnecting…', style: TextStyle(fontSize: 12)),
+          : Text(notes.join(' · '), style: const TextStyle(fontSize: 12)),
       trailing: onAddComputer == null
           ? null
           : PopupMenuButton<AiLevel>(
@@ -478,6 +599,128 @@ class _SeatRow extends StatelessWidget {
                 child: Text('Add computer'),
               ),
             ),
+    );
+  }
+}
+
+/// The first time online: what should everybody else call you?
+class _NamePrompt extends StatefulWidget {
+  const _NamePrompt({
+    required this.suggestion,
+    required this.invited,
+    required this.onDone,
+  });
+
+  final String suggestion;
+  final bool invited;
+
+  /// The name chosen, or null to carry on as the guest name.
+  final ValueChanged<String?> onDone;
+
+  @override
+  State<_NamePrompt> createState() => _NamePromptState();
+}
+
+class _NamePromptState extends State<_NamePrompt> {
+  final _name = TextEditingController();
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  void _save() {
+    final name = _name.text.trim();
+    widget.onDone(name.length >= 2 ? name : null);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        const SizedBox(height: 20),
+        const Icon(Icons.badge_outlined, size: 44),
+        const SizedBox(height: 14),
+        Text(
+          widget.invited ? 'You are invited to a game' : 'What should we call you?',
+          textAlign: TextAlign.center,
+          style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Everyone at the table sees this name. You can change it later.',
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 20),
+        TextField(
+          controller: _name,
+          autofocus: true,
+          maxLength: 16,
+          textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(
+            labelText: 'Your name',
+            hintText: widget.suggestion,
+            border: const OutlineInputBorder(),
+          ),
+          onSubmitted: (_) => _save(),
+        ),
+        const SizedBox(height: 8),
+        FilledButton(
+          onPressed: _save,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          child: Text(widget.invited ? 'Join the game' : 'Continue'),
+        ),
+        TextButton(
+          onPressed: () => widget.onDone(null),
+          child: Text('Skip and play as ${widget.suggestion}'),
+        ),
+      ],
+    );
+  }
+}
+
+class _RenameDialog extends StatefulWidget {
+  const _RenameDialog({required this.initial});
+  final String initial;
+
+  @override
+  State<_RenameDialog> createState() => _RenameDialogState();
+}
+
+class _RenameDialogState extends State<_RenameDialog> {
+  late final _name = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Your name'),
+      content: TextField(
+        controller: _name,
+        autofocus: true,
+        maxLength: 16,
+        textCapitalization: TextCapitalization.words,
+        onSubmitted: (v) => Navigator.of(context).pop(v),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_name.text),
+          child: const Text('Save'),
+        ),
+      ],
     );
   }
 }
