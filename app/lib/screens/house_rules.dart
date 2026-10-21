@@ -46,8 +46,10 @@ List<String> ruleLines(RuleConfig r) => [
     'A player has to knock off at least one chip before any of theirs can '
         'go home.',
   if (r.pairMove)
-    'Two of your chips on one square can move together on an even roll, '
-        'at half the number.',
+    'A chip that stops beside another of its side on an ordinary square '
+        'pairs up with it; on a safe square, tap 🔗 to pair. A pair moves '
+        'together on an even roll, at half the number, and splits by itself '
+        'when it reaches a safe square.',
   if (r.turnTimerDots > 0)
     'Each turn has ${r.turnTimerDots * r.secondsPerDot} seconds; when time '
         'runs out the turn is played for you. Online, after 5 missed turns in '

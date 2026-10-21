@@ -393,13 +393,20 @@ class StartMatch extends Envelope {
 /// wants to do — so it cannot talk the server out of the rules.
 class Play extends Envelope {
   const Play(
-      {required this.action, this.tokenId, this.toProgress, this.pairId});
+      {required this.action,
+      this.tokenId,
+      this.toProgress,
+      this.pairId,
+      this.withToken});
 
   /// One of: roll, move, pass, formPair, breakPair.
   final String action;
   final int? tokenId;
   final int? toProgress;
   final int? pairId;
+
+  /// For formPair: the token [tokenId] joins.
+  final int? withToken;
 
   @override
   String get type => 'play';
@@ -409,6 +416,7 @@ class Play extends Envelope {
         if (tokenId != null) 'token': tokenId,
         if (toProgress != null) 'to': toProgress,
         if (pairId != null) 'pair': pairId,
+        if (withToken != null) 'with': withToken,
       };
 
   factory Play.fromJson(Map<String, Object?> j) => Play(
@@ -416,6 +424,7 @@ class Play extends Envelope {
         tokenId: (j['token'] as num?)?.toInt(),
         toProgress: (j['to'] as num?)?.toInt(),
         pairId: (j['pair'] as num?)?.toInt(),
+        withToken: (j['with'] as num?)?.toInt(),
       );
 
   static Play roll() => const Play(action: 'roll');
@@ -427,6 +436,8 @@ class Play extends Envelope {
       );
   static Play breakPair(int pairId) =>
       Play(action: 'breakPair', pairId: pairId);
+  static Play formPair(int a, int b) =>
+      Play(action: 'formPair', tokenId: a, withToken: b);
 }
 
 /// Table sizes a player can ask to be matched into.

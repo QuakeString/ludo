@@ -87,6 +87,9 @@ void main() {
     expect(trip(const Reaction(seat: 2, index: 1)).emoji, reactions[1]);
     expect(trip(const Say('nice one 🎉')).text, 'nice one 🎉');
     expect(trip(const ThrowAt(to: 3, index: 0)).to, 3);
+    final pairing = trip(Play.formPair(4, 9));
+    expect([pairing.action, pairing.tokenId, pairing.withToken],
+        ['formPair', 4, 9]);
     final thrown = trip(const Thrown(from: 1, to: 2, index: 0));
     expect([thrown.from, thrown.to, thrown.emoji], [1, 2, '🔨']);
     expect(trip(const SwapSeats(1, 2)).b, 2);

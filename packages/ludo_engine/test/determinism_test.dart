@@ -162,8 +162,16 @@ void main() {
           for (final entry in byPair.entries) {
             expect(entry.value, hasLength(2),
                 reason: 'pair ${entry.key} has ${entry.value.length} members');
-            expect(entry.value.first.progress, entry.value.last.progress,
+            // Partners count progress from different starts, so the square
+            // is what has to match, not the number.
+            final (a, b) = (entry.value.first, entry.value.last);
+            String square(Token t) => t.owner == a.owner && a.owner == b.owner
+                ? 'p${t.progress}'
+                : 'r${s.board.ringIndex(s.armOf(t.owner), t.progress)}';
+            expect(square(a), square(b),
                 reason: 'pair ${entry.key} is split across two squares');
+            expect(square(a), isNot('rnull'),
+                reason: 'partners can only pair on the ring');
           }
         }
         expect(s.isOver, isTrue, reason: '$rules never finished');

@@ -443,6 +443,16 @@ class Room {
         return const PassTurn();
       case 'breakPair':
         return intent.pairId == null ? null : BreakPair(intent.pairId!);
+      case 'formPair':
+        // Only a pairing the engine offers right now.
+        final a = intent.tokenId, b = intent.withToken;
+        for (final action in engine.pairActions(s)) {
+          if (action is FormPair &&
+              {action.tokenA, action.tokenB}.containsAll([a, b])) {
+            return action;
+          }
+        }
+        return null;
       case 'move':
         // Match the intent against what the engine actually offers rather than
         // trusting the numbers that arrived.

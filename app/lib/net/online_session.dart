@@ -237,6 +237,7 @@ class OnlineSession extends ChangeNotifier {
   void pass() => connection.send(Play.pass());
   void move(Move m) => connection.send(Play.move(m));
   void breakPair(int pairId) => connection.send(Play.breakPair(pairId));
+  void formPair(int a, int b) => connection.send(Play.formPair(a, b));
 
   // --- what the server says ------------------------------------------------
 

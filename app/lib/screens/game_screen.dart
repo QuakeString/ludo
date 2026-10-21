@@ -470,6 +470,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (!_myMove || _state.awaitingRoll) return false;
     final moves = _legalMoves;
     if (!_nothingToChoose(moves)) return false;
+    // Linking a pair is a choice too, so the turn waits.
+    if (_pairings.isNotEmpty) return false;
 
     setState(() {
       _flash = moves.isEmpty
@@ -1063,6 +1065,70 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     ];
   }
 
+  /// Pairs this device may link right now. Only on a safe square: anywhere
+  /// else chips link by themselves, and a pair comes apart by itself when it
+  /// reaches safety, so there is never anything to split by hand.
+  List<FormPair> get _pairings => _myMove && !_busy
+      ? engine.pairActions(_state).whereType<FormPair>().toList()
+      : const <FormPair>[];
+
+  void _link(FormPair pairing) {
+    final session = _session;
+    if (session != null) {
+      session.formPair(pairing.tokenA, pairing.tokenB);
+      return;
+    }
+    _apply(pairing);
+    _autoAdvance();
+  }
+
+  /// A small 🔗 over a square where two chips may be linked into a pair.
+  List<Widget> _pairButtons(Size size) {
+    final pairings = _pairings;
+    if (pairings.isEmpty) return const [];
+    final side = math.min(size.width, size.height);
+    final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
+    final cell = _geometry.cellSize * side;
+    final button = math.max(26.0, cell * 0.95);
+    final layout = chipLayout(_state, _geometry);
+
+    final out = <Widget>[];
+    final placed = <String>{};
+    for (final pairing in pairings) {
+      final token = pairing.tokenA;
+      final at = layout[token];
+      if (at == null) continue;
+      // One button to a square: three chips on one square offer three ways
+      // to pair, and the first is as good as the others.
+      final spot =
+          '${_state.tokens[token].progress}:'
+          '${_state.armOf(_state.tokens[token].owner)}';
+      if (!placed.add(spot)) continue;
+      out.add(
+        Positioned(
+          left: origin.dx + at.x * side - button / 2,
+          top: origin.dy + at.y * side - button * 1.55,
+          width: button,
+          height: button,
+          child: Material(
+            key: ValueKey('pair-${pairing.tokenA}-${pairing.tokenB}'),
+            shape: const CircleBorder(),
+            color: Colors.white,
+            elevation: 3,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => _link(pairing),
+              child: Center(
+                child: Text('🔗', style: TextStyle(fontSize: button * 0.55)),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return out;
+  }
+
   @override
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
@@ -1261,6 +1327,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                                   ),
                                                 ),
                                           ),
+                                          ..._pairButtons(size),
                                         ],
                                       ),
                                     ),
