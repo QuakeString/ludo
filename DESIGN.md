@@ -547,6 +547,14 @@ rate-limited (a burst of 30, then 10 messages a second).
   host.
 - **Reactions.** Six fixed emoji, at most one per seat every 1.5 seconds. No free-text chat.
 
+### Matchmaking
+
+The home page's *Online* card queues for a 2- or 4-seat table with fixed rules (classic, four
+chips, a 30-second turn clock). A table is dealt as soon as enough people are waiting, or
+after 20 seconds with computers in the empty seats. Walking out of a matched game while it
+is still being played means waiting two minutes before being matched again; leaving a table
+among friends costs nothing.
+
 ### Where it goes
 
 One process holds every live room, so the first deployment is **one container**: any VPS,

@@ -60,6 +60,7 @@ class Room {
     required this.rules,
     required this.hostId,
     this.fillEmptySeatsWithAI = true,
+    this.matchmade = false,
     int? seed,
     Random? random,
     DateTime Function()? clock,
@@ -86,6 +87,10 @@ class Room {
   /// at the table when the host leaves, so a table is never stuck without one.
   String hostId;
   final bool fillEmptySeatsWithAI;
+
+  /// Dealt by matchmaking, among strangers, rather than opened by a host for
+  /// friends. Walking out of one of these mid-game has a cost.
+  final bool matchmade;
   final int _seed;
 
   /// Seeds every game after the first, so a rematch is not a replay.

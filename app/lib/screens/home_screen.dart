@@ -114,21 +114,8 @@ class _HomeScreenState extends State<HomeScreen> {
                           icon: Icons.public_rounded,
                           colour: seatColors[3],
                           wide: columns == 1,
-                          // Honest rather than hopeful. There is no
-                          // matchmaking queue behind this yet — rooms exist
-                          // and joining strangers does not — and a card that
-                          // leads somewhere it cannot deliver is worse than
-                          // one that says so.
-                          soon: true,
-                          onTap: () => ScaffoldMessenger.of(context)
-                              .showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Not built yet — for now, open a table '
-                                    'under Play with friends.',
-                                  ),
-                                ),
-                              ),
+                          onTap: () =>
+                              _go(context, const OnlineScreen(quick: true)),
                         ),
                     ];
 

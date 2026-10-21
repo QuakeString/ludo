@@ -55,6 +55,10 @@ class OnlineSession extends ChangeNotifier {
   final _reactions = StreamController<Reaction>.broadcast();
   Stream<Reaction> get reactions => _reactions.stream;
 
+  /// Where the search for a quick match has got to, while there is one.
+  QueueUpdate? queue;
+  bool get searching => queue?.searching ?? false;
+
   /// A match this player dropped out of that still has their seat.
   String? get rejoinCode => connection.rejoin;
 
@@ -95,6 +99,20 @@ class OnlineSession extends ChangeNotifier {
 
   void start() => connection.send(const StartMatch());
 
+  /// Looks for strangers to play with.
+  void quickMatch(int players) {
+    error = null;
+    queue = QueueUpdate(players: players, found: 1);
+    connection.send(QuickMatch(players: players));
+    notifyListeners();
+  }
+
+  void cancelQuickMatch() {
+    queue = null;
+    connection.send(const CancelMatch());
+    notifyListeners();
+  }
+
   /// Another game at the same table. The host's call, like starting.
   void rematch() => connection.send(const Rematch());
 
@@ -132,10 +150,15 @@ class OnlineSession extends ChangeNotifier {
       case Welcome():
         notifyListeners();
 
+      case QueueUpdate():
+        queue = message.searching ? message : null;
+        notifyListeners();
+
       case Reaction():
         _reactions.add(message);
 
       case Oops(message: final text, code: final code):
+        if (code == 'cooldown') queue = null;
         if (code == 'closed') {
           disconnected = true;
           _reconnect();
@@ -173,7 +196,12 @@ class OnlineSession extends ChangeNotifier {
         disconnected = false;
         error = null;
         final code = room?.code;
-        if (code != null) connection.send(JoinRoom(code));
+        if (code != null) {
+          connection.send(JoinRoom(code));
+        } else if (queue != null) {
+          // The server forgot the search when the socket went; ask again.
+          connection.send(QuickMatch(players: queue!.players));
+        }
         notifyListeners();
         return;
       }

@@ -9,9 +9,8 @@ void main() => runApp(const LudoApp());
 /// The room code in an invite link, whichever shape it arrived in: the app's
 /// own `ludo://join/CODE`, or the web page's `…/r/CODE` passed on to it.
 String? inviteCodeIn(String link) {
-  final match = RegExp(
-    r'(?:join|/r)/([A-Za-z0-9-]{4,12})/?(?:[?#].*)?$',
-  ).firstMatch(link);
+  final match = RegExp(r'(?:join|/r)/([A-Za-z0-9-]{4,12})/?(?:[?#].*)?$')
+      .firstMatch(link);
   return match?.group(1)?.toUpperCase().replaceAll('-', '');
 }
 

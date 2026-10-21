@@ -77,20 +77,17 @@ void main() {
     expect(find.byType(OnlineScreen), findsOneWidget);
   });
 
-  testWidgets('the card with nothing behind it says so instead of pretending', (
+  testWidgets('Online opens matchmaking, not a table for friends', (
     tester,
   ) async {
-    // There is no matchmaking queue yet — rooms exist, joining strangers does
-    // not. A card that leads somewhere it cannot deliver is worse than one
-    // that admits it.
     await openHome(tester);
-    expect(find.text('SOON'), findsOneWidget);
+    expect(find.text('SOON'), findsNothing);
 
     await tester.tap(find.text('Online'));
     await tester.pump();
-    expect(find.byType(SnackBar), findsOneWidget);
-    expect(find.byType(OnlineScreen), findsNothing);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    final screen = tester.widget<OnlineScreen>(find.byType(OnlineScreen));
+    expect(screen.quick, isTrue);
   });
 
   testWidgets('choosing the computer starts with computers at the table', (

@@ -7,8 +7,10 @@ void main() {
     expect(inviteCodeIn('ludo://join/KTP4WQ'), 'KTP4WQ');
     expect(inviteCodeIn('ludo://join/ktp-4wq/'), 'KTP4WQ');
     expect(inviteCodeIn(inviteLink('KTP4WQ')), 'KTP4WQ');
-    expect(inviteCodeIn('https://quakestring-ludo.fly.dev/r/KTP4WQ?x=1'),
-        'KTP4WQ');
+    expect(
+      inviteCodeIn('https://quakestring-ludo.fly.dev/r/KTP4WQ?x=1'),
+      'KTP4WQ',
+    );
   });
 
   test('an ordinary start is not an invite', () {

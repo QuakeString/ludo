@@ -26,6 +26,32 @@ class LudoHub {
   final Map<String, Room> rooms = {};
   final Map<String, Room> _roomOf = {}; // playerId -> room
 
+  /// People looking for a game, by the size of table they want, longest
+  /// waiting first.
+  final Map<int, List<_Waiting>> queues = {
+    for (final n in quickMatchSizes) n: [],
+  };
+
+  /// Players who walked out of a matched game, and when they may queue again.
+  final Map<String, DateTime> _cooldown = {};
+
+  /// How long the queue waits for people before dealing computers into the
+  /// empty seats. Long enough for a friend to join; short enough that
+  /// nobody gives up.
+  static const fillAfter = Duration(seconds: 20);
+
+  /// How long someone who leaves a matched game mid-match must wait before
+  /// being matched again. Leaving strangers a seat short is not free.
+  static const abandonCooldown = Duration(minutes: 2);
+
+  /// Every matched table plays the same rules, so nobody is surprised.
+  static RuleConfig quickRules(int players) => RuleConfig(
+        name: 'Quick match',
+        players: players,
+        tokensPerPlayer: 4,
+        turnTimerDots: 6,
+      );
+
   /// Codes people read aloud and type on a phone: no 0/O or 1/I to confuse,
   /// and no vowels, so a random code cannot spell something unfortunate.
   static const _codeAlphabet = 'BCDFGHJKLMNPQRSTVWXZ23456789';
@@ -70,6 +96,7 @@ class LudoHub {
           client.send(Oops(e.message, code: 'rules'));
           return;
         }
+        _unqueue(client.playerId);
         _leaveCurrent(client.playerId);
         final room = Room(
           code: _newCode(),
@@ -93,6 +120,7 @@ class LudoHub {
           client.send(const Oops('no room with that code', code: 'noroom'));
           return;
         }
+        _unqueue(client.playerId);
         // Coming back to the table you are already at is not leaving it.
         if (_roomOf[client.playerId] != room) _leaveCurrent(client.playerId);
         final refused = room.join(client);
@@ -103,7 +131,35 @@ class LudoHub {
         _roomOf[client.playerId] = room;
 
       case LeaveRoom():
-        _leaveCurrent(client.playerId);
+        _walkOut(client.playerId);
+
+      case QuickMatch(players: final players):
+        if (!quickMatchSizes.contains(players)) {
+          client
+              .send(Oops('quick matches are for ${quickMatchSizes.join(' or ')}'
+                  ' players'));
+          return;
+        }
+        // Looking for a new game in the middle of a matched one is walking
+        // out of it.
+        _walkOut(client.playerId);
+        final until = _cooldown[client.playerId];
+        if (until != null && _now().isBefore(until)) {
+          final seconds = until.difference(_now()).inSeconds + 1;
+          client.send(Oops(
+              'You left your last match early, so you can look for another '
+              'in $seconds seconds.',
+              code: 'cooldown'));
+          return;
+        }
+        _unqueue(client.playerId);
+        queues[players]!.add(_Waiting(client, _now()));
+        _matchUp(players);
+
+      case CancelMatch():
+        final size = _unqueue(client.playerId);
+        client
+            .send(QueueUpdate(players: size ?? 0, found: 0, searching: false));
 
       case SetReady(ready: final ready):
         _withRoom(client, (room) => room.setReady(client.playerId, ready));
@@ -143,10 +199,87 @@ class LudoHub {
             Welcome() ||
             RoomUpdate() ||
             MatchUpdate() ||
+            QueueUpdate() ||
             Reaction() ||
             Oops() ||
             Pong():
         client.send(const Oops('the server does not accept that message'));
+    }
+  }
+
+  /// Leaves the current table on purpose. From a matched game still being
+  /// played, that earns a wait before the next one.
+  void _walkOut(String playerId) {
+    final room = _roomOf[playerId];
+    if (room != null && room.matchmade && room.phase == RoomPhase.playing) {
+      _cooldown[playerId] = _now().add(abandonCooldown);
+    }
+    _leaveCurrent(playerId);
+  }
+
+  /// Takes [playerId] out of whichever queue they are in. Returns the size of
+  /// table they were waiting for, or null if they were not waiting.
+  int? _unqueue(String playerId) {
+    for (final entry in queues.entries) {
+      final before = entry.value.length;
+      entry.value.removeWhere((w) => w.client.playerId == playerId);
+      if (entry.value.length != before) {
+        _tellQueue(entry.key);
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
+  /// Deals a table when there are enough people for one, or when the longest
+  /// waiting has waited long enough and computers make up the rest.
+  void _matchUp(int players) {
+    final queue = queues[players]!;
+    while (queue.length >= players) {
+      _deal(players, queue.sublist(0, players));
+      queue.removeRange(0, players);
+    }
+    if (queue.isNotEmpty && _now().difference(queue.first.since) >= fillAfter) {
+      _deal(players, List.of(queue));
+      queue.clear();
+    }
+    _tellQueue(players);
+  }
+
+  void _deal(int players, List<_Waiting> who) {
+    final host = who.first.client;
+    final room = Room(
+      code: _newCode(),
+      rules: quickRules(players),
+      hostId: host.playerId,
+      fillEmptySeatsWithAI: true,
+      matchmade: true,
+      seed: _random.nextInt(0x7FFFFFFF) + 1,
+      random: Random(_random.nextInt(0x7FFFFFFF)),
+      clock: _now,
+    );
+    rooms[room.code] = room;
+    for (final w in who) {
+      w.client.send(
+          QueueUpdate(players: players, found: who.length, searching: false));
+      _roomOf[w.client.playerId] = room;
+      room.join(w.client);
+    }
+    room.start(host.playerId);
+  }
+
+  /// Tells everyone in a queue how it is going.
+  void _tellQueue(int players) {
+    final queue = queues[players]!;
+    if (queue.isEmpty) return;
+    final waited = _now().difference(queue.first.since);
+    final left = (fillAfter - waited).inSeconds.clamp(0, fillAfter.inSeconds);
+    for (final w in queue) {
+      w.client.send(QueueUpdate(
+        players: players,
+        found: queue.length,
+        secondsToFill: left,
+      ));
     }
   }
 
@@ -170,6 +303,7 @@ class LudoHub {
   /// A client's socket dropped. During a match their seat is held; in a lobby
   /// it is freed straight away.
   void disconnected(String playerId) {
+    _unqueue(playerId);
     final room = _roomOf[playerId];
     if (room == null) return;
     room.leave(playerId);
@@ -191,12 +325,23 @@ class LudoHub {
     for (final room in rooms.values.toList()) {
       room.tick();
     }
+    for (final size in quickMatchSizes) {
+      if (queues[size]!.isNotEmpty) _matchUp(size);
+    }
+    _cooldown.removeWhere((_, until) => !_now().isBefore(until));
     // A seat given up to the computer is no longer that player's, and a table
     // with nobody left at it is finished with.
     _roomOf.removeWhere((id, room) => !room.holds(id));
     rooms.removeWhere((_, room) =>
         !room.seats.any((s) => s.client != null || s.heldFor != null));
   }
+}
+
+/// Somebody in a matchmaking queue, and since when.
+class _Waiting {
+  _Waiting(this.client, this.since);
+  final Client client;
+  final DateTime since;
 }
 
 /// A client backed by a real socket.

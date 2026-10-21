@@ -138,6 +138,9 @@ sealed class Envelope {
       'room' => RoomUpdate.fromJson(j),
       'match' => MatchUpdate.fromJson(j),
       'oops' => Oops.fromJson(j),
+      'quickMatch' => QuickMatch.fromJson(j),
+      'cancelMatch' => const CancelMatch(),
+      'queue' => QueueUpdate.fromJson(j),
       'setName' => SetName.fromJson(j),
       'rematch' => const Rematch(),
       'react' => React.fromJson(j),
@@ -309,6 +312,32 @@ class Play extends Envelope {
       Play(action: 'breakPair', pairId: pairId);
 }
 
+/// Table sizes a player can ask to be matched into.
+const quickMatchSizes = [2, 4];
+
+/// Asks to be seated with whoever else is looking for a game of [players].
+class QuickMatch extends Envelope {
+  const QuickMatch({this.players = 4});
+  final int players;
+
+  @override
+  String get type => 'quickMatch';
+  @override
+  Map<String, Object?> payload() => {'players': players};
+
+  factory QuickMatch.fromJson(Map<String, Object?> j) =>
+      QuickMatch(players: (j['players'] as num?)?.toInt() ?? 4);
+}
+
+/// Stops looking for a game.
+class CancelMatch extends Envelope {
+  const CancelMatch();
+  @override
+  String get type => 'cancelMatch';
+  @override
+  Map<String, Object?> payload() => const {};
+}
+
 /// The player picks the name everyone else sees. The server tidies it and
 /// answers with a fresh [Welcome].
 class SetName extends Envelope {
@@ -354,6 +383,47 @@ class React extends Envelope {
 }
 
 // --- server to app ---------------------------------------------------------
+
+/// Where a player looking for a game has got to.
+///
+/// [searching] false means they are no longer in the queue: a match was
+/// found (a room update follows) or they cancelled.
+class QueueUpdate extends Envelope {
+  const QueueUpdate({
+    required this.players,
+    required this.found,
+    this.searching = true,
+    this.secondsToFill,
+  });
+
+  /// The size of table being looked for.
+  final int players;
+
+  /// How many people are waiting for one, this player included.
+  final int found;
+  final bool searching;
+
+  /// Seconds until the table is dealt anyway, with computers in the empty
+  /// seats.
+  final int? secondsToFill;
+
+  @override
+  String get type => 'queue';
+  @override
+  Map<String, Object?> payload() => {
+        'players': players,
+        'found': found,
+        'searching': searching,
+        if (secondsToFill != null) 'fill': secondsToFill,
+      };
+
+  factory QueueUpdate.fromJson(Map<String, Object?> j) => QueueUpdate(
+        players: (j['players'] as num).toInt(),
+        found: (j['found'] as num?)?.toInt() ?? 1,
+        searching: j['searching'] as bool? ?? true,
+        secondsToFill: (j['fill'] as num?)?.toInt(),
+      );
+}
 
 /// Somebody at the table sent one of the [reactions].
 class Reaction extends Envelope {

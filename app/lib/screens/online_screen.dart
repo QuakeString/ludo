@@ -53,10 +53,13 @@ bool get serverIsUnset {
 /// whole of signing in — friends and profiles are built on top of that id
 /// later, never in front of it.
 class OnlineScreen extends StatefulWidget {
-  const OnlineScreen({super.key, this.joinCode});
+  const OnlineScreen({super.key, this.joinCode, this.quick = false});
 
   /// A room to go straight to, from an invite link.
   final String? joinCode;
+
+  /// Matched with strangers, rather than opening a table for friends.
+  final bool quick;
 
   @override
   State<OnlineScreen> createState() => _OnlineScreenState();
@@ -75,6 +78,7 @@ class _OnlineScreenState extends State<OnlineScreen> {
 
   final _code = TextEditingController();
   int _players = 4;
+  int _quickPlayers = 4;
   int _tokens = 4;
   bool _teams = false;
   int _shape = 0;
@@ -196,7 +200,9 @@ class _OnlineScreenState extends State<OnlineScreen> {
   Widget build(BuildContext context) {
     final session = _session;
     return Scaffold(
-      appBar: AppBar(title: const Text('Play online')),
+      appBar: AppBar(
+        title: Text(widget.quick ? 'Online' : 'Play with friends'),
+      ),
       body: SafeArea(
         child: Center(
           child: ConstrainedBox(
@@ -217,6 +223,8 @@ class _OnlineScreenState extends State<OnlineScreen> {
                   )
                 : session!.room != null
                 ? _Lobby(session: session, onLeave: _leaveRoom)
+                : widget.quick
+                ? _quickEntrance(session)
                 : _entrance(session),
           ),
         ),
@@ -229,46 +237,129 @@ class _OnlineScreenState extends State<OnlineScreen> {
     setState(() {});
   }
 
+  /// Who this device is playing as, and any game it can go back to.
+  List<Widget> _whoAmI(OnlineSession session) => [
+    Row(
+      children: [
+        Expanded(
+          child: Text(
+            'Playing as ${session.myName}',
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+        ),
+        TextButton.icon(
+          onPressed: _rename,
+          icon: const Icon(Icons.edit, size: 16),
+          label: const Text('Change'),
+        ),
+      ],
+    ),
+    const Text(
+      'No account needed — this device is remembered, that is all.',
+      style: TextStyle(fontSize: 12.5),
+    ),
+    if (session.rejoinCode != null) ...[
+      const SizedBox(height: 16),
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.replay_rounded),
+          title: const Text('Your game is still going'),
+          subtitle: Text(
+            'Room ${session.rejoinCode} is keeping your seat. The '
+            'computer is playing it until you are back.',
+          ),
+          trailing: FilledButton(
+            onPressed: () => session.joinRoom(session.rejoinCode!),
+            child: const Text('Rejoin'),
+          ),
+        ),
+      ),
+    ],
+  ];
+
+  Widget _quickEntrance(OnlineSession session) {
+    final queue = session.queue;
+    final error = session.error;
+    return ListView(
+      padding: const EdgeInsets.all(20),
+      children: [
+        ..._whoAmI(session),
+        const SizedBox(height: 28),
+        if (queue != null && queue.searching) ...[
+          const Center(child: CircularProgressIndicator()),
+          const SizedBox(height: 18),
+          Text(
+            'Looking for players',
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            '${queue.found} of ${queue.players} found',
+            textAlign: TextAlign.center,
+          ),
+          if (queue.secondsToFill != null && queue.found < queue.players)
+            Text(
+              queue.secondsToFill! > 0
+                  ? 'Computers take the empty seats in '
+                        '${queue.secondsToFill} s'
+                  : 'Dealing the table…',
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 13),
+            ),
+          const SizedBox(height: 20),
+          OutlinedButton(
+            onPressed: session.cancelQuickMatch,
+            child: const Text('Cancel'),
+          ),
+        ] else ...[
+          const Text(
+            'Play with whoever is looking for a game',
+            style: TextStyle(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'Classic rules, four chips each, a turn clock. If not enough '
+            'people turn up within 20 seconds, computers fill the empty seats.',
+            style: TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 14),
+          _Choice(
+            label: 'Players',
+            options: quickMatchSizes,
+            value: _quickPlayers,
+            onChanged: (v) => setState(() => _quickPlayers = v),
+          ),
+          if (error != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              error,
+              style: TextStyle(color: Theme.of(context).colorScheme.error),
+            ),
+          ],
+          const SizedBox(height: 18),
+          FilledButton(
+            onPressed: () => session.quickMatch(_quickPlayers),
+            style: FilledButton.styleFrom(
+              backgroundColor: seatColors[3],
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(vertical: 16),
+            ),
+            child: const Text(
+              'Find a game',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
   Widget _entrance(OnlineSession session) {
     return ListView(
       padding: const EdgeInsets.all(20),
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                'Playing as ${session.myName}',
-                style: const TextStyle(fontWeight: FontWeight.w600),
-              ),
-            ),
-            TextButton.icon(
-              onPressed: _rename,
-              icon: const Icon(Icons.edit, size: 16),
-              label: const Text('Change'),
-            ),
-          ],
-        ),
-        const Text(
-          'No account needed — this device is remembered, that is all.',
-          style: TextStyle(fontSize: 12.5),
-        ),
-        if (session.rejoinCode != null) ...[
-          const SizedBox(height: 16),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.replay_rounded),
-              title: const Text('Your game is still going'),
-              subtitle: Text(
-                'Room ${session.rejoinCode} is keeping your seat. The '
-                'computer is playing it until you are back.',
-              ),
-              trailing: FilledButton(
-                onPressed: () => session.joinRoom(session.rejoinCode!),
-                child: const Text('Rejoin'),
-              ),
-            ),
-          ),
-        ],
+        ..._whoAmI(session),
         const SizedBox(height: 24),
 
         const Text(
@@ -644,7 +735,9 @@ class _NamePromptState extends State<_NamePrompt> {
         const Icon(Icons.badge_outlined, size: 44),
         const SizedBox(height: 14),
         Text(
-          widget.invited ? 'You are invited to a game' : 'What should we call you?',
+          widget.invited
+              ? 'You are invited to a game'
+              : 'What should we call you?',
           textAlign: TextAlign.center,
           style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
         ),
