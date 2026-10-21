@@ -3,20 +3,19 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 /// Where the game server is.
 ///
-/// The server runs wherever its owner put it — a VPS, a box at home — so the
-/// address is not baked into the app. A build can still be given one:
-///
-///   flutter build apk --dart-define=LUDO_SERVER=wss://ludo.example.com/ws
-///
-/// and otherwise the player types it in once, the first time they go online,
-/// and it is remembered.
+/// The app comes pointed at ludo.invenia.in. A player can type in another
+/// server (a VPS, a box at home), and that choice is remembered.
 class ServerAddress {
   const ServerAddress._();
 
   static const _key = 'ludo.server';
 
-  /// The address this build was given, if any.
-  static const built = String.fromEnvironment('LUDO_SERVER');
+  /// The address this build connects to until the player picks another.
+  /// A build can be given its own with --dart-define=LUDO_SERVER=...
+  static const built = String.fromEnvironment(
+    'LUDO_SERVER',
+    defaultValue: 'ludo.invenia.in',
+  );
 
   /// The WebSocket address to connect to, or null when nobody has said yet.
   static Future<Uri?> load() async {
@@ -27,8 +26,11 @@ class ServerAddress {
       final saved = prefs.getString(_key);
       if (saved != null && saved.isNotEmpty) return normalise(saved);
     } catch (_) {}
-    if (built.isNotEmpty) return normalise(built);
-    return kIsWeb ? servedFrom(Uri.base) : null;
+    // A page served by a game server belongs to that server, whatever the
+    // build's own default is.
+    final page = kIsWeb ? servedFrom(Uri.base) : null;
+    if (page != null) return page;
+    return built.isNotEmpty ? normalise(built) : null;
   }
 
   /// The server a browser page was loaded from, when it was.
