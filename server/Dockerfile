@@ -31,8 +31,13 @@ RUN dart compile exe bin/serve.dart -o /src/server/bin/ludo-server
 FROM scratch
 COPY --from=build /runtime/ /
 COPY --from=build /src/server/bin/ludo-server /app/ludo-server
+# The browser build of the app, when the image workflow put one there. Served
+# at /play/ so a browser can play online without a certificate. See
+# server/web/README.
+COPY --from=build /src/server/web/ /app/web/
 
 ENV PORT=8091
+ENV WEB_DIR=/app/web
 EXPOSE 8091
 
 # No shell in the image, so this is the process itself rather than a wrapper.

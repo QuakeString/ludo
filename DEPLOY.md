@@ -57,6 +57,12 @@ image, so the VPS never has to build. It goes to
 `DOCKERHUB_TOKEN` secret (a Docker Hub access token for the `quakestring`
 account; GitHub → the repo → Settings → Secrets and variables → Actions).
 
+The image also carries the browser version of the game. Open
+`http://YOUR_IP:8091/` in any browser and it plays online against this
+server straight away, with no address to type. Invite links offer "Play in
+the browser" too, so a friend without the Android app can join from a laptop
+or an iPhone.
+
 Without the repository on the VPS at all:
 
 ```sh

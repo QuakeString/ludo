@@ -8,3 +8,4 @@ export 'src/players.dart';
 export 'src/room.dart';
 export 'src/serve.dart';
 export 'src/server.dart';
+export 'src/web_app.dart';

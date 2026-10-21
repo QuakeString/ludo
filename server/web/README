@@ -1,0 +1,5 @@
+The browser build of the app goes here, and is copied into the server image.
+
+The Server image workflow fills it with `flutter build web --base-href /play/`
+before building the image; a local build without it gets a server with no
+web app, which is fine.

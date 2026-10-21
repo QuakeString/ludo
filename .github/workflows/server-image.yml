@@ -9,8 +9,8 @@ on:
     branches: [claude/ludo-board-game-design-qd5nm3]
     paths:
       - 'server/**'
-      - 'packages/ludo_engine/**'
-      - 'packages/ludo_protocol/**'
+      - 'app/**'
+      - 'packages/**'
       - '.github/workflows/server-image.yml'
   workflow_dispatch:
 
@@ -25,6 +25,23 @@ jobs:
       DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
+
+      # The browser build of the app rides in the image, served at /play/, so
+      # a browser can play online against a server that has no certificate.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.0
+          channel: stable
+
+      - name: Build the web app into the image
+        working-directory: app
+        run: |
+          flutter pub get
+          flutter build web --release \
+            --no-web-resources-cdn \
+            --pwa-strategy=none \
+            --base-href /play/
+          cp -r build/web/. ../server/web/
 
       - uses: docker/login-action@v3
         with:

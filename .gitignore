@@ -23,3 +23,7 @@ app/android/local.properties
 .vscode/
 *.swp
 .DS_Store
+
+# The web build the image workflow drops in for the server to serve.
+server/web/*
+!server/web/README
