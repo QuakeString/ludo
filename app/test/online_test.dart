@@ -195,6 +195,82 @@ void main() {
     await guest.connection.dispose();
   });
 
+  test('a chosen name is the one the table sees', () async {
+    final host = await sitDown();
+    expect(host.hasChosenName, isFalse);
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+
+    host.setName('Mozammel');
+    await until(
+      host,
+      () => host.room!.seats.first.displayName == 'Mozammel',
+      what: 'the new name at the table',
+    );
+    expect(host.myName, 'Mozammel');
+    expect(host.hasChosenName, isTrue);
+
+    host.dispose();
+    await host.connection.dispose();
+  });
+
+  test('a reaction reaches the rest of the table', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+    guest.joinRoom(host.room!.code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+
+    final heard = host.reactions.first;
+    guest.react(4);
+    final reaction = await heard.timeout(const Duration(seconds: 5));
+    expect(reaction.seat, 1);
+    expect(reaction.emoji, '🎉');
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
+  test('connecting again is the same player, and finds their seat', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+    final code = host.room!.code;
+    guest.joinRoom(code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+    host.start();
+    await until(guest, () => guest.state != null, what: 'the match');
+
+    final id = guest.playerId;
+    await guest.connection.close();
+    await until(
+      host,
+      () => !host.room!.seats[1].connected,
+      what: 'the host to see the guest drop',
+    );
+
+    final welcome = await guest.connection.connect();
+    expect(welcome.playerId, id, reason: 'a dropped signal is not a new player');
+    expect(welcome.rejoin, code, reason: 'the seat is still theirs');
+
+    guest.joinRoom(code);
+    await until(
+      host,
+      () => host.room!.seats[1].connected,
+      what: 'the guest to be back',
+    );
+    expect(guest.yourSeat, 1);
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
   test('a player cannot move on somebody else\'s turn', () async {
     final host = await sitDown();
     final guest = await sitDown();

@@ -51,6 +51,18 @@ class OnlineSession extends ChangeNotifier {
   final _matches = StreamController<MatchUpdate>.broadcast();
   Stream<MatchUpdate> get matches => _matches.stream;
 
+  /// Reactions from the table, as they arrive.
+  final _reactions = StreamController<Reaction>.broadcast();
+  Stream<Reaction> get reactions => _reactions.stream;
+
+  /// A match this player dropped out of that still has their seat.
+  String? get rejoinCode => connection.rejoin;
+
+  bool get hasChosenName => connection.chosenName;
+
+  bool _disposed = false;
+  bool _reconnecting = false;
+
   // --- what the player can ask for -----------------------------------------
 
   void createRoom(RuleConfig rules, {bool fillEmptySeatsWithAI = false}) {
@@ -62,6 +74,7 @@ class OnlineSession extends ChangeNotifier {
 
   void joinRoom(String code) {
     error = null;
+    connection.rejoin = null;
     connection.send(JoinRoom(code.trim()));
   }
 
@@ -81,6 +94,16 @@ class OnlineSession extends ChangeNotifier {
       connection.send(AddComputer(seat: seat, level: level));
 
   void start() => connection.send(const StartMatch());
+
+  /// Another game at the same table. The host's call, like starting.
+  void rematch() => connection.send(const Rematch());
+
+  void react(int index) => connection.send(React(index));
+
+  void setName(String name) {
+    error = null;
+    connection.send(SetName(name));
+  }
 
   void roll() => connection.send(Play.roll());
   void pass() => connection.send(Play.pass());
@@ -106,8 +129,17 @@ class OnlineSession extends ChangeNotifier {
         _matches.add(message);
         notifyListeners();
 
+      case Welcome():
+        notifyListeners();
+
+      case Reaction():
+        _reactions.add(message);
+
       case Oops(message: final text, code: final code):
-        if (code == 'closed') disconnected = true;
+        if (code == 'closed') {
+          disconnected = true;
+          _reconnect();
+        }
         error = text;
         notifyListeners();
 
@@ -116,10 +148,46 @@ class OnlineSession extends ChangeNotifier {
     }
   }
 
+  /// Gets back to the table after the signal drops.
+  ///
+  /// A phone on the move loses its connection all the time, for a second or
+  /// for a tunnel's worth. The server holds the seat for five minutes, so keep
+  /// trying for about that long, backing off so a phone with no signal is not
+  /// kept awake by it, and sit straight back down once through.
+  Future<void> _reconnect() async {
+    if (_reconnecting || _disposed) return;
+    _reconnecting = true;
+    try {
+      var wait = const Duration(seconds: 1);
+      final giveUp = DateTime.now().add(const Duration(minutes: 5));
+      while (!_disposed && DateTime.now().isBefore(giveUp)) {
+        await Future<void>.delayed(wait);
+        if (_disposed) return;
+        try {
+          await connection.connect();
+        } catch (_) {
+          if (wait < const Duration(seconds: 15)) wait *= 2;
+          continue;
+        }
+        if (_disposed) return;
+        disconnected = false;
+        error = null;
+        final code = room?.code;
+        if (code != null) connection.send(JoinRoom(code));
+        notifyListeners();
+        return;
+      }
+    } finally {
+      _reconnecting = false;
+    }
+  }
+
   @override
   void dispose() {
+    _disposed = true;
     _sub.cancel();
     _matches.close();
+    _reactions.close();
     super.dispose();
   }
 }

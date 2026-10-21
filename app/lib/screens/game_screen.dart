@@ -131,6 +131,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   GameState? _pendingState;
   final List<MatchUpdate> _queued = [];
   StreamSubscription<MatchUpdate>? _matchSub;
+  StreamSubscription<Reaction>? _reactionSub;
+
+  /// Reactions on screen right now, newest last. Each goes after a moment.
+  final List<_Bubble> _bubbles = [];
+  int _bubbleCount = 0;
 
   OnlineSession? get _session => widget.session;
   bool get _online => _session != null;
@@ -171,6 +176,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
     if (session != null) {
       _matchSub = session.matches.listen(_serverSaid);
+      _reactionSub = session.reactions.listen(_reacted);
       session.addListener(_sessionChanged);
     } else if (saved != null) {
       // Saved games can stop between a roll and its move. Pick the turn up
@@ -194,6 +200,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _thinking?.cancel();
     _silence();
     _matchSub?.cancel();
+    _reactionSub?.cancel();
+    for (final b in _bubbles) {
+      b.timer.cancel();
+    }
     _session?.removeListener(_sessionChanged);
     _spin.dispose();
     _mover.dispose();
@@ -252,6 +262,27 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (mounted) setState(() {});
   }
 
+  void _reacted(Reaction r) {
+    if (!mounted) return;
+    final id = _bubbleCount++;
+    final bubble = _Bubble(
+      id: id,
+      who: _nameOf(r.seat),
+      seat: r.seat,
+      emoji: r.emoji,
+      timer: Timer(const Duration(milliseconds: 2600), () {
+        if (mounted) setState(() => _bubbles.removeWhere((b) => b.id == id));
+      }),
+    );
+    setState(() {
+      _bubbles.add(bubble);
+      // Three at a time is plenty; the oldest makes way.
+      while (_bubbles.length > 3) {
+        _bubbles.removeAt(0).timer.cancel();
+      }
+    });
+  }
+
   /// A new position from the server.
   ///
   /// It is never applied straight away when it came from a move: the chips are
@@ -272,6 +303,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _state.tokens[move.tokenId].progress == move.fromProgress;
 
     if (!playable) {
+      // A rematch: the same table, dealt again. Everything that belonged to
+      // the last game — the fanfare, the clock — starts over with it.
+      if (_state.isOver && !update.state.isOver) {
+        _celebrated = false;
+        _clockBefore = Duration.zero;
+        _clock
+          ..reset()
+          ..start();
+      }
       setState(() {
         _state = update.state;
         _flash = update.autoPlayed
@@ -914,6 +954,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               : 'Room ${session.room?.code ?? ''}',
         ),
         actions: [
+          if (session != null)
+            PopupMenuButton<int>(
+              tooltip: 'Send a reaction',
+              icon: const Icon(Icons.add_reaction_outlined),
+              onSelected: session.react,
+              itemBuilder: (_) => [
+                for (var i = 0; i < reactions.length; i++)
+                  PopupMenuItem(
+                    value: i,
+                    child: Text(reactions[i], style: const TextStyle(fontSize: 26)),
+                  ),
+              ],
+            ),
           if (session == null)
             IconButton(
               tooltip: 'New game',
@@ -1063,15 +1116,41 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ),
               ],
             ),
+            if (_bubbles.isNotEmpty)
+              Positioned(
+                top: 64,
+                left: 0,
+                right: 0,
+                child: IgnorePointer(
+                  child: Column(
+                    children: [
+                      for (final b in _bubbles)
+                        _ReactionBubble(key: ValueKey(b.id), bubble: b),
+                    ],
+                  ),
+                ),
+              ),
             if (_state.isOver)
               GameOverSheet(
                 state: _state,
                 aiSeats: widget.aiSeats,
                 nameOf: _nameOf,
                 elapsed: _elapsed,
-                // Online a rematch is the room's business, not this device's.
-                onPlayAgain: session == null ? _startFreshGame : null,
-                onLeave: () => Navigator.of(context).maybePop(),
+                // Online a rematch is the room's business: the host calls it,
+                // and everybody else is dealt in when they do.
+                onPlayAgain: session == null
+                    ? _startFreshGame
+                    : session.isHost
+                    ? session.rematch
+                    : null,
+                playAgainLabel: session == null ? 'Play again' : 'Rematch',
+                note: session != null && !session.isHost
+                    ? 'The host can start a rematch for this table.'
+                    : null,
+                onLeave: () {
+                  session?.leaveRoom();
+                  Navigator.of(context).maybePop();
+                },
               ),
           ],
         ),
@@ -1285,4 +1364,68 @@ class _OverHouse extends SingleChildLayoutDelegate {
   @override
   bool shouldRelayout(_OverHouse old) =>
       old.fraction != fraction || old.width != width || old.floor != floor;
+}
+
+/// One reaction on screen.
+class _Bubble {
+  _Bubble({
+    required this.id,
+    required this.who,
+    required this.seat,
+    required this.emoji,
+    required this.timer,
+  });
+
+  final int id;
+  final String who;
+  final int seat;
+  final String emoji;
+  final Timer timer;
+}
+
+class _ReactionBubble extends StatelessWidget {
+  const _ReactionBubble({super.key, required this.bubble});
+
+  final _Bubble bubble;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = BoardPalette.of(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween(begin: 0, end: 1),
+      duration: const Duration(milliseconds: 260),
+      curve: Curves.easeOutBack,
+      builder: (context, t, child) => Transform.scale(scale: t, child: child),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        padding: const EdgeInsets.fromLTRB(12, 4, 14, 4),
+        decoration: BoxDecoration(
+          color: palette.panel,
+          borderRadius: BorderRadius.circular(22),
+          border: Border.all(
+            color: seatColors[bubble.seat % seatColors.length],
+            width: 2,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.15),
+              blurRadius: 10,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(bubble.emoji, style: const TextStyle(fontSize: 28)),
+            const SizedBox(width: 8),
+            Text(
+              bubble.who,
+              style: const TextStyle(fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }

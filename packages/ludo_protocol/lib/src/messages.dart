@@ -138,6 +138,10 @@ sealed class Envelope {
       'room' => RoomUpdate.fromJson(j),
       'match' => MatchUpdate.fromJson(j),
       'oops' => Oops.fromJson(j),
+      'setName' => SetName.fromJson(j),
+      'rematch' => const Rematch(),
+      'react' => React.fromJson(j),
+      'reaction' => Reaction.fromJson(j),
       'ping' => const Ping(),
       'pong' => const Pong(),
       _ => throw FormatException('unknown message "$t"'),
@@ -305,7 +309,70 @@ class Play extends Envelope {
       Play(action: 'breakPair', pairId: pairId);
 }
 
+/// The player picks the name everyone else sees. The server tidies it and
+/// answers with a fresh [Welcome].
+class SetName extends Envelope {
+  const SetName(this.name);
+  final String name;
+
+  @override
+  String get type => 'setName';
+  @override
+  Map<String, Object?> payload() => {'name': name};
+
+  factory SetName.fromJson(Map<String, Object?> j) =>
+      SetName(j['name'] as String? ?? '');
+}
+
+/// The host asks for another game at the same table, with the same seats.
+class Rematch extends Envelope {
+  const Rematch();
+  @override
+  String get type => 'rematch';
+  @override
+  Map<String, Object?> payload() => const {};
+}
+
+/// The fixed set of reactions a player can send at the table.
+///
+/// Fixed rather than free text on purpose: there is nothing to moderate in a
+/// thumbs up, and strangers at a table can still say "nice one".
+const reactions = ['👍', '😂', '😮', '😡', '🎉', '😢'];
+
+/// One of [reactions], by index, sent to the rest of the table.
+class React extends Envelope {
+  const React(this.index);
+  final int index;
+
+  @override
+  String get type => 'react';
+  @override
+  Map<String, Object?> payload() => {'i': index};
+
+  factory React.fromJson(Map<String, Object?> j) =>
+      React((j['i'] as num?)?.toInt() ?? -1);
+}
+
 // --- server to app ---------------------------------------------------------
+
+/// Somebody at the table sent one of the [reactions].
+class Reaction extends Envelope {
+  const Reaction({required this.seat, required this.index});
+  final int seat;
+  final int index;
+
+  String get emoji => reactions[index.clamp(0, reactions.length - 1)];
+
+  @override
+  String get type => 'reaction';
+  @override
+  Map<String, Object?> payload() => {'seat': seat, 'i': index};
+
+  factory Reaction.fromJson(Map<String, Object?> j) => Reaction(
+        seat: (j['seat'] as num).toInt(),
+        index: (j['i'] as num).toInt(),
+      );
+}
 
 class Welcome extends Envelope {
   const Welcome({
@@ -313,9 +380,14 @@ class Welcome extends Envelope {
     required this.displayName,
     this.secret,
     this.chosenName = false,
+    this.rejoin,
   });
   final String playerId;
   final String displayName;
+
+  /// The code of a match this player dropped out of and can still take their
+  /// seat back in. Null when there is none.
+  final String? rejoin;
 
   /// Only sent when the server has just minted [playerId]. The app keeps it
   /// and sends it back in every later [Hello]; nobody else ever sees it.
@@ -333,6 +405,7 @@ class Welcome extends Envelope {
         'name': displayName,
         if (secret != null) 'secret': secret,
         'chosen': chosenName,
+        if (rejoin != null) 'rejoin': rejoin,
       };
 
   factory Welcome.fromJson(Map<String, Object?> j) => Welcome(
@@ -340,6 +413,7 @@ class Welcome extends Envelope {
         displayName: j['name'] as String,
         secret: j['secret'] as String?,
         chosenName: j['chosen'] as bool? ?? false,
+        rejoin: j['rejoin'] as String?,
       );
 }
 

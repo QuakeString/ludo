@@ -79,12 +79,7 @@ Future<RunningServer> startServer({
               final client =
                   SocketClient(player: player, sink: socket.sink.add);
               clients[player.id] = client;
-              client.send(Welcome(
-                playerId: player.id,
-                displayName: player.name,
-                secret: secret,
-                chosenName: player.chosenName,
-              ));
+              client.send(theHub.welcomeFor(player, secret: secret));
           }
           return;
         }
@@ -112,6 +107,12 @@ Future<RunningServer> startServer({
   final handler = Cascade()
       .add((Request request) {
         if (request.url.path == 'health') return Response.ok('ok');
+        final invite =
+            RegExp(r'^r/([A-Za-z0-9-]{4,12})$').firstMatch(request.url.path);
+        if (invite != null) {
+          return Response.ok(invitePage(invite.group(1)!),
+              headers: {'content-type': 'text/html; charset=utf-8'});
+        }
         if (request.url.path.isEmpty) {
           return Response.ok('Ludo server. Connect a WebSocket to /ws.\n'
               'Rooms live: ${theHub.rooms.length}\n');
@@ -123,6 +124,53 @@ Future<RunningServer> startServer({
 
   final http = await io.serve(handler, address, port);
   return RunningServer(http, ticker, theHub);
+}
+
+/// Where the Android app can be downloaded, for invite pages opened on a
+/// phone that does not have it yet.
+const appDownload =
+    'https://github.com/QuakeString/ludo/releases/download/phone/ludo.apk';
+
+/// The page an invite link opens.
+///
+/// A link in a chat opens in the browser, which cannot join a game by itself,
+/// so this page hands over to the app with a `ludo://join/CODE` link, and
+/// offers the app to anyone who does not have it yet. The code is shown as
+/// well, for typing in by hand when nothing else works.
+String invitePage(String rawCode) {
+  final code = rawCode.toUpperCase().replaceAll('-', '');
+  return '''<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Join my Ludo game</title>
+<meta property="og:title" content="Join my Ludo game">
+<meta property="og:description" content="Room code $code. Tap to join.">
+<style>
+  :root { color-scheme: light dark; --bg: #f6f3ec; --fg: #1d1b16; --muted: #5d5a52; --accent: #1f6f43; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #15140f; --fg: #f2efe6; --muted: #b5b1a5; --accent: #4fbf7f; } }
+  body { margin: 0; min-height: 100vh; display: grid; place-items: center; background: var(--bg); color: var(--fg);
+         font: 16px/1.5 system-ui, -apple-system, Segoe UI, Roboto, sans-serif; padding: 16px; box-sizing: border-box; }
+  main { max-width: 360px; width: 100%; text-align: center; }
+  .code { font-size: 40px; font-weight: 800; letter-spacing: 6px; margin: 8px 0 20px; }
+  a.button { display: block; padding: 14px; border-radius: 12px; text-decoration: none; font-weight: 700; margin: 10px 0; }
+  .primary { background: var(--accent); color: #fff; }
+  .secondary { border: 1.5px solid var(--accent); color: var(--accent); }
+  p { color: var(--muted); font-size: 14px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>You're invited to Ludo</h1>
+  <div class="code">$code</div>
+  <a class="button primary" href="ludo://join/$code">Open in Ludo</a>
+  <a class="button secondary" href="$appDownload">Get the app (Android)</a>
+  <p>Already in the app? Choose Play online, then type the code above.</p>
+</main>
+</body>
+</html>
+''';
 }
 
 /// The longest frame the server will read, in characters. A full match update

@@ -34,6 +34,15 @@ class LudoConnection {
   /// Set when the server says this copy of the app is too old to play online.
   bool outOfDate = false;
 
+  /// A match this player dropped out of that is still holding their seat, by
+  /// room code. Cleared once they are back in it.
+  String? rejoin;
+
+  /// The secret that goes with [playerId], kept in memory as well as on disk,
+  /// so reconnecting after a dropped signal is the same player even when the
+  /// identity was never saved (a [fresh] one, in tests or a second window).
+  String? _secret;
+
   /// Keeps an idle socket from being closed by a proxy along the way. Hosting
   /// platforms cut connections that say nothing for a minute or so, and a
   /// player thinking about a move says nothing.
@@ -71,6 +80,8 @@ class LudoConnection {
           playerId = message.playerId;
           displayName = message.displayName;
           chosenName = message.chosenName;
+          rejoin = message.rejoin;
+          if (message.secret != null) _secret = message.secret;
           if (!fresh) {
             _remember(message.playerId, message.displayName, message.secret);
           }
@@ -100,12 +111,16 @@ class LudoConnection {
       cancelOnError: true,
     );
 
-    final saved = fresh ? (null, null, null) : await _saved();
+    // Already somebody on this connection, from before it dropped: be them
+    // again. Otherwise whoever this device remembers, unless told not to.
+    final known = playerId != null && _secret != null;
+    final saved = known || fresh ? (null, null, null) : await _saved();
+    if (!known) _secret = saved.$3;
     send(
       Hello(
-        guestId: saved.$1,
-        secret: saved.$3,
-        displayName: preferredName ?? saved.$2,
+        guestId: known ? playerId : saved.$1,
+        secret: known ? _secret : saved.$3,
+        displayName: preferredName ?? (known ? displayName : saved.$2),
       ),
     );
     _keepAlive?.cancel();

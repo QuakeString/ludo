@@ -42,6 +42,19 @@ class LudoHub {
 
   Room? roomOf(String playerId) => _roomOf[playerId];
 
+  /// What a player is told on arriving: who they are, and whether there is a
+  /// match they dropped out of that is still keeping their seat.
+  Welcome welcomeFor(PlayerRecord player, {String? secret}) {
+    final room = _roomOf[player.id];
+    return Welcome(
+      playerId: player.id,
+      displayName: player.name,
+      secret: secret,
+      chosenName: player.chosenName,
+      rejoin: room != null && room.isHeldFor(player.id) ? room.code : null,
+    );
+  }
+
   /// Handles one message from one client. Returns nothing — everything the
   /// client learns comes back as a broadcast, so there is a single path for
   /// state to travel and no chance of the two disagreeing.
@@ -66,6 +79,7 @@ class LudoHub {
           // The dice seed comes from the hub's own source, so a test that seeds
           // the hub gets a reproducible match and not just reproducible codes.
           seed: _random.nextInt(0x7FFFFFFF) + 1,
+          random: Random(_random.nextInt(0x7FFFFFFF)),
           clock: _now,
         );
         rooms[room.code] = room;
@@ -79,7 +93,8 @@ class LudoHub {
           client.send(const Oops('no room with that code', code: 'noroom'));
           return;
         }
-        _leaveCurrent(client.playerId);
+        // Coming back to the table you are already at is not leaving it.
+        if (_roomOf[client.playerId] != room) _leaveCurrent(client.playerId);
         final refused = room.join(client);
         if (refused != null) {
           client.send(Oops(refused, code: 'full'));
@@ -103,10 +118,32 @@ class LudoHub {
       case Play():
         _withRoom(client, (room) => room.play(client.playerId, message));
 
+      case Rematch():
+        _withRoom(client, (room) => room.rematch(client.playerId));
+
+      case React(index: final index):
+        _withRoom(client, (room) => room.react(client.playerId, index));
+
+      case SetName(name: final name):
+        final record = players[client.playerId];
+        final cleaned = PlayerStore.cleanName(name);
+        if (record == null || cleaned == null) {
+          client.send(const Oops('A name is 2 to 16 letters or numbers.',
+              code: 'name'));
+          return;
+        }
+        record
+          ..name = cleaned
+          ..chosenName = true;
+        players.changed();
+        client.send(welcomeFor(record));
+        _roomOf[client.playerId]?.broadcastRoom();
+
       case Hello() ||
             Welcome() ||
             RoomUpdate() ||
             MatchUpdate() ||
+            Reaction() ||
             Oops() ||
             Pong():
         client.send(const Oops('the server does not accept that message'));
@@ -154,6 +191,11 @@ class LudoHub {
     for (final room in rooms.values.toList()) {
       room.tick();
     }
+    // A seat given up to the computer is no longer that player's, and a table
+    // with nobody left at it is finished with.
+    _roomOf.removeWhere((id, room) => !room.holds(id));
+    rooms.removeWhere((_, room) =>
+        !room.seats.any((s) => s.client != null || s.heldFor != null));
   }
 }
 

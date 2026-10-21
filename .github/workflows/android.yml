@@ -15,6 +15,13 @@ on:
       - 'app/**'
       - 'packages/**'
       - '.github/workflows/android.yml'
+  # Pull requests build the APK too, so a change that breaks the Android build
+  # is caught before it lands rather than after. Only a push publishes it.
+  pull_request:
+    paths:
+      - 'app/**'
+      - 'packages/**'
+      - '.github/workflows/android.yml'
   workflow_dispatch:
 
 permissions:
@@ -62,6 +69,7 @@ jobs:
       # A release on a fixed tag, so the download link never changes and can
       # be opened straight from a phone.
       - name: Publish
+        if: github.event_name != 'pull_request'
         uses: softprops/action-gh-release@v2
         with:
           tag_name: phone

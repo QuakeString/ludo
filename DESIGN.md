@@ -532,6 +532,21 @@ sees them); the secret never leaves the phone that holds it, and the server stor
 SHA-256. An app speaking an older protocol is told to update, and each connection is
 rate-limited (a burst of 30, then 10 messages a second).
 
+### Playing with friends
+
+- **Invites.** The lobby's *Invite friends* button shares `https://quakestring-ludo.fly.dev/r/CODE`.
+  That page opens `ludo://join/CODE`, which Android hands to the app, or offers the APK to a
+  phone without it. The code is still shown for typing in by hand.
+- **Names.** The first time online the app asks for a name (2–16 letters or digits, or skip
+  and stay `Guest_1234`); it can be changed from the online screen at any time.
+- **Rejoining.** A dropped seat is held for its owner for five minutes and is never given to
+  anybody else. The app reconnects on its own after a lost signal, and `Welcome.rejoin`
+  tells a reopened app which room is still keeping its seat.
+- **Rematch.** After a match the host can deal again at the same table; seats whose player has
+  gone are played by the computer. When the host leaves, the next person at the table becomes
+  host.
+- **Reactions.** Six fixed emoji, at most one per seat every 1.5 seconds. No free-text chat.
+
 ### Where it goes
 
 One process holds every live room, so the first deployment is **one container**: any VPS,
