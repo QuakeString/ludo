@@ -13,7 +13,7 @@ void main() {
       expect(store.verify(player.id, '${secret}x'), isNull);
       expect(store.verify(player.id, null), isNull);
       expect(store.verify('nobody', secret), isNull);
-      expect(player.secretHash, isNot(contains(secret)),
+      expect(player.secretHashes.join(), isNot(contains(secret)),
           reason: 'the secret itself is never stored');
     });
 

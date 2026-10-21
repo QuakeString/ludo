@@ -70,6 +70,52 @@ void main() {
     expect(back.state.fingerprint(), state.fingerprint());
   });
 
+  test('every message added for playing online survives the wire', () {
+    T trip<T extends Envelope>(T e) => Envelope.decode(e.encode()) as T;
+
+    expect(trip(const Hello(transfer: 'ABCD2345')).transfer, 'ABCD2345');
+    expect(
+        trip(const Welcome(playerId: 'g1', displayName: 'A', rejoin: 'X'))
+            .rejoin,
+        'X');
+    expect(trip(const QuickMatch(players: 2)).players, 2);
+    expect(
+        trip(const QueueUpdate(players: 4, found: 3, secondsToFill: 7))
+            .secondsToFill,
+        7);
+    expect(trip(const SetName('Ammu')).name, 'Ammu');
+    expect(trip(const Reaction(seat: 2, index: 1)).emoji, reactions[1]);
+    expect(trip(const AnswerFriend('g2', accept: true)).accept, isTrue);
+    expect(trip(const SetNickname('g2', null)).nickname, isNull);
+    expect(trip(const TransferCode(code: 'C', minutes: 10)).minutes, 10);
+
+    final profile = ProfileInfo(
+      playerId: 'g1',
+      name: 'Ammu',
+      friendCode: 'BCD234',
+      xp: 260,
+      played: 3,
+      won: 1,
+      friends: const [
+        FriendInfo(playerId: 'g2', name: 'Rajat', nickname: 'R', online: true)
+      ],
+      history: [
+        MatchSummary(
+            at: DateTime.utc(2026, 10, 21),
+            players: 4,
+            place: 2,
+            won: false,
+            xp: 30,
+            opponents: const ['Rajat', 'Computer']),
+      ],
+    );
+    final back = trip(ProfileUpdate(profile)).profile;
+    expect(back.level, 3);
+    expect(back.friends.single.shownName, 'R');
+    expect(back.history.single.opponents, ['Rajat', 'Computer']);
+    expect(back.history.single.at, DateTime.utc(2026, 10, 21));
+  });
+
   test('an unknown message is rejected rather than ignored', () {
     expect(() => Envelope.decode('{"t":"nonsense"}'), throwsFormatException);
   });

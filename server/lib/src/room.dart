@@ -93,6 +93,11 @@ class Room {
   final bool matchmade;
   final int _seed;
 
+  /// Called once when each game here ends, to write it into the players'
+  /// records.
+  void Function(Room room)? onFinished;
+  bool _reported = false;
+
   /// Seeds every game after the first, so a rematch is not a replay.
   final Random _random;
   final DateTime Function() _now;
@@ -252,6 +257,7 @@ class Room {
         ..heldName = null;
     }
     phase = RoomPhase.playing;
+    _reported = false;
     game = GameState.newGame(rules, seed: _random.nextInt(0x7FFFFFFF) + 1);
     lastMove = null;
     lastWasAutoPlay = false;
@@ -424,6 +430,12 @@ class Room {
   void broadcastMatch() {
     for (final seat in seats) {
       _sendMatchTo(seat);
+    }
+    // Every path to a finished game ends in a broadcast, so this is the one
+    // place that cannot miss it.
+    if (game?.isOver == true && !_reported) {
+      _reported = true;
+      onFinished?.call(this);
     }
   }
 

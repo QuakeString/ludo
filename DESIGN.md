@@ -555,6 +555,20 @@ after 20 seconds with computers in the empty seats. Walking out of a matched gam
 is still being played means waiting two minutes before being matched again; leaving a table
 among friends costs nothing.
 
+### Profiles and friends
+
+- **Profile.** Name, level, games played and won, and the last 20 online games. A match
+  earns 20 XP, plus 5 for every player finished ahead of, plus 30 for winning. Level *n*
+  needs `100 + 50·(n−1)` XP to pass. Everything lives in `players.json`; there is no database.
+- **Friends.** Each player has a six-letter friend code, separate from their public id.
+  Adding someone by code sends a request; two requests that cross become a friendship at
+  once. Friends see each other online, can give each other nicknames only they see, and
+  can ask an online friend straight to their table.
+- **Another phone.** *Play as me on another phone* makes an eight-letter code that works
+  once, for ten minutes. Entering it on the other phone signs that phone in as the same
+  player with its own secret, so both keep working (up to five phones). There is still no
+  account and no sign-in provider.
+
 ### Where it goes
 
 One process holds every live room, so the first deployment is **one container**: any VPS,

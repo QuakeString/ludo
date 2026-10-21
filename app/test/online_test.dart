@@ -295,6 +295,67 @@ void main() {
     await b.connection.dispose();
   });
 
+  test('two players become friends and one asks the other over', () async {
+    final a = await sitDown('Ammu');
+    final b = await sitDown('Rajat');
+    a.refreshProfile();
+    b.refreshProfile();
+    await until(a, () => a.profile != null, what: 'a profile');
+    await until(b, () => b.profile != null, what: 'a profile');
+
+    a.addFriend(b.profile!.friendCode);
+    await until(
+      b,
+      () => b.profile!.incoming.isNotEmpty,
+      what: 'the request to arrive',
+    );
+    b.answerFriend(a.playerId!, accept: true);
+    await until(a, () => a.profile!.friends.isNotEmpty, what: 'the friendship');
+    expect(a.profile!.friends.single.name, 'Rajat');
+    expect(a.profile!.friends.single.online, isTrue);
+
+    a.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(a, () => a.room != null, what: 'the room');
+    final invited = b.invites.first;
+    a.inviteFriend(b.playerId!);
+    final invite = await invited.timeout(const Duration(seconds: 5));
+    expect(invite.code, a.room!.code);
+    expect(invite.from.name, 'Ammu');
+
+    a.dispose();
+    b.dispose();
+    await a.connection.dispose();
+    await b.connection.dispose();
+  });
+
+  test('a transfer code carries a player to another phone', () async {
+    final first = await sitDown('Ammu');
+    first.makeTransferCode();
+    await until(first, () => first.transferCode != null, what: 'a code');
+
+    final second = await sitDown();
+    expect(second.playerId, isNot(first.playerId));
+    await second.useTransferCode(first.transferCode!.code);
+    expect(second.playerId, first.playerId);
+    expect(second.myName, 'Ammu');
+
+    await expectLater(
+      second.useTransferCode(first.transferCode!.code),
+      throwsA(anything),
+      reason: 'a code works once',
+    );
+    expect(
+      second.playerId,
+      first.playerId,
+      reason: 'a refused code leaves this phone as it was',
+    );
+
+    first.dispose();
+    second.dispose();
+    await first.connection.dispose();
+    await second.connection.dispose();
+  });
+
   test('a player cannot move on somebody else\'s turn', () async {
     final host = await sitDown();
     final guest = await sitDown();

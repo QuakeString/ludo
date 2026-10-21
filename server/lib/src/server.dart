@@ -32,6 +32,14 @@ class LudoHub {
     for (final n in quickMatchSizes) n: [],
   };
 
+  /// Who is connected right now, by player id.
+  final Map<String, Client> online = {};
+
+  /// One-time codes for carrying a player to another phone.
+  final Map<String, ({String playerId, DateTime expires})> _transfers = {};
+
+  static const transferLife = Duration(minutes: 10);
+
   /// Players who walked out of a matched game, and when they may queue again.
   final Map<String, DateTime> _cooldown = {};
 
@@ -77,7 +85,14 @@ class LudoHub {
       displayName: player.name,
       secret: secret,
       chosenName: player.chosenName,
-      rejoin: room != null && room.isHeldFor(player.id) ? room.code : null,
+      // Holding a seat in a match still being played is enough: right after
+      // a phone reconnects, the server may not have noticed the old
+      // connection is dead yet, so the seat is not marked as held.
+      rejoin: room != null &&
+              room.phase == RoomPhase.playing &&
+              room.holds(player.id)
+          ? room.code
+          : null,
     );
   }
 
@@ -109,6 +124,7 @@ class LudoHub {
           random: Random(_random.nextInt(0x7FFFFFFF)),
           clock: _now,
         );
+        room.onFinished = _recordResult;
         rooms[room.code] = room;
         _roomOf[client.playerId] = room;
         final refused = room.join(client);
@@ -180,6 +196,111 @@ class LudoHub {
       case React(index: final index):
         _withRoom(client, (room) => room.react(client.playerId, index));
 
+      case GetProfile():
+        _sendProfile(client.playerId);
+
+      case AddFriend(code: final code):
+        final me = players[client.playerId];
+        final them = players.byFriendCode(code);
+        if (me == null || them == null) {
+          client.send(
+              const Oops('Nobody has that friend code.', code: 'nofriend'));
+          return;
+        }
+        if (them.id == me.id) {
+          client.send(
+              const Oops('That is your own friend code.', code: 'nofriend'));
+          return;
+        }
+        if (me.friends.containsKey(them.id)) {
+          _sendProfile(me.id);
+          return;
+        }
+        if (me.incoming.contains(them.id)) {
+          _befriend(me, them); // they asked first: that is a yes both ways
+        } else {
+          me.outgoing.add(them.id);
+          them.incoming.add(me.id);
+        }
+        players.changed();
+        _sendProfile(me.id);
+        _sendProfile(them.id);
+
+      case AnswerFriend(playerId: final id, accept: final accept):
+        final me = players[client.playerId];
+        final them = players[id];
+        if (me == null || them == null || !me.incoming.contains(id)) {
+          client.send(const Oops('There is no such request.'));
+          return;
+        }
+        if (accept) {
+          _befriend(me, them);
+        } else {
+          me.incoming.remove(id);
+          them.outgoing.remove(me.id);
+        }
+        players.changed();
+        _sendProfile(me.id);
+        _sendProfile(them.id);
+
+      case RemoveFriend(playerId: final id):
+        final me = players[client.playerId];
+        final them = players[id];
+        if (me == null) return;
+        me.friends.remove(id);
+        me.outgoing.remove(id);
+        me.incoming.remove(id);
+        them?.friends.remove(me.id);
+        them?.incoming.remove(me.id);
+        them?.outgoing.remove(me.id);
+        players.changed();
+        _sendProfile(me.id);
+        if (them != null) _sendProfile(them.id);
+
+      case SetNickname(playerId: final id, nickname: final nickname):
+        final me = players[client.playerId];
+        if (me == null || !me.friends.containsKey(id)) {
+          client.send(const Oops('You can only name your friends.'));
+          return;
+        }
+        me.friends[id] = PlayerStore.cleanName(nickname);
+        players.changed();
+        _sendProfile(me.id);
+
+      case InviteFriend(playerId: final id):
+        final me = players[client.playerId];
+        final room = _roomOf[client.playerId];
+        if (me == null || !me.friends.containsKey(id)) {
+          client.send(const Oops('You can only invite your friends.'));
+          return;
+        }
+        if (room == null || room.phase != RoomPhase.lobby) {
+          client.send(const Oops('Open a table first, then invite friends to '
+              'it.'));
+          return;
+        }
+        final friend = online[id];
+        if (friend == null) {
+          client.send(
+              const Oops('They are not online right now.', code: 'offline'));
+          return;
+        }
+        final them = players[id];
+        friend.send(Invite(
+          from: _friendInfo(me, nickname: them?.friends[me.id]),
+          code: room.code,
+        ));
+
+      case MakeTransferCode():
+        _transfers.removeWhere((_, t) => !_now().isBefore(t.expires));
+        var code = _transferToken();
+        while (_transfers.containsKey(code)) {
+          code = _transferToken();
+        }
+        _transfers[code] =
+            (playerId: client.playerId, expires: _now().add(transferLife));
+        client.send(TransferCode(code: code, minutes: transferLife.inMinutes));
+
       case SetName(name: final name):
         final record = players[client.playerId];
         final cleaned = PlayerStore.cleanName(name);
@@ -194,17 +315,153 @@ class LudoHub {
         players.changed();
         client.send(welcomeFor(record));
         _roomOf[client.playerId]?.broadcastRoom();
+        _sendProfile(record.id);
+        _tellFriends(record.id);
 
       case Hello() ||
             Welcome() ||
             RoomUpdate() ||
             MatchUpdate() ||
             QueueUpdate() ||
+            ProfileUpdate() ||
+            Invite() ||
+            TransferCode() ||
             Reaction() ||
             Oops() ||
             Pong():
         client.send(const Oops('the server does not accept that message'));
     }
+  }
+
+  // --- profiles and friends ----------------------------------------------
+
+  /// A player redeeming a transfer code made on their other phone. The code
+  /// works once.
+  PlayerRecord? redeemTransfer(String code) {
+    final t = _transfers.remove(code.trim().toUpperCase().replaceAll('-', ''));
+    if (t == null || !_now().isBefore(t.expires)) return null;
+    return players[t.playerId];
+  }
+
+  String _transferToken() {
+    const alphabet = 'BCDFGHJKLMNPQRSTVWXZ23456789';
+    return List.generate(8, (_) => alphabet[_random.nextInt(alphabet.length)])
+        .join();
+  }
+
+  void _befriend(PlayerRecord a, PlayerRecord b) {
+    a.incoming.remove(b.id);
+    a.outgoing.remove(b.id);
+    b.incoming.remove(a.id);
+    b.outgoing.remove(a.id);
+    a.friends.putIfAbsent(b.id, () => null);
+    b.friends.putIfAbsent(a.id, () => null);
+  }
+
+  FriendInfo _friendInfo(PlayerRecord p, {String? nickname}) => FriendInfo(
+        playerId: p.id,
+        name: p.name,
+        nickname: nickname,
+        online: online.containsKey(p.id),
+        level: p.level,
+      );
+
+  ProfileInfo? profileFor(String playerId) {
+    final me = players[playerId];
+    if (me == null) return null;
+    List<FriendInfo> people(Iterable<String> ids) => [
+          for (final id in ids)
+            if (players[id] case final p?)
+              _friendInfo(p, nickname: me.friends[id]),
+        ];
+    final friends = people(me.friends.keys)
+      ..sort((a, b) {
+        if (a.online != b.online) return a.online ? -1 : 1;
+        return a.shownName.toLowerCase().compareTo(b.shownName.toLowerCase());
+      });
+    return ProfileInfo(
+      playerId: me.id,
+      name: me.name,
+      friendCode: me.friendCode,
+      xp: me.xp,
+      played: me.played,
+      won: me.won,
+      friends: friends,
+      incoming: people(me.incoming),
+      outgoing: people(me.outgoing),
+      history: me.history,
+    );
+  }
+
+  void _sendProfile(String playerId) {
+    final client = online[playerId];
+    final profile = profileFor(playerId);
+    if (client != null && profile != null) {
+      client.send(ProfileUpdate(profile));
+    }
+  }
+
+  /// Friends who are online see a change in [playerId]: coming or going, a
+  /// new name, a new level.
+  void _tellFriends(String playerId) {
+    final me = players[playerId];
+    if (me == null) return;
+    for (final id in me.friends.keys) {
+      if (online.containsKey(id)) _sendProfile(id);
+    }
+  }
+
+  /// Experience for a finished match: something for turning up, more for
+  /// finishing higher, most for winning.
+  static int xpFor(
+          {required int place, required int players, required bool won}) =>
+      20 + (won ? 30 : 0) + (players - place) * 5;
+
+  /// Writes a finished match into the record of every person who played it.
+  void _recordResult(Room room) {
+    final state = room.game;
+    if (state == null || !state.isOver) return;
+    final team = state.winningTeam;
+    final order = [
+      ...state.finishOrder,
+      for (var s = 0; s < state.rules.players; s++)
+        if (!state.finishOrder.contains(s)) s,
+    ];
+    String nameAt(Seat seat) =>
+        seat.client?.displayName ??
+        seat.heldName ??
+        (seat.isComputer ? 'Computer' : 'Player');
+
+    for (final seat in room.seats) {
+      final id = seat.client?.playerId ?? seat.heldFor;
+      final record = id == null ? null : players[id];
+      if (record == null) continue;
+      final won = team != null
+          ? state.rules.teams![team].contains(seat.index)
+          : state.winner == seat.index;
+      final place =
+          team != null ? (won ? 1 : 2) : order.indexOf(seat.index) + 1;
+      final xp = xpFor(place: place, players: state.rules.players, won: won);
+      final levelBefore = record.level;
+      record
+        ..xp += xp
+        ..played += 1
+        ..won += won ? 1 : 0
+        ..addMatch(MatchSummary(
+          at: _now().toUtc(),
+          players: state.rules.players,
+          place: place,
+          won: won,
+          xp: xp,
+          opponents: [
+            for (final other in room.seats)
+              if (other != seat) nameAt(other),
+          ],
+        ));
+      _sendProfile(record.id);
+      if (record.level != levelBefore) _tellFriends(record.id);
+    }
+    players.changed();
   }
 
   /// Leaves the current table on purpose. From a matched game still being
@@ -258,6 +515,7 @@ class LudoHub {
       random: Random(_random.nextInt(0x7FFFFFFF)),
       clock: _now,
     );
+    room.onFinished = _recordResult;
     rooms[room.code] = room;
     for (final w in who) {
       w.client.send(
@@ -302,7 +560,14 @@ class LudoHub {
 
   /// A client's socket dropped. During a match their seat is held; in a lobby
   /// it is freed straight away.
+  /// A player has a live connection. Their friends see them come online.
+  void connected(Client client) {
+    online[client.playerId] = client;
+    _tellFriends(client.playerId);
+  }
+
   void disconnected(String playerId) {
+    if (online.remove(playerId) != null) _tellFriends(playerId);
     _unqueue(playerId);
     final room = _roomOf[playerId];
     if (room == null) return;
@@ -403,6 +668,10 @@ class Identified extends Identity {
 /// An app too old to talk to.
 class TooOld extends Identity {}
 
+/// A transfer code that is wrong, used, or out of date. Answered rather than
+/// quietly minting somebody new, so the player knows to make another.
+class BadTransfer extends Identity {}
+
 /// Reads the opening [Hello] and settles on an identity.
 ///
 /// An account is never required. A returning player sends the id and secret
@@ -420,6 +689,17 @@ Identity identify(LudoHub hub, String? raw) {
     }
   }
   if (hello.version < minimumProtocol) return TooOld();
+
+  // Carried over from another phone: the same player, with a secret of its
+  // own for this one.
+  final transfer = hello.transfer;
+  if (transfer != null) {
+    final carried = hub.redeemTransfer(transfer);
+    if (carried != null) {
+      return Identified(carried, secret: hub.players.addDevice(carried));
+    }
+    return BadTransfer();
+  }
 
   final known = hub.players.verify(hello.guestId?.trim(), hello.secret);
   if (known != null) return Identified(known);

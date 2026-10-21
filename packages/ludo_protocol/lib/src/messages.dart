@@ -141,6 +141,16 @@ sealed class Envelope {
       'quickMatch' => QuickMatch.fromJson(j),
       'cancelMatch' => const CancelMatch(),
       'queue' => QueueUpdate.fromJson(j),
+      'getProfile' => const GetProfile(),
+      'addFriend' => AddFriend.fromJson(j),
+      'answerFriend' => AnswerFriend.fromJson(j),
+      'removeFriend' => RemoveFriend.fromJson(j),
+      'setNickname' => SetNickname.fromJson(j),
+      'inviteFriend' => InviteFriend.fromJson(j),
+      'makeTransfer' => const MakeTransferCode(),
+      'profile' => ProfileUpdate.fromJson(j),
+      'invite' => Invite.fromJson(j),
+      'transfer' => TransferCode.fromJson(j),
       'setName' => SetName.fromJson(j),
       'rematch' => const Rematch(),
       'react' => React.fromJson(j),
@@ -166,10 +176,15 @@ class Hello extends Envelope {
     this.secret,
     this.displayName,
     this.version = protocolVersion,
+    this.transfer,
   });
   final String? guestId;
   final String? secret;
   final String? displayName;
+
+  /// A one-time code made on another phone, asking to become that player
+  /// here as well. Takes the place of [guestId] and [secret].
+  final String? transfer;
 
   /// The [protocolVersion] the sender speaks. Absent means the first version,
   /// from before the field existed.
@@ -183,6 +198,7 @@ class Hello extends Envelope {
         if (secret != null) 'secret': secret,
         if (displayName != null) 'name': displayName,
         'v': version,
+        if (transfer != null) 'transfer': transfer,
       };
 
   factory Hello.fromJson(Map<String, Object?> j) => Hello(
@@ -190,6 +206,7 @@ class Hello extends Envelope {
         secret: j['secret'] as String?,
         displayName: j['name'] as String?,
         version: (j['v'] as num?)?.toInt() ?? 1,
+        transfer: j['transfer'] as String?,
       );
 }
 
@@ -338,6 +355,101 @@ class CancelMatch extends Envelope {
   Map<String, Object?> payload() => const {};
 }
 
+/// Asks for this player's [ProfileUpdate]. One is also sent unasked whenever
+/// it changes.
+class GetProfile extends Envelope {
+  const GetProfile();
+  @override
+  String get type => 'getProfile';
+  @override
+  Map<String, Object?> payload() => const {};
+}
+
+/// Sends a friend request to whoever has this friend code. If they had
+/// already asked, the two are friends at once.
+class AddFriend extends Envelope {
+  const AddFriend(this.code);
+  final String code;
+
+  @override
+  String get type => 'addFriend';
+  @override
+  Map<String, Object?> payload() => {'code': code};
+
+  factory AddFriend.fromJson(Map<String, Object?> j) =>
+      AddFriend(j['code'] as String? ?? '');
+}
+
+/// Accepts or declines a friend request from [playerId].
+class AnswerFriend extends Envelope {
+  const AnswerFriend(this.playerId, {required this.accept});
+  final String playerId;
+  final bool accept;
+
+  @override
+  String get type => 'answerFriend';
+  @override
+  Map<String, Object?> payload() => {'id': playerId, 'accept': accept};
+
+  factory AnswerFriend.fromJson(Map<String, Object?> j) =>
+      AnswerFriend(j['id'] as String? ?? '',
+          accept: j['accept'] as bool? ?? false);
+}
+
+/// Unfriends [playerId], or withdraws a request sent to them.
+class RemoveFriend extends Envelope {
+  const RemoveFriend(this.playerId);
+  final String playerId;
+
+  @override
+  String get type => 'removeFriend';
+  @override
+  Map<String, Object?> payload() => {'id': playerId};
+
+  factory RemoveFriend.fromJson(Map<String, Object?> j) =>
+      RemoveFriend(j['id'] as String? ?? '');
+}
+
+/// What this player calls a friend. Only they see it; null goes back to the
+/// friend's own name.
+class SetNickname extends Envelope {
+  const SetNickname(this.playerId, this.nickname);
+  final String playerId;
+  final String? nickname;
+
+  @override
+  String get type => 'setNickname';
+  @override
+  Map<String, Object?> payload() =>
+      {'id': playerId, if (nickname != null) 'nick': nickname};
+
+  factory SetNickname.fromJson(Map<String, Object?> j) =>
+      SetNickname(j['id'] as String? ?? '', j['nick'] as String?);
+}
+
+/// Asks an online friend to the table this player is sitting at.
+class InviteFriend extends Envelope {
+  const InviteFriend(this.playerId);
+  final String playerId;
+
+  @override
+  String get type => 'inviteFriend';
+  @override
+  Map<String, Object?> payload() => {'id': playerId};
+
+  factory InviteFriend.fromJson(Map<String, Object?> j) =>
+      InviteFriend(j['id'] as String? ?? '');
+}
+
+/// Asks for a one-time code to carry this player to another phone.
+class MakeTransferCode extends Envelope {
+  const MakeTransferCode();
+  @override
+  String get type => 'makeTransfer';
+  @override
+  Map<String, Object?> payload() => const {};
+}
+
 /// The player picks the name everyone else sees. The server tidies it and
 /// answers with a fresh [Welcome].
 class SetName extends Envelope {
@@ -422,6 +534,224 @@ class QueueUpdate extends Envelope {
         found: (j['found'] as num?)?.toInt() ?? 1,
         searching: j['searching'] as bool? ?? true,
         secondsToFill: (j['fill'] as num?)?.toInt(),
+      );
+}
+
+/// The experience a player needs to go from [level] to the next one. Each
+/// level asks a little more than the last.
+int xpToNext(int level) => 100 + 50 * (level - 1);
+
+/// The level [xp] has reached, and how far into it.
+({int level, int into, int need}) levelFor(int xp) {
+  var level = 1;
+  var left = xp < 0 ? 0 : xp;
+  while (left >= xpToNext(level)) {
+    left -= xpToNext(level);
+    level++;
+  }
+  return (level: level, into: left, need: xpToNext(level));
+}
+
+/// Another player as this one sees them: a friend, or a request either way.
+class FriendInfo {
+  const FriendInfo({
+    required this.playerId,
+    required this.name,
+    this.nickname,
+    this.online = false,
+    this.level = 1,
+  });
+
+  final String playerId;
+  final String name;
+
+  /// What this player calls them, if they have given them a name of their own.
+  final String? nickname;
+  final bool online;
+  final int level;
+
+  String get shownName => nickname ?? name;
+
+  Map<String, Object?> toJson() => {
+        'id': playerId,
+        'name': name,
+        if (nickname != null) 'nick': nickname,
+        'online': online,
+        'level': level,
+      };
+
+  factory FriendInfo.fromJson(Map<String, Object?> j) => FriendInfo(
+        playerId: j['id'] as String,
+        name: j['name'] as String? ?? 'Player',
+        nickname: j['nick'] as String?,
+        online: j['online'] as bool? ?? false,
+        level: (j['level'] as num?)?.toInt() ?? 1,
+      );
+}
+
+/// One finished match, from this player's chair.
+class MatchSummary {
+  const MatchSummary({
+    required this.at,
+    required this.players,
+    required this.place,
+    required this.won,
+    required this.xp,
+    this.opponents = const [],
+  });
+
+  final DateTime at;
+  final int players;
+  final int place;
+  final bool won;
+
+  /// Experience this match earned.
+  final int xp;
+
+  /// Everyone else at the table, by name.
+  final List<String> opponents;
+
+  Map<String, Object?> toJson() => {
+        'at': at.millisecondsSinceEpoch,
+        'players': players,
+        'place': place,
+        'won': won,
+        'xp': xp,
+        'with': opponents,
+      };
+
+  factory MatchSummary.fromJson(Map<String, Object?> j) => MatchSummary(
+        at: DateTime.fromMillisecondsSinceEpoch((j['at'] as num).toInt(),
+            isUtc: true),
+        players: (j['players'] as num?)?.toInt() ?? 2,
+        place: (j['place'] as num?)?.toInt() ?? 1,
+        won: j['won'] as bool? ?? false,
+        xp: (j['xp'] as num?)?.toInt() ?? 0,
+        opponents: [
+          for (final o in (j['with'] as List? ?? const [])) o as String
+        ],
+      );
+}
+
+/// Everything about this player: progress, friends and recent matches.
+class ProfileInfo {
+  const ProfileInfo({
+    required this.playerId,
+    required this.name,
+    required this.friendCode,
+    this.xp = 0,
+    this.played = 0,
+    this.won = 0,
+    this.friends = const [],
+    this.incoming = const [],
+    this.outgoing = const [],
+    this.history = const [],
+  });
+
+  final String playerId;
+  final String name;
+
+  /// What a friend types to send this player a request. Not the player id:
+  /// that is shown at every table, and a code can be handed out on purpose.
+  final String friendCode;
+  final int xp;
+  final int played;
+  final int won;
+  final List<FriendInfo> friends;
+
+  /// Requests from others, waiting on this player.
+  final List<FriendInfo> incoming;
+
+  /// Requests this player sent that have not been answered.
+  final List<FriendInfo> outgoing;
+
+  /// Most recent first.
+  final List<MatchSummary> history;
+
+  int get level => levelFor(xp).level;
+
+  Map<String, Object?> toJson() => {
+        'id': playerId,
+        'name': name,
+        'code': friendCode,
+        'xp': xp,
+        'played': played,
+        'won': won,
+        'friends': [for (final f in friends) f.toJson()],
+        'in': [for (final f in incoming) f.toJson()],
+        'out': [for (final f in outgoing) f.toJson()],
+        'history': [for (final m in history) m.toJson()],
+      };
+
+  factory ProfileInfo.fromJson(Map<String, Object?> j) {
+    List<FriendInfo> people(Object? list) => [
+          for (final f in (list as List? ?? const []))
+            FriendInfo.fromJson(f as Map<String, Object?>)
+        ];
+    return ProfileInfo(
+      playerId: j['id'] as String,
+      name: j['name'] as String? ?? 'Player',
+      friendCode: j['code'] as String? ?? '',
+      xp: (j['xp'] as num?)?.toInt() ?? 0,
+      played: (j['played'] as num?)?.toInt() ?? 0,
+      won: (j['won'] as num?)?.toInt() ?? 0,
+      friends: people(j['friends']),
+      incoming: people(j['in']),
+      outgoing: people(j['out']),
+      history: [
+        for (final m in (j['history'] as List? ?? const []))
+          MatchSummary.fromJson(m as Map<String, Object?>)
+      ],
+    );
+  }
+}
+
+class ProfileUpdate extends Envelope {
+  const ProfileUpdate(this.profile);
+  final ProfileInfo profile;
+
+  @override
+  String get type => 'profile';
+  @override
+  Map<String, Object?> payload() => {'profile': profile.toJson()};
+
+  factory ProfileUpdate.fromJson(Map<String, Object?> j) =>
+      ProfileUpdate(ProfileInfo.fromJson(j['profile'] as Map<String, Object?>));
+}
+
+/// A friend asks this player to their table.
+class Invite extends Envelope {
+  const Invite({required this.from, required this.code});
+  final FriendInfo from;
+  final String code;
+
+  @override
+  String get type => 'invite';
+  @override
+  Map<String, Object?> payload() => {'from': from.toJson(), 'code': code};
+
+  factory Invite.fromJson(Map<String, Object?> j) => Invite(
+        from: FriendInfo.fromJson(j['from'] as Map<String, Object?>),
+        code: j['code'] as String,
+      );
+}
+
+/// A one-time code for carrying this player to another phone.
+class TransferCode extends Envelope {
+  const TransferCode({required this.code, required this.minutes});
+  final String code;
+
+  /// How long it stays usable.
+  final int minutes;
+
+  @override
+  String get type => 'transfer';
+  @override
+  Map<String, Object?> payload() => {'code': code, 'minutes': minutes};
+
+  factory TransferCode.fromJson(Map<String, Object?> j) => TransferCode(
+        code: j['code'] as String,
+        minutes: (j['minutes'] as num?)?.toInt() ?? 10,
       );
 }
 

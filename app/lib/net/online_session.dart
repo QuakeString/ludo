@@ -55,6 +55,17 @@ class OnlineSession extends ChangeNotifier {
   final _reactions = StreamController<Reaction>.broadcast();
   Stream<Reaction> get reactions => _reactions.stream;
 
+  /// This player's progress, friends and recent matches. Null until the
+  /// server has sent it; ask with [refreshProfile].
+  ProfileInfo? profile;
+
+  /// A one-time code for moving to another phone, once one has been made.
+  TransferCode? transferCode;
+
+  /// Friends asking this player to their table.
+  final _invites = StreamController<Invite>.broadcast();
+  Stream<Invite> get invites => _invites.stream;
+
   /// Where the search for a quick match has got to, while there is one.
   QueueUpdate? queue;
   bool get searching => queue?.searching ?? false;
@@ -66,6 +77,10 @@ class OnlineSession extends ChangeNotifier {
 
   bool _disposed = false;
   bool _reconnecting = false;
+
+  /// Changing identity on purpose closes the socket; that is not a lost
+  /// signal to recover from.
+  bool _switching = false;
 
   // --- what the player can ask for -----------------------------------------
 
@@ -113,6 +128,59 @@ class OnlineSession extends ChangeNotifier {
     notifyListeners();
   }
 
+  void refreshProfile() => connection.send(const GetProfile());
+
+  void addFriend(String code) {
+    error = null;
+    connection.send(AddFriend(code.trim()));
+  }
+
+  void answerFriend(String playerId, {required bool accept}) =>
+      connection.send(AnswerFriend(playerId, accept: accept));
+
+  void removeFriend(String playerId) => connection.send(RemoveFriend(playerId));
+
+  void setNickname(String playerId, String? nickname) => connection.send(
+    SetNickname(
+      playerId,
+      nickname == null || nickname.trim().isEmpty ? null : nickname.trim(),
+    ),
+  );
+
+  void inviteFriend(String playerId) {
+    error = null;
+    connection.send(InviteFriend(playerId));
+  }
+
+  void makeTransferCode() => connection.send(const MakeTransferCode());
+
+  /// Becomes, on this phone, the player who made [code] on another one.
+  ///
+  /// Throws when the code is refused. This device was somebody else until
+  /// now, so what that somebody was doing is let go of first.
+  Future<void> useTransferCode(String code) async {
+    room = null;
+    state = null;
+    yourSeat = null;
+    queue = null;
+    profile = null;
+    error = null;
+    _switching = true;
+    try {
+      await connection.connect(transfer: code);
+    } catch (_) {
+      // The old identity is still the one this device has; go back to it.
+      await connection.connect();
+      rethrow;
+    } finally {
+      _switching = false;
+      disconnected = false;
+      notifyListeners();
+    }
+    error = null;
+    refreshProfile();
+  }
+
   /// Another game at the same table. The host's call, like starting.
   void rematch() => connection.send(const Rematch());
 
@@ -150,6 +218,17 @@ class OnlineSession extends ChangeNotifier {
       case Welcome():
         notifyListeners();
 
+      case ProfileUpdate(profile: final p):
+        profile = p;
+        notifyListeners();
+
+      case TransferCode():
+        transferCode = message;
+        notifyListeners();
+
+      case Invite():
+        _invites.add(message);
+
       case QueueUpdate():
         queue = message.searching ? message : null;
         notifyListeners();
@@ -159,7 +238,7 @@ class OnlineSession extends ChangeNotifier {
 
       case Oops(message: final text, code: final code):
         if (code == 'cooldown') queue = null;
-        if (code == 'closed') {
+        if (code == 'closed' && !_switching) {
           disconnected = true;
           _reconnect();
         }
@@ -216,6 +295,7 @@ class OnlineSession extends ChangeNotifier {
     _sub.cancel();
     _matches.close();
     _reactions.close();
+    _invites.close();
     super.dispose();
   }
 }

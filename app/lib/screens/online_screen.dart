@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:ludo_engine/ludo_engine.dart';
@@ -8,6 +10,7 @@ import '../net/connection.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 import 'game_screen.dart';
+import 'profile_screen.dart';
 
 /// Where the server lives: the hosted one, unless a build says otherwise. A
 /// debug build can point at a laptop without editing code:
@@ -72,6 +75,8 @@ class _OnlineScreenState extends State<OnlineScreen> {
   String? _problem;
   bool _connecting = true;
 
+  StreamSubscription<Invite>? _inviteSub;
+
   /// Asking for a name before anything else, the first time online. Everyone
   /// at a table sees it, and `Guest_4821` tells a friend nothing.
   bool _askName = false;
@@ -91,6 +96,7 @@ class _OnlineScreenState extends State<OnlineScreen> {
 
   @override
   void dispose() {
+    _inviteSub?.cancel();
     _code.dispose();
     _session?.dispose();
     _connection?.dispose();
@@ -118,7 +124,10 @@ class _OnlineScreenState extends State<OnlineScreen> {
     try {
       await connection.connect();
       if (!mounted) return;
-      final session = OnlineSession(connection)..addListener(_changed);
+      final session = OnlineSession(connection)
+        ..addListener(_changed)
+        ..refreshProfile();
+      _inviteSub = session.invites.listen(_invited);
       setState(() {
         _connection = connection;
         _session = session;
@@ -138,6 +147,43 @@ class _OnlineScreenState extends State<OnlineScreen> {
                   'try again.\n\n($e)';
       });
     }
+  }
+
+  /// A friend asks this player to their table.
+  Future<void> _invited(Invite invite) async {
+    final session = _session;
+    if (session == null || !mounted) return;
+    // Mid-game, an invitation is not worth interrupting a turn for.
+    if (session.inMatch) return;
+    final join = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('${invite.from.shownName} invites you'),
+        content: Text('Join their table, room ${invite.code}?'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Not now'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Join'),
+          ),
+        ],
+      ),
+    );
+    if (join == true && mounted) {
+      if (session.searching) session.cancelQuickMatch();
+      session.joinRoom(invite.code);
+    }
+  }
+
+  void _openProfile() {
+    final session = _session;
+    if (session == null) return;
+    Navigator.of(
+      context,
+    ).push(MaterialPageRoute(builder: (_) => ProfileScreen(session: session)));
   }
 
   /// Goes to the room an invite link named, once there is a name to go as.
@@ -202,6 +248,18 @@ class _OnlineScreenState extends State<OnlineScreen> {
     return Scaffold(
       appBar: AppBar(
         title: Text(widget.quick ? 'Online' : 'Play with friends'),
+        actions: [
+          if (session != null && !_askName)
+            IconButton(
+              tooltip: 'Profile and friends',
+              onPressed: _openProfile,
+              icon: Badge(
+                isLabelVisible: (session.profile?.incoming.length ?? 0) > 0,
+                label: Text('${session.profile?.incoming.length ?? 0}'),
+                child: const Icon(Icons.account_circle_outlined),
+              ),
+            ),
+        ],
       ),
       body: SafeArea(
         child: Center(
@@ -479,6 +537,46 @@ class _Lobby extends StatelessWidget {
     SharePlus.instance.share(ShareParams(text: text, subject: 'Ludo'));
   }
 
+  /// Friends who are online, to ask to this table directly.
+  Future<void> _pickFriend(BuildContext context) async {
+    final friends = session.profile?.friends ?? const <FriendInfo>[];
+    final chosen = await showModalBottomSheet<FriendInfo>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: ListView(
+          shrinkWrap: true,
+          children: [
+            const ListTile(
+              title: Text(
+                'Ask a friend to this table',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            for (final f in friends)
+              ListTile(
+                enabled: f.online,
+                leading: Icon(
+                  Icons.circle,
+                  size: 12,
+                  color: f.online ? const Color(0xFF2E9E5B) : Colors.grey,
+                ),
+                title: Text(f.shownName),
+                subtitle: Text(f.online ? 'Online' : 'Offline'),
+                onTap: () => Navigator.of(context).pop(f),
+              ),
+          ],
+        ),
+      ),
+    );
+    if (chosen == null) return;
+    session.inviteFriend(chosen.playerId);
+    if (context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Asked ${chosen.shownName} to join')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final room = session.room!;
@@ -533,10 +631,22 @@ class _Lobby extends StatelessWidget {
                   ],
                 ),
                 const SizedBox(height: 8),
-                FilledButton.icon(
-                  onPressed: () => _invite(context, room.code),
-                  icon: const Icon(Icons.share),
-                  label: const Text('Invite friends'),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 4,
+                  children: [
+                    FilledButton.icon(
+                      onPressed: () => _invite(context, room.code),
+                      icon: const Icon(Icons.share),
+                      label: const Text('Invite friends'),
+                    ),
+                    if (session.profile?.friends.isNotEmpty ?? false)
+                      OutlinedButton.icon(
+                        onPressed: () => _pickFriend(context),
+                        icon: const Icon(Icons.people_alt_outlined),
+                        label: const Text('Ask a friend'),
+                      ),
+                  ],
                 ),
                 const SizedBox(height: 6),
                 const Text(
