@@ -87,13 +87,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// between turns there are stretches — a number being read, a chip walking,
   /// a knocked-off chip trudging home — where it is not. Tapping then used to
   /// do nothing at all, which reads as the game ignoring you rather than as
-  /// the game being busy. The tap is kept and spent the moment it can be.
-  DateTime? _wantsRoll;
+  /// the game being busy. The tap is kept and spent the moment it can be —
+  /// but only for the seat that made it. A tap kept across a change of turn
+  /// threw the next player's die for them, which on a shared phone, or with a
+  /// friend online, looked like the die rolling by itself.
+  ({DateTime at, int seat})? _wantsRoll;
 
-  /// How long a waiting tap is worth honouring. Long enough to cover a chip
-  /// walking home; short enough that a tap you have forgotten about does not
-  /// throw the dice by itself a minute later.
-  static const _wantsRollFor = Duration(seconds: 5);
+  /// How long a waiting tap is worth honouring. Long enough to cover the die
+  /// settling and a short hop; any longer and the throw it finally makes no
+  /// longer looks like the tap that asked for it.
+  static const _wantsRollFor = Duration(milliseconds: 1500);
 
   late GameState _state;
   late BoardGeometry _geometry;
@@ -377,7 +380,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // Not ready is not the same as not wanted. Remember it and spend it the
     // moment the board is free.
     if (_busy || !_state.awaitingRoll || _state.isOver) {
-      if (!_state.isOver) _wantsRoll = DateTime.now();
+      if (!_state.isOver) {
+        _wantsRoll = (at: DateTime.now(), seat: _state.turn);
+      }
       return;
     }
     _wantsRoll = null;
@@ -966,7 +971,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // comes through build, so this is the one place that catches them all.
     final waiting = _wantsRoll;
     if (waiting != null) {
-      if (DateTime.now().difference(waiting) > _wantsRollFor) {
+      if (DateTime.now().difference(waiting.at) > _wantsRollFor ||
+          waiting.seat != _state.turn) {
         _wantsRoll = null;
       } else if (_myMove && _state.awaitingRoll) {
         _wantsRoll = null;

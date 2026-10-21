@@ -71,46 +71,54 @@ void main() {
     await closeGame(tester);
   });
 
-  testWidgets('a tap that arrives too early is kept, not dropped', (
+  testWidgets('an early tap never throws the next player\'s die', (
     tester,
   ) async {
-    // The die is only a real throw to make in the gaps between everything
-    // else, and the gaps are short. Tapping while a chip is still walking used
-    // to do nothing at all, which reads as the game ignoring you rather than
-    // as the game being busy — and is why rolling "did not work the first
-    // time, most of the time".
-    await open(tester);
+    // A tap made while the die is still busy is kept for a moment, so a
+    // player who taps a little early is not ignored. It used to be kept
+    // across the change of turn too, and then the next player's die threw
+    // itself — nobody had touched it.
+    // A table whose first throw is not a six: nothing can leave home, so the
+    // turn passes by itself after the number is shown.
+    const rules = RuleConfig(players: 2, tokensPerPlayer: 4);
+    var seed = 1;
+    while (const LudoEngine()
+            .apply(GameState.newGame(rules, seed: seed), const RollDice())
+            .dice ==
+        6) {
+      seed++;
+    }
+    await tester.pumpWidget(
+      MaterialApp(home: GameScreen(rules: rules, seed: seed)),
+    );
+    await tester.pump();
 
-    // Roll, then tap again immediately, while the die is still tumbling and
-    // the turn is very much not ready for another throw.
     await tester.tap(find.byKey(rollDieKey).first);
     await tester.pump(const Duration(milliseconds: 60));
-    final first = boardState(tester).dice;
-    expect(first, isNotNull);
+    final first = boardState(tester);
+    expect(first.dice, isNotNull);
 
-    expect(
-      find.byKey(rollDieKey),
-      findsWidgets,
-      reason: 'the die stopped being a button the moment it was busy',
-    );
+    // Again, straight away, while the first throw is still tumbling.
     await tester.tap(find.byKey(rollDieKey).first);
-    await tester.pump(const Duration(milliseconds: 30));
 
-    // Nothing happens yet — it is not this player's throw to make again.
-    expect(boardState(tester).dice, first);
-
-    // But it is not forgotten either: as soon as the board comes free the
-    // waiting tap is spent.
-    var rolledAgain = false;
-    for (var i = 0; i < 80 && !rolledAgain; i++) {
+    // Play the turn out until the die is somebody else's to throw.
+    var next = first;
+    for (var i = 0; i < 100 && next.turn == first.turn; i++) {
       await tester.pump(const Duration(milliseconds: 100));
-      final s = boardState(tester);
-      rolledAgain = s.dice != null && !s.awaitingRoll && s.dice != first;
+      next = boardState(tester);
     }
+    expect(next.turn, isNot(first.turn));
+
+    // Long past any window the early tap could have had.
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final later = boardState(tester);
+    expect(later.turn, next.turn);
     expect(
-      rolledAgain,
+      later.awaitingRoll,
       isTrue,
-      reason: 'the early tap was thrown away instead of being honoured',
+      reason: 'the next player\'s die rolled without anyone touching it',
     );
     await closeGame(tester);
   });
