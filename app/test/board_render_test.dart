@@ -109,7 +109,8 @@ void main() {
     );
     await tester.pump();
 
-    expect(find.textContaining('roll the dice'), findsOneWidget);
+    // No "Red — roll the dice" line: the seat holding the die says it.
+    expect(find.textContaining('roll the dice'), findsNothing);
     // The die in the seat's own place is the roll control — there is no
     // separate button anywhere on the screen.
     expect(find.byKey(rollDieKey), findsOneWidget);
@@ -308,8 +309,7 @@ void animationTests() {
         // same square only while seat 0 starts the track at ring zero.
         final landing = b.ringIndex(s.armOf(0), 3)!;
         final victim =
-            (landing - b.startRing(s.armOf(1)) + b.trackLength) %
-            b.trackLength;
+            (landing - b.startRing(s.armOf(1)) + b.trackLength) % b.trackLength;
         final tokens = [...s.tokens];
         tokens[0] = tokens[0].copyWith(progress: 2);
         tokens[4] = tokens[4].copyWith(progress: victim);

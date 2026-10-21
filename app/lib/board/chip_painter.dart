@@ -117,7 +117,13 @@ class ChipArt {
     // Deepened on a light board. The seat colours are tuned to be painted on
     // the board's own squares, and a chip the same strength as the square it
     // stands on is a chip that blends into it.
-    final body = depth < 1 ? _darken(color, depth) : color;
+    // Lifted on a dark one, where the board's own colours are held back and
+    // the chips should be the brightest thing on it.
+    final body = depth < 1
+        ? _darken(color, depth)
+        : depth > 1
+        ? _brighten(color, depth - 1)
+        : color;
     final base = Paint()
       ..color = fade >= 1 ? body : body.withValues(alpha: fade);
     canvas.drawPath(_body, base);
@@ -184,6 +190,15 @@ class ChipArt {
       textDirection: TextDirection.ltr,
     )..layout();
     tp.paint(canvas, centre - Offset(tp.width / 2, tp.height / 2));
+  }
+
+  /// Towards white by [f], keeping the hue: lighter and still the same seat.
+  static Color _brighten(Color c, double f) {
+    final hsl = HSLColor.fromColor(c);
+    return hsl
+        .withLightness((hsl.lightness + (1 - hsl.lightness) * f).clamp(0, 1))
+        .withSaturation((hsl.saturation * (1 + f * 0.4)).clamp(0, 1))
+        .toColor();
   }
 
   static Color _darken(Color c, double f) => Color.fromARGB(

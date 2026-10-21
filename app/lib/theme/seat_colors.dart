@@ -24,14 +24,7 @@ const seatColors = <Color>[
 ];
 
 /// Parallel to [seatColors] — a map keyed by Color cannot be const.
-const _names = <String>[
-  'Red',
-  'Green',
-  'Blue',
-  'Yellow',
-  'Magenta',
-  'Orange',
-];
+const _names = <String>['Red', 'Green', 'Blue', 'Yellow', 'Magenta', 'Orange'];
 
 /// Where each colour sits on the four-arm board, by arm: top-left, top-right,
 /// bottom-right, bottom-left.
@@ -103,8 +96,9 @@ class FavouriteColour {
     try {
       final prefs = await SharedPreferences.getInstance();
       final i = prefs.getInt(_key);
-      favouriteColour =
-          i != null && i >= 0 && i < seatColors.length ? seatColors[i] : null;
+      favouriteColour = i != null && i >= 0 && i < seatColors.length
+          ? seatColors[i]
+          : null;
     } catch (_) {}
   }
 
@@ -128,8 +122,9 @@ String nameOfColour(Color colour) => _names[seatColors.indexOf(colour)];
 /// Everything the board painter needs to draw in one theme.
 ///
 /// Dark is a real palette, not a filter over the light one: the surface, grid
-/// and home interiors are all their own colours. The chips are unchanged —
-/// their white rim is exactly what lets one chip design work on both grounds.
+/// and home interiors are all their own colours. On a dark board the painted
+/// colours are also held back and the chips lifted, so at night the eye goes
+/// to the pieces rather than the corners they stand in.
 class BoardPalette {
   const BoardPalette({
     required this.plate,
@@ -148,6 +143,7 @@ class BoardPalette {
     required this.faint,
     required this.chipEdge,
     required this.chipDepth,
+    this.paintStrength = 1,
   });
 
   final Color plate;
@@ -174,6 +170,16 @@ class BoardPalette {
   final Color chipEdge;
   final double chipDepth;
 
+  /// How strongly the seat colours are painted onto the board itself — the
+  /// yards, home columns, start squares and centre. Below 1 they are mixed
+  /// towards the board, which a dark room needs: full-strength corners glare,
+  /// and they compete with the chips standing on them.
+  final double paintStrength;
+
+  /// A seat colour as the board paints it, as against as a chip wears it.
+  Color painted(Color seat) =>
+      paintStrength >= 1 ? seat : Color.lerp(plate, seat, paintStrength)!;
+
   static const light = BoardPalette(
     plate: Color(0xFFFDFBF7),
     cell: Color(0xFFFFFFFF),
@@ -194,24 +200,27 @@ class BoardPalette {
   );
 
   static const dark = BoardPalette(
-    plate: Color(0xFF232830),
-    cell: Color(0xFF2E343F),
-    line: Color(0xFF4A5260),
-    star: Color(0xFF8E96A4),
-    homeInterior: Color(0xFF1B1F26),
+    plate: Color(0xFF1D2128),
+    cell: Color(0xFF262B34),
+    line: Color(0xFF3B424E),
+    star: Color(0xFF6E7583),
+    homeInterior: Color(0xFF171A20),
     slot: Color(0x1AFFFFFF),
     die: Color(0xFFEAE6DE),
     dieIdle: Color(0xFF2A303A),
     dieEdge: Color(0xFF4A5260),
     pip: Color(0xFF171A21),
-    felt: Color(0xFF12151B),
+    felt: Color(0xFF0F1216),
     panel: Color(0xFF1B2028),
     panelEdge: Color(0xFF39414E),
     faint: Color(0xFF98A0AE),
     // Black on a dark board would vanish; the white line does that job here,
     // and the edge only has to keep it off the squares.
     chipEdge: Color(0xFF000000),
-    chipDepth: 1,
+    // Lifted rather than deepened, so the chips are the brightest thing on
+    // the board.
+    chipDepth: 1.22,
+    paintStrength: 0.6,
   );
 
   static BoardPalette of(BuildContext context) =>

@@ -285,7 +285,7 @@ class BoardPainter extends CustomPainter {
       // around them were coloured.
       canvas.drawPath(
         Path()..addPolygon([px(tri.a), px(tri.b), px(tri.c)], true),
-        Paint()..color = colourOfArm(arm, spec.arms).withValues(alpha: 0.9),
+        Paint()..color = _armColour(arm).withValues(alpha: 0.9),
       );
     }
   }
@@ -350,8 +350,11 @@ class BoardPainter extends CustomPainter {
             Paint()
               ..style = PaintingStyle.stroke
               ..strokeWidth = cell * 0.028
-              ..color = Color.lerp(colour, Colors.black, 0.22)!
-                  .withValues(alpha: 0.34),
+              ..color = Color.lerp(
+                colour,
+                Colors.black,
+                0.22,
+              )!.withValues(alpha: 0.34),
           );
         }
       }
@@ -446,8 +449,9 @@ class BoardPainter extends CustomPainter {
     )..layout();
 
     const capHeightRatio = 0.711;
-    final baseline =
-        painter.computeDistanceToActualBaseline(TextBaseline.alphabetic);
+    final baseline = painter.computeDistanceToActualBaseline(
+      TextBaseline.alphabetic,
+    );
     painter.paint(
       canvas,
       Offset(
@@ -462,7 +466,8 @@ class BoardPainter extends CustomPainter {
     final seat = glowSeat;
     if (seat == null) return;
     final arm = state.armOf(seat);
-    final colour = _armColour(arm);
+    // At full strength even on a dark board: it is there to be noticed.
+    final colour = colourOfArm(arm, spec.arms);
 
     if (geometry is CrossGeometry) {
       final (tl, br) = (geometry as CrossGeometry).yardSquare(arm);
@@ -528,7 +533,7 @@ class BoardPainter extends CustomPainter {
   /// The colour an arm wears — its own, whether or not anybody is sitting
   /// there. An empty corner of a Ludo board is still a coloured corner; what
   /// marks it empty is that no chips are standing in it.
-  Color _armColour(int arm) => colourOfArm(arm, spec.arms);
+  Color _armColour(int arm) => palette.painted(colourOfArm(arm, spec.arms));
 
   // --- chips ---------------------------------------------------------------
 

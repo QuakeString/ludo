@@ -1046,12 +1046,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           children: [
             Column(
               children: [
-                _TurnBar(
-                  state: _state,
-                  flash: _flash,
-                  aiSeats: widget.aiSeats,
-                  session: session,
-                ),
                 if (session?.disconnected ?? false)
                   const _Banner(
                     icon: Icons.wifi_off,
@@ -1068,9 +1062,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       // player's die most of a screen away from the house it
                       // belongs to.
                       final band = _seatBandHeight(rules);
+                      // A chip on an outside square is wider than the square
+                      // and hangs over the board's edge; on a phone, where the
+                      // board is as wide as the screen, that edge is the
+                      // screen's, and the chip was cut off. A small gutter
+                      // either side keeps it whole.
+                      const gutter = 8.0;
                       final side = math.max(
                         160.0,
-                        math.min(outer.maxWidth, outer.maxHeight - band * 2),
+                        math.min(
+                          outer.maxWidth - gutter * 2,
+                          outer.maxHeight - band * 2,
+                        ),
                       );
                       return Center(
                         child: SizedBox(
@@ -1182,6 +1185,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ),
               ],
             ),
+            // Laid over the top of the board rather than above it, so a note
+            // coming and going never resizes the board under the player's
+            // finger.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: _TurnBar(
+                  state: _state,
+                  flash: _flash,
+                  aiSeats: widget.aiSeats,
+                  session: session,
+                ),
+              ),
+            ),
             if (_bubbles.isNotEmpty)
               Positioned(
                 top: 64,
@@ -1232,7 +1251,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 }
 
-/// Whose turn it is, plus the turn clock when the rules use one.
+/// Who won, or a passing note such as a turn that had no move.
 class _TurnBar extends StatelessWidget {
   const _TurnBar({
     required this.state,
@@ -1265,36 +1284,48 @@ class _TurnBar extends StatelessWidget {
     final over = state.isOver;
     final seat = over ? state.winner! : state.turn;
     final who = _nameFor(seat);
+    // Whose turn it is already shows on the board, by the seat with the die,
+    // so the bar only speaks when there is something else to say.
     final label = over
         ? state.rules.isTeamGame
               ? 'Team ${state.winningTeam! + 1} wins'
               : '$who wins'
-        : flash ??
-              (state.awaitingRoll
-                  ? '$who — roll the dice'
-                  : '$who — move a chip');
+        : flash;
+    if (label == null) return const SizedBox.shrink();
 
+    final palette = BoardPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
-      child: Row(
-        children: [
-          Container(
-            width: 13,
-            height: 13,
-            decoration: BoxDecoration(
-              color: colourOfArm(state.armOf(seat), state.board.arms),
-              shape: BoxShape.circle,
-            ),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: palette.panel.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: palette.panelEdge),
           ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 11,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: colourOfArm(state.armOf(seat), state.board.arms),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
