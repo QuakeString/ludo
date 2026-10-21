@@ -4,7 +4,11 @@ import 'screens/home_screen.dart';
 import 'screens/online_screen.dart';
 import 'theme/seat_colors.dart';
 
-void main() => runApp(const LudoApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await FavouriteColour.load();
+  runApp(const LudoApp());
+}
 
 /// The room code in an invite link, whichever shape it arrived in: the app's
 /// own `ludo://join/CODE`, or the web page's `…/r/CODE` passed on to it.

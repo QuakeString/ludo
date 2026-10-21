@@ -159,8 +159,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     super.initState();
     final session = _session;
     final saved = session == null ? widget.resumeFrom : null;
+    final online = session?.state;
     _state =
-        session?.state ??
+        (online == null ? null : _seen(online)) ??
         saved?.state ??
         GameState.newGame(widget.rules, seed: widget.seed);
     _clockBefore = saved?.elapsed ?? Duration.zero;
@@ -283,6 +284,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   // --- online: the server talks, the board listens -------------------------
 
+  /// The server's position, turned so this player's own seat is in the
+  /// bottom-left corner, where they would sit at a real table. Only the
+  /// picture turns: who plays after whom, and every move, are unchanged.
+  GameState _seen(GameState state) {
+    final me = _session?.yourSeat;
+    if (me == null || me < 0 || me >= state.rules.players) return state;
+    return state.turnedFor(me);
+  }
+
   void _sessionChanged() {
     if (mounted) setState(() {});
   }
@@ -338,7 +348,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ..start();
       }
       setState(() {
-        _state = update.state;
+        _state = _seen(update.state);
         _flash = update.autoPlayed
             ? 'Time ran out — played automatically'
             : null;
@@ -347,7 +357,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       return;
     }
 
-    _pendingState = update.state;
+    _pendingState = _seen(update.state);
     final animation = MoveAnimation(
       move: move,
       before: _state,
@@ -1155,7 +1165,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   child: Column(
                     children: [
                       for (final b in _bubbles)
-                        _ReactionBubble(key: ValueKey(b.id), bubble: b),
+                        _ReactionBubble(
+                          key: ValueKey(b.id),
+                          bubble: b,
+                          colour: colourOfArm(
+                            _state.armOf(b.seat),
+                            _state.board.arms,
+                          ),
+                        ),
                     ],
                   ),
                 ),
@@ -1414,9 +1431,16 @@ class _Bubble {
 }
 
 class _ReactionBubble extends StatelessWidget {
-  const _ReactionBubble({super.key, required this.bubble});
+  const _ReactionBubble({
+    super.key,
+    required this.bubble,
+    required this.colour,
+  });
 
   final _Bubble bubble;
+
+  /// The seat's colour as this player sees it.
+  final Color colour;
 
   @override
   Widget build(BuildContext context) {
@@ -1433,7 +1457,7 @@ class _ReactionBubble extends StatelessWidget {
           color: palette.panel,
           borderRadius: BorderRadius.circular(22),
           border: Border.all(
-            color: seatColors[bubble.seat % seatColors.length],
+            color: colour,
             width: 2,
           ),
           boxShadow: [

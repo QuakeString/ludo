@@ -664,6 +664,7 @@ class _Lobby extends StatelessWidget {
         for (final seat in room.seats)
           _SeatRow(
             seat: seat,
+            colour: _seatColour(room, seat.seat, session),
             isYou: seat.playerId == session.playerId,
             isHost: seat.playerId != null && seat.playerId == room.hostId,
             // Filling an empty seat with a computer is the host's choice. A
@@ -736,15 +737,32 @@ class _Lobby extends StatelessWidget {
   }
 }
 
+/// The colour [seat] will wear once the game starts, on this player's board:
+/// the table turned so their own seat is bottom-left, in their own colour.
+Color _seatColour(RoomInfo room, int seat, OnlineSession session) {
+  final board = room.rules.board;
+  final arms = board.seatArms(room.rules.players);
+  if (seat >= arms.length) return Colors.grey;
+  final mine = room.seats.indexWhere((s) => s.playerId == session.playerId);
+  final shift = mine < 0 || mine >= arms.length
+      ? 0
+      : board.firstSeatArm - arms[mine];
+  return colourOfArm((arms[seat] + shift) % board.arms, board.arms);
+}
+
 class _SeatRow extends StatelessWidget {
   const _SeatRow({
     required this.seat,
+    required this.colour,
     required this.isYou,
     this.isHost = false,
     this.onAddComputer,
   });
 
   final SeatInfo seat;
+
+  /// The colour this seat will wear on this player's board.
+  final Color colour;
   final bool isYou;
   final bool isHost;
   final void Function(AiLevel)? onAddComputer;
@@ -759,7 +777,7 @@ class _SeatRow extends StatelessWidget {
     return ListTile(
       contentPadding: EdgeInsets.zero,
       leading: CircleAvatar(
-        backgroundColor: seatColors[seat.seat],
+        backgroundColor: colour,
         radius: 14,
         child: seat.isComputer
             ? const Icon(Icons.smart_toy, size: 15, color: Colors.white)
