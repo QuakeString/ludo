@@ -210,7 +210,24 @@ class GameState {
     ];
   }
 
+  /// The same game with the board turned so [seat] plays from the corner the
+  /// first seat starts in — bottom-left on both boards.
+  ///
+  /// Every seat moves round by the same number of arms, so nothing about the
+  /// game changes: tokens keep their progress, which is counted from their own
+  /// start, and every square they share or fight over turns with them. Only
+  /// the picture does. Online, each player sees the table from their own
+  /// corner, the way they would sitting at a real one.
+  GameState turnedFor(int seat) {
+    final shift = board.firstSeatArm - armOf(seat);
+    if (shift % board.arms == 0) return this;
+    return copyWith(seatArms: [
+      for (final arm in seatArms) (arm + shift) % board.arms,
+    ]);
+  }
+
   GameState copyWith({
+    List<int>? seatArms,
     List<Token>? tokens,
     int? turn,
     Object? dice = _unset,
@@ -223,7 +240,7 @@ class GameState {
   }) {
     return GameState(
       rules: rules,
-      seatArms: seatArms,
+      seatArms: seatArms ?? this.seatArms,
       tokens: tokens ?? this.tokens,
       turn: turn ?? this.turn,
       dice: identical(dice, _unset) ? this.dice : dice as int?,

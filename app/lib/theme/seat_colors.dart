@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 /// The six colours a table can be painted in.
 ///
@@ -66,13 +67,63 @@ const _hexArms = <Color>[
 /// [arms] is required rather than defaulted because the two boards genuinely
 /// disagree, and a default would let a six-arm board quietly wear the
 /// four-arm colours.
+///
+/// The one exception is [favouriteColour]: the player's own colour goes in the
+/// bottom-left corner, where they sit, and whichever corner wore it before
+/// takes the colour it displaced. Each phone keeps its own, so at an online
+/// table everyone plays in their favourite colour on their own screen while
+/// the seats, and who plays after whom, stay the same for all.
 Color colourOfArm(int arm, int arms) {
-  final places = arms == 6 ? _hexArms : _crossArms;
+  final places = [...(arms == 6 ? _hexArms : _crossArms)];
+  final mine = favouriteColour;
+  if (mine != null) {
+    const home = 3; // bottom-left, on both boards
+    final was = places.indexOf(mine);
+    final displaced = places[home];
+    places[home] = mine;
+    if (was >= 0) places[was] = displaced;
+  }
   return places[arm % places.length];
 }
 
-String nameOfArm(int arm, int arms) =>
-    _names[seatColors.indexOf(colourOfArm(arm, arms))];
+/// The colour this player wants to play in, or null for the board's own.
+///
+/// Read once at start and changed only from the front page, before any table
+/// is on screen, so a plain variable is enough: nothing already drawn has to
+/// notice it change.
+Color? favouriteColour;
+
+/// Where [favouriteColour] is kept between launches.
+class FavouriteColour {
+  const FavouriteColour._();
+
+  static const _key = 'ludo.colour';
+
+  static Future<void> load() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final i = prefs.getInt(_key);
+      favouriteColour =
+          i != null && i >= 0 && i < seatColors.length ? seatColors[i] : null;
+    } catch (_) {}
+  }
+
+  static Future<void> save(Color? colour) async {
+    favouriteColour = colour;
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      if (colour == null) {
+        await prefs.remove(_key);
+      } else {
+        await prefs.setInt(_key, seatColors.indexOf(colour));
+      }
+    } catch (_) {}
+  }
+}
+
+String nameOfArm(int arm, int arms) => nameOfColour(colourOfArm(arm, arms));
+
+String nameOfColour(Color colour) => _names[seatColors.indexOf(colour)];
 
 /// Everything the board painter needs to draw in one theme.
 ///
