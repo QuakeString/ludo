@@ -18,6 +18,7 @@ import '../fresh_seed.dart';
 import '../match_history.dart';
 import '../saved_game.dart';
 import 'game_over.dart';
+import 'house_rules.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
@@ -1010,6 +1011,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               : 'Room ${session.room?.code ?? ''}',
         ),
         actions: [
+          IconButton(
+            key: const ValueKey('game-rules'),
+            tooltip: 'Rules',
+            onPressed: () => showRuleBoard(context, rules),
+            icon: const Icon(Icons.menu_book_rounded),
+          ),
           if (session != null)
             PopupMenuButton<int>(
               tooltip: 'Send a reaction',

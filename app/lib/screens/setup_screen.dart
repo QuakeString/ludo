@@ -4,6 +4,7 @@ import 'package:ludo_engine/ludo_engine.dart';
 import '../fresh_seed.dart';
 import '../theme/seat_colors.dart';
 import 'game_screen.dart';
+import 'house_rules.dart';
 
 /// Which of the two on-this-device games is being set up.
 ///
@@ -38,7 +39,9 @@ class _SetupScreenState extends State<SetupScreen> {
   int _tokens = 4;
   bool _teams = false;
   int _shape = 0;
-  bool _pairMove = false;
+
+  /// The house rules, picked by whoever is setting the table up.
+  RuleConfig _house = const RuleConfig();
 
   /// How many seats the computer takes, and how hard it plays. Seat 0 is
   /// always yours; the computer fills from the last seat backwards.
@@ -53,17 +56,17 @@ class _SetupScreenState extends State<SetupScreen> {
 
   List<TeamShape> get _shapes => teamShapesFor(_players);
   bool get _teamsPossible => _shapes.isNotEmpty;
-  TeamShape? get _chosenShape =>
-      _teams && _teamsPossible ? _shapes[_shape.clamp(0, _shapes.length - 1)] : null;
+  TeamShape? get _chosenShape => _teams && _teamsPossible
+      ? _shapes[_shape.clamp(0, _shapes.length - 1)]
+      : null;
 
   RuleConfig get _rules {
     final shape = _chosenShape;
-    return RuleConfig(
+    return _house.copyWith(
       name: shape != null ? 'Teams ${shape.label}' : widget.mode.title,
       players: _players,
       tokensPerPlayer: _tokens,
       teams: shape?.groups,
-      pairMove: _pairMove,
     );
   }
 
@@ -170,8 +173,7 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                   ),
                   _Note(switch (_level) {
-                    AiLevel.easy =>
-                      'Mostly random — misses captures, leaves chips in danger.',
+                    AiLevel.easy => 'Mostly random — misses captures, leaves chips in danger.',
                     AiLevel.normal =>
                       'Takes the best move on the board, but cannot see what '
                           'it exposes.',
@@ -190,8 +192,7 @@ class _SetupScreenState extends State<SetupScreen> {
                   title: const Text('Play as teams'),
                   subtitle: Text(
                     _teamsPossible
-                        ? _chosenShape?.description ??
-                              'Sides win together — everybody home, not just you'
+                        ? _chosenShape?.description ?? 'Sides win together — everybody home, not just you'
                         : 'Needs 4 or 6 seats',
                   ),
                 ),
@@ -205,7 +206,10 @@ class _SetupScreenState extends State<SetupScreen> {
                     child: SegmentedButton<int>(
                       segments: [
                         for (var i = 0; i < _shapes.length; i++)
-                          ButtonSegment(value: i, label: Text(_shapes[i].label)),
+                          ButtonSegment(
+                            value: i,
+                            label: Text(_shapes[i].label),
+                          ),
                       ],
                       selected: {_shape.clamp(0, _shapes.length - 1)},
                       showSelectedIcon: false,
@@ -214,15 +218,9 @@ class _SetupScreenState extends State<SetupScreen> {
                     ),
                   ),
                 ],
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _pairMove,
-                  onChanged: (v) => setState(() => _pairMove = v),
-                  title: const Text('Pair move'),
-                  subtitle: const Text(
-                    'Two chips on a square link and travel as one on an '
-                    'even roll, at half the pips',
-                  ),
+                RulesEditor(
+                  rules: _rules,
+                  onChanged: (r) => setState(() => _house = r),
                 ),
                 const SizedBox(height: 22),
                 FilledButton(

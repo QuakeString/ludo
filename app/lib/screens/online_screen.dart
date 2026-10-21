@@ -12,6 +12,7 @@ import '../net/server_address.dart';
 import '../theme/seat_colors.dart';
 import 'colour_picker.dart';
 import 'game_screen.dart';
+import 'house_rules.dart';
 import 'profile_screen.dart';
 
 /// Getting online, from tapping the button to sitting at a table.
@@ -223,15 +224,16 @@ class _OnlineScreenState extends State<OnlineScreen> {
       ? _shapes[_shape.clamp(0, _shapes.length - 1)]
       : null;
 
-  RuleConfig get _rules => RuleConfig(
+  /// The host's house rules. Online, a turn that never ends is a table
+  /// everyone else has to sit and wait at, so the clock starts on: six dots
+  /// of five seconds each.
+  RuleConfig _house = const RuleConfig(turnTimerDots: 6);
+
+  RuleConfig get _rules => _house.copyWith(
     name: 'Online',
     players: _players,
     tokensPerPlayer: _tokens,
     teams: _chosenShape?.groups,
-    // Online, a turn that never ends is a table everyone else has to sit
-    // and wait at, so the clock is on by default here: six dots of five
-    // seconds each.
-    turnTimerDots: 6,
   );
 
   @override
@@ -505,6 +507,11 @@ class _OnlineScreenState extends State<OnlineScreen> {
               onChanged: (v) => setState(() => _shape = v),
             ),
         ],
+        RulesEditor(
+          rules: _rules,
+          online: true,
+          onChanged: (r) => setState(() => _house = r),
+        ),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () => session.createRoom(_rules),
@@ -640,6 +647,12 @@ class _Lobby extends StatelessWidget {
                       onPressed: () => _invite(context, room.code),
                       icon: const Icon(Icons.share),
                       label: const Text('Invite friends'),
+                    ),
+                    OutlinedButton.icon(
+                      key: const ValueKey('lobby-rules'),
+                      onPressed: () => showRuleBoard(context, room.rules),
+                      icon: const Icon(Icons.menu_book_rounded),
+                      label: const Text('Rules'),
                     ),
                     if (session.profile?.friends.isNotEmpty ?? false)
                       OutlinedButton.icon(
