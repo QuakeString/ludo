@@ -9,6 +9,7 @@ environment:
   sdk: ^3.5.0
 
 dependencies:
+  crypto: ^3.0.3
   ludo_engine:
     path: ../packages/ludo_engine
   ludo_protocol:

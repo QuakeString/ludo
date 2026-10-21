@@ -23,22 +23,23 @@ void main() {
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
-    server = await startServer(port: 0, address: '127.0.0.1');
+    server = await startServer(
+      port: 0,
+      address: '127.0.0.1',
+      // This test plays a whole match as fast as the socket allows, far
+      // quicker than any person could, so it gets a limit no person reaches.
+      limits: () => RateLimiter(burst: 100000, perSecond: 100000),
+    );
   });
 
   tearDown(() async => server.close());
 
-  var seated = 0;
-
-  /// One player at the table. Each gets a distinct guest id: two clients
-  /// claiming the same id are the same person reconnecting, which is right for
-  /// a phone coming back and wrong for two players in one test process.
+  /// One player at the table. Each asks for a fresh identity: two clients
+  /// with the same one are the same person reconnecting, which is right for a
+  /// phone coming back and wrong for two players in one test process.
   Future<OnlineSession> sitDown([String? name]) async {
     final connection = LudoConnection(uri: server.webSocketUri);
-    await connection.connect(
-      guestId: 'g-test-${seated++}',
-      preferredName: name,
-    );
+    await connection.connect(fresh: true, preferredName: name);
     return OnlineSession(connection);
   }
 

@@ -21,7 +21,17 @@ Future<void> main(List<String> args) async {
     exit(await _isHealthy(port) ? 0 : 1);
   }
 
-  final server = await startServer(port: port);
+  // Where players are kept between restarts. Unset means memory only, which
+  // is fine on a laptop and is what the tests use.
+  final dataDir = Platform.environment['DATA_DIR'];
+  final hub = LudoHub(
+    players: PlayerStore(
+      file: dataDir == null || dataDir.isEmpty
+          ? null
+          : File('$dataDir/players.json'),
+    ),
+  );
+  final server = await startServer(port: port, hub: hub);
   stdout.writeln('Ludo server listening on port ${server.port}');
 
   // Shut down cleanly so in-flight sockets are closed rather than dropped.

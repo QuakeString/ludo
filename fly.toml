@@ -1,0 +1,44 @@
+# The game server on Fly.io.
+#
+# One machine, always on. Rooms live in that machine's memory, so it must not
+# be stopped when idle (a stopped machine is every live match ended) and there
+# must be exactly one of it (two would put a room's players on different
+# servers). Players are kept on the mounted volume and survive restarts.
+#
+# Deployed by .github/workflows/deploy.yml whenever the server changes.
+app = "quakestring-ludo"
+primary_region = "bom"
+
+[build]
+  dockerfile = "server/Dockerfile"
+
+[env]
+  PORT = "8080"
+  DATA_DIR = "/data"
+
+[mounts]
+  source = "ludo_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [http_service.concurrency]
+    type = "connections"
+    soft_limit = 2000
+    hard_limit = 5000
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "30s"
+    timeout = "3s"
+    grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "256mb"

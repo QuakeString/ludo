@@ -1,0 +1,66 @@
+# Deploys the game server to Fly.io whenever it changes on the main branch.
+#
+# Needs one repository secret, FLY_API_TOKEN (`fly tokens create org`). Until
+# it exists this workflow does nothing and says why, rather than failing.
+# The first run creates the app and its data volume; later runs only deploy.
+name: Deploy server
+
+on:
+  push:
+    branches: [claude/ludo-board-game-design-qd5nm3]
+    paths:
+      - 'server/**'
+      - 'packages/ludo_engine/**'
+      - 'packages/ludo_protocol/**'
+      - 'fly.toml'
+      - '.github/workflows/deploy.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-server
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      APP: quakestring-ludo
+      REGION: bom
+    steps:
+      - name: Check for a deploy token
+        id: token
+        run: |
+          if [ -z "$FLY_API_TOKEN" ]; then
+            echo "::notice::FLY_API_TOKEN is not set, so the server was not deployed."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.token.outputs.ready == 'true'
+
+      - uses: superfly/flyctl-actions/setup-flyctl@master
+        if: steps.token.outputs.ready == 'true'
+
+      - name: Create the app and its volume the first time
+        if: steps.token.outputs.ready == 'true'
+        run: |
+          flyctl apps list --json | grep -q "\"$APP\"" || flyctl apps create "$APP"
+          flyctl volumes list -a "$APP" --json | grep -q '"ludo_data"' || \
+            flyctl volumes create ludo_data -a "$APP" --region "$REGION" --size 1 --yes
+
+      - name: Deploy
+        if: steps.token.outputs.ready == 'true'
+        run: flyctl deploy --remote-only --ha=false
+
+      - name: Check it answers
+        if: steps.token.outputs.ready == 'true'
+        run: |
+          for i in $(seq 1 20); do
+            if curl -fsS "https://$APP.fly.dev/health"; then exit 0; fi
+            sleep 6
+          done
+          echo "the server did not answer on https://$APP.fly.dev/health"
+          exit 1

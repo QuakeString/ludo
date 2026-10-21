@@ -4,6 +4,7 @@ import 'dart:math';
 import 'package:ludo_engine/ludo_engine.dart';
 import 'package:ludo_protocol/ludo_protocol.dart';
 
+import 'players.dart';
 import 'room.dart';
 
 /// Holds every live room and routes messages to the right one.
@@ -11,11 +12,15 @@ import 'room.dart';
 /// Deliberately free of sockets: the whole thing can be driven from a test with
 /// fake clients, which is how the match flow is covered without opening a port.
 class LudoHub {
-  LudoHub({Random? random, DateTime Function()? clock})
+  LudoHub({Random? random, DateTime Function()? clock, PlayerStore? players})
       : _random = random ?? Random.secure(),
-        _now = clock ?? DateTime.now;
+        _now = clock ?? DateTime.now,
+        players = players ?? PlayerStore(random: random);
 
   final Random _random;
+
+  /// Everyone who has ever connected, and the secret that proves it.
+  final PlayerStore players;
   final DateTime Function() _now;
 
   final Map<String, Room> rooms = {};
@@ -34,13 +39,6 @@ class LudoHub {
     }
     return code;
   }
-
-  String newGuestId() =>
-      'g${DateTime.now().microsecondsSinceEpoch.toRadixString(36)}'
-      '${_random.nextInt(0xFFFF).toRadixString(16)}';
-
-  String guestName(String playerId) =>
-      'Guest_${playerId.hashCode.abs() % 9000 + 1000}';
 
   Room? roomOf(String playerId) => _roomOf[playerId];
 
@@ -162,16 +160,19 @@ class LudoHub {
 /// A client backed by a real socket.
 class SocketClient implements Client {
   SocketClient({
-    required this.playerId,
-    required this.displayName,
+    required this.player,
     required void Function(String) sink,
   }) : _sink = sink;
 
-  @override
-  final String playerId;
-  @override
-  final String displayName;
+  final PlayerRecord player;
   final void Function(String) _sink;
+
+  @override
+  String get playerId => player.id;
+
+  /// Read from the record each time, so a rename shows at once.
+  @override
+  String get displayName => player.name;
 
   @override
   void send(Envelope message) {
@@ -198,27 +199,45 @@ Envelope? decodeOrComplain(String raw, Client client) {
   }
 }
 
+/// The oldest [protocolVersion] this server still talks to.
+const minimumProtocol = 2;
+
+/// Who a connection turned out to be, from its opening [Hello].
+sealed class Identity {}
+
+/// A known player, or a new one minted just now — in which case [secret] is
+/// set and must reach the app, because it is the only copy.
+class Identified extends Identity {
+  Identified(this.player, {this.secret});
+  final PlayerRecord player;
+  final String? secret;
+}
+
+/// An app too old to talk to.
+class TooOld extends Identity {}
+
 /// Reads the opening [Hello] and settles on an identity.
 ///
-/// An account is never required. A client that has played before sends the
-/// guest id it was given; a new one gets a fresh one minted here.
-({String playerId, String displayName}) identify(LudoHub hub, String? raw) {
-  Hello hello = const Hello();
+/// An account is never required. A returning player sends the id and secret
+/// they were given; anything else — a first visit, a reinstalled app, an id
+/// somebody copied off a lobby screen without its secret — gets a fresh
+/// identity rather than someone else's.
+Identity identify(LudoHub hub, String? raw) {
+  Hello hello = const Hello(version: 1);
   if (raw != null) {
     try {
       final decoded = Envelope.decode(raw);
       if (decoded is Hello) hello = decoded;
     } catch (_) {
-      // Fall through to a fresh guest.
+      // Fall through: not a hello, so treated as an old client.
     }
   }
-  final id = hello.guestId?.trim().isNotEmpty == true
-      ? hello.guestId!.trim()
-      : hub.newGuestId();
-  final name = hello.displayName?.trim().isNotEmpty == true
-      ? hello.displayName!.trim()
-      : hub.guestName(id);
-  return (playerId: id, displayName: name);
+  if (hello.version < minimumProtocol) return TooOld();
+
+  final known = hub.players.verify(hello.guestId?.trim(), hello.secret);
+  if (known != null) return Identified(known);
+  final (fresh, secret) = hub.players.mint(name: hello.displayName);
+  return Identified(fresh, secret: secret);
 }
 
 /// Convenience for tests and tooling: JSON-encode any envelope.

@@ -28,17 +28,28 @@ class LudoConnection {
   String? playerId;
   String? displayName;
 
+  /// Whether [displayName] is one the player picked, not a `Guest_1234`.
+  bool chosenName = false;
+
+  /// Set when the server says this copy of the app is too old to play online.
+  bool outOfDate = false;
+
+  /// Keeps an idle socket from being closed by a proxy along the way. Hosting
+  /// platforms cut connections that say nothing for a minute or so, and a
+  /// player thinking about a move says nothing.
+  Timer? _keepAlive;
+
   /// Opens the socket and settles identity.
   ///
   /// No account, ever: the guest id from last time is offered, and if there
   /// isn't one the server mints a fresh one and we keep it. That is the whole
   /// of "logging in" — online play included.
   ///
-  /// [guestId] overrides the identity saved on this device. Two clients that
-  /// claim the same id are treated as the same person coming back, so anything
-  /// running more than one player from one device — tests, two windows — has to
-  /// say which is which.
-  Future<Welcome> connect({String? preferredName, String? guestId}) async {
+  /// [fresh] ignores the identity saved on this device and asks for a new one.
+  /// Two clients with the same identity are the same person coming back, so
+  /// anything running more than one player from one device — tests, two
+  /// windows — needs this.
+  Future<Welcome> connect({String? preferredName, bool fresh = false}) async {
     if (_channel != null) await close();
 
     final channel = WebSocketChannel.connect(uri);
@@ -59,8 +70,17 @@ class LudoConnection {
         if (message is Welcome) {
           playerId = message.playerId;
           displayName = message.displayName;
-          _remember(message.playerId, message.displayName);
+          chosenName = message.chosenName;
+          if (!fresh) {
+            _remember(message.playerId, message.displayName, message.secret);
+          }
           if (!welcomed.isCompleted) welcomed.complete(message);
+        }
+        if (message is Oops && message.code == 'update') {
+          outOfDate = true;
+          if (!welcomed.isCompleted) {
+            welcomed.completeError(StateError(message.message));
+          }
         }
         _incoming.add(message);
       },
@@ -80,12 +100,18 @@ class LudoConnection {
       cancelOnError: true,
     );
 
-    final saved = await _saved();
+    final saved = fresh ? (null, null, null) : await _saved();
     send(
       Hello(
-        guestId: guestId ?? saved.$1,
+        guestId: saved.$1,
+        secret: saved.$3,
         displayName: preferredName ?? saved.$2,
       ),
+    );
+    _keepAlive?.cancel();
+    _keepAlive = Timer.periodic(
+      const Duration(seconds: 25),
+      (_) => send(const Ping()),
     );
 
     return welcomed.future.timeout(
@@ -97,6 +123,8 @@ class LudoConnection {
   void send(Envelope message) => _channel?.sink.add(message.encode());
 
   Future<void> close() async {
+    _keepAlive?.cancel();
+    _keepAlive = null;
     await _sub?.cancel();
     _sub = null;
     await _channel?.sink.close();
@@ -112,22 +140,33 @@ class LudoConnection {
 
   static const _idKey = 'ludo.guestId';
   static const _nameKey = 'ludo.displayName';
+  static const _secretKey = 'ludo.secret';
 
-  Future<(String?, String?)> _saved() async {
+  Future<(String?, String?, String?)> _saved() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      return (prefs.getString(_idKey), prefs.getString(_nameKey));
+      return (
+        prefs.getString(_idKey),
+        prefs.getString(_nameKey),
+        prefs.getString(_secretKey),
+      );
     } catch (_) {
       // Storage being unavailable means playing as somebody new, which is a
       // worse experience but not a broken one.
-      return (null, null);
+      return (null, null, null);
     }
   }
 
-  Future<void> _remember(String id, String name) async {
+  /// Keeps the identity. The secret only arrives when the server mints a new
+  /// player, and it is the one thing that makes this phone that player — so
+  /// an id is only ever saved together with the secret that goes with it.
+  Future<void> _remember(String id, String name, String? secret) async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      await prefs.setString(_idKey, id);
+      if (secret != null) {
+        await prefs.setString(_idKey, id);
+        await prefs.setString(_secretKey, secret);
+      }
       await prefs.setString(_nameKey, name);
     } catch (_) {
       // Same again: not remembering is survivable.
