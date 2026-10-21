@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../saved_game.dart';
 import '../theme/seat_colors.dart';
 import 'game_screen.dart';
+import 'history_screen.dart';
 import 'online_screen.dart';
 import 'setup_screen.dart';
 
@@ -145,7 +146,15 @@ class _HomeScreenState extends State<HomeScreen> {
                           );
                   },
                 ),
-                const SizedBox(height: 22),
+                const SizedBox(height: 14),
+                Center(
+                  child: TextButton.icon(
+                    onPressed: () => _go(context, const HistoryScreen()),
+                    icon: const Icon(Icons.history_rounded),
+                    label: const Text('Recent matches'),
+                  ),
+                ),
+                const SizedBox(height: 10),
                 Text(
                   'No account, ever. Pass & play and the computer work with '
                   'no connection at all.',
