@@ -15,6 +15,7 @@ import '../board/sounds.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
 import '../fresh_seed.dart';
+import '../match_history.dart';
 import '../saved_game.dart';
 import 'game_over.dart';
 import '../net/online_session.dart';
@@ -254,6 +255,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         SavedGame(state: _state, aiSeats: widget.aiSeats, elapsed: _elapsed),
       );
     }
+  }
+
+  /// Puts the finished game into this device's recent matches, so its stats
+  /// can be opened again after the result sheet has gone.
+  void _recordResult() {
+    final seats = _session?.room?.seats;
+    final computers = <int, AiLevel>{
+      ...widget.aiSeats,
+      // Online the computer's seats are the server's, not this screen's; the
+      // level is not known here and only the robot on the avatar uses it.
+      if (seats != null)
+        for (final s in seats)
+          if (s.isComputer) s.seat: AiLevel.normal,
+    };
+    MatchHistoryStore.add(
+      MatchRecord(
+        state: _state,
+        finishedAt: DateTime.now(),
+        elapsed: _elapsed,
+        names: [for (var s = 0; s < _state.rules.players; s++) _nameOf(s)],
+        aiSeats: computers,
+        online: _online,
+      ),
+    );
   }
 
   // --- online: the server talks, the board listens -------------------------
@@ -934,6 +959,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (_state.isOver && !_celebrated) {
       _celebrated = true;
       _clock.stop();
+      _recordResult();
       WidgetsBinding.instance.addPostFrameCallback((_) {
         Sfx.instance.play(Sound.victory, volume: 0.9);
         // Under the fanfare, and quieter than it. The bangs are the room
