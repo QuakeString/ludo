@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ludo_app/board/die.dart';
 
@@ -55,5 +56,13 @@ void _throwTests() {
     );
     // And it comes back down rather than staying big.
     expect(dieHalfEdge(box, 0.9), lessThan(airborne));
+  });
+
+  test('only the six is red; every other face is in the ink', () {
+    const ink = Colors.black;
+    expect(pipColourOf(6, ink), isNot(ink));
+    for (var n = 1; n <= 5; n++) {
+      expect(pipColourOf(n, ink), ink, reason: 'the $n is coloured');
+    }
   });
 }

@@ -304,6 +304,11 @@ class _WellPainter extends CustomPainter {
   bool shouldRepaint(_WellPainter old) => old.palette != palette;
 }
 
+/// A Ludo die is all-black but for the six, the face that lets a chip out,
+/// whose pips are red. Small thing, but it is the difference between "a die"
+/// and "the die on the table next to the board".
+Color pipColourOf(int n, Color ink) => n == 6 ? const Color(0xFFD32F2F) : ink;
+
 /// Draws the cube.
 ///
 /// A real Ludo die is a rounded, glossy, ivory thing with coloured pips — not a
@@ -371,15 +376,6 @@ class _CubePainter extends CustomPainter {
     2 => 1.38,
     3 => 1.2,
     _ => 1.0,
-  };
-
-  /// Ludo dice are not all-black: the one is blue and the four is red. Small
-  /// thing, but it is the difference between "a die" and "the die on the table
-  /// next to the board".
-  static Color _pipColour(int n, Color ink) => switch (n) {
-    1 => const Color(0xFF1B3FAE),
-    4 => const Color(0xFFD32F2F),
-    _ => ink,
   };
 
   /// Half the cube's edge, part-way through a throw.
@@ -544,7 +540,7 @@ class _CubePainter extends CustomPainter {
     final a = quad[1] - origin;
     final b = quad[3] - origin;
     final lit = _light(normal);
-    final ink = _pipColour(n, pip);
+    final ink = pipColourOf(n, pip);
 
     canvas.save();
     // Map the unit square onto the face, so a circle drawn here comes out as
