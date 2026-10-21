@@ -51,11 +51,21 @@ docker compose up -d --build
 Players and their progress live on the `ludo-data` volume and survive this.
 
 Every server change pushed to the main branch also publishes a ready-built
-image, `ghcr.io/quakestring/ludo-server:latest`. To use it instead of building
-on the VPS, run `docker compose pull && docker compose up -d`. The first time,
-make the package public on GitHub (your profile → Packages → ludo-server →
-Package settings → Change visibility), or run `docker login ghcr.io` on the
-VPS.
+image, so the VPS never has to build. It goes to
+`ghcr.io/quakestring/ludo-server:latest`, and to Docker Hub as
+`quakestring/ludo-time-server:latest` once the repository has a
+`DOCKERHUB_TOKEN` secret (a Docker Hub access token for the `quakestring`
+account; GitHub → the repo → Settings → Secrets and variables → Actions).
+
+Without the repository on the VPS at all:
+
+```sh
+docker run -d --name ludo-server -p 8091:8091 -v ludo-data:/data \
+  --restart unless-stopped quakestring/ludo-time-server:latest
+```
+
+and to upgrade, `docker pull quakestring/ludo-time-server:latest`, then
+`docker rm -f ludo-server` and the same `docker run` again.
 
 ## Useful commands
 
