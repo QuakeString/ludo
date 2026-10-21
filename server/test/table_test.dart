@@ -242,6 +242,101 @@ void main() {
     });
   });
 
+  group('missed turns', () {
+    const timed = RuleConfig(
+      players: 2,
+      tokensPerPlayer: 2,
+      turnTimerDots: 6,
+      secondsPerDot: 5,
+    );
+
+    /// Lets the clock run out on whoever is on turn until [seat] has missed
+    /// [times] turns, playing the other seat's turns properly.
+    void miss(String code, int seat, int times) {
+      final room = hub.rooms[code]!;
+      var guard = 0;
+      while (room.seats[seat].missed < times && guard++ < 400) {
+        if (room.phase != RoomPhase.playing) return;
+        if (room.seats[seat].client == null) return; // already gone
+        final state = room.game!;
+        if (state.turn == seat) {
+          clock.advance(const Duration(seconds: 31));
+          hub.tick();
+        } else {
+          final who = state.turn == 0 ? host : guest;
+          if (room.seats[state.turn].client == null) {
+            hub.tick();
+            continue;
+          }
+          final moves = engine.legalMoves(state);
+          hub.handle(
+              who,
+              state.awaitingRoll
+                  ? Play.roll()
+                  : moves.isEmpty
+                      ? Play.pass()
+                      : Play.move(moves.first));
+        }
+      }
+    }
+
+    test('after five the host is asked, and silence removes the player', () {
+      final code = startTwo(rules: timed);
+      miss(code, 1, Room.missLimit);
+      final ask = host.last<KickAsk>();
+      expect(ask?.seat, 1);
+      expect(ask?.seconds, 10);
+      expect(hub.rooms[code]!.seats[1].client, isNotNull);
+
+      clock.advance(const Duration(seconds: 11));
+      hub.tick();
+      expect(hub.rooms[code]!.seats[1].isComputer, isTrue);
+      expect(guest.last<Oops>()?.code, 'kicked');
+      expect(hub.roomOf('p-guest'), isNull);
+    });
+
+    test('the host can give five more chances', () {
+      final code = startTwo(rules: timed);
+      miss(code, 1, Room.missLimit);
+      hub.handle(host, const KickAnswer(seat: 1, keep: true));
+      clock.advance(const Duration(seconds: 11));
+      hub.tick();
+      final room = hub.rooms[code]!;
+      expect(room.seats[1].client, isNotNull);
+      expect(room.seats[1].missed, lessThan(Room.missLimit));
+    });
+
+    test('a host who misses five is removed and the table plays on', () {
+      final code = startTwo(rules: timed);
+      miss(code, 0, Room.missLimit);
+      final room = hub.rooms[code]!;
+      expect(room.seats[0].isComputer, isTrue);
+      expect(room.hostId, 'p-guest');
+      expect(host.last<Oops>()?.code, 'kicked');
+      expect(room.phase, RoomPhase.playing);
+    });
+
+    test('playing a turn yourself clears the count', () {
+      final code = startTwo(rules: timed);
+      miss(code, 1, 3);
+      final room = hub.rooms[code]!;
+      var guard = 0;
+      while (room.game!.turn != 1 && guard++ < 50) {
+        final s = room.game!;
+        final moves = engine.legalMoves(s);
+        hub.handle(
+            host,
+            s.awaitingRoll
+                ? Play.roll()
+                : moves.isEmpty
+                    ? Play.pass()
+                    : Play.move(moves.first));
+      }
+      hub.handle(guest, Play.roll());
+      expect(room.seats[1].missed, 0);
+    });
+  });
+
   group('pictures', () {
     test('a player\'s picture shows on their seat at the table', () {
       final (record, _) = hub.players.mint();

@@ -40,6 +40,10 @@ class Seat {
   /// When this seat last said something, for the same reason.
   DateTime? saidAt;
 
+  /// Turns running that the clock has played for this player, who was there
+  /// but did not play them.
+  int missed = 0;
+
   /// Trades who sits here with [other]. The seat numbers stay put; the
   /// people, and everything about them, move.
   void swapWith(Seat other) {
@@ -55,6 +59,9 @@ class Seat {
     heldAvatar = other.heldAvatar;
     reactedAt = other.reactedAt;
     saidAt = other.saidAt;
+    final m = missed;
+    missed = other.missed;
+    other.missed = m;
     other
       ..client = c
       ..computer = ai
@@ -134,6 +141,18 @@ class Room {
   /// Called once when each game here ends, to write it into the players'
   /// records.
   void Function(Room room)? onFinished;
+
+  /// Told when a player is taken off the table for missing turns, with the
+  /// connection they were on, so the hub can let them go.
+  void Function(Client client)? onKicked;
+
+  /// How many turns running a player may let the clock play before the host
+  /// is asked whether they stay, and how long the host has to answer.
+  static const missLimit = 5;
+  static const kickAskTime = Duration(seconds: 10);
+
+  /// The seat the host is being asked about, and when silence means no.
+  ({int seat, DateTime deadline})? kickPending;
   bool _reported = false;
 
   /// Seeds every game after the first, so a rematch is not a replay.
@@ -373,6 +392,7 @@ class Room {
 
     final action = _actionFor(state, intent);
     if (action == null) return 'that move is not available';
+    seat.first.missed = 0;
 
     try {
       game = engine.apply(state, action);
@@ -447,6 +467,11 @@ class Room {
     _reclaimAbandonedSeats();
 
     if (phase != RoomPhase.playing || game == null || game!.isOver) return;
+    final pending = kickPending;
+    if (pending != null && !_now().isBefore(pending.deadline)) {
+      _kick(pending.seat);
+      if (game!.isOver) return;
+    }
     final limit = rules.turnSeconds;
     if (limit <= 0) return;
     final started = turnStartedAt;
@@ -454,13 +479,77 @@ class Room {
     if (_now().difference(started).inSeconds < limit) return;
 
     final before = game!;
+    final late = seats[before.turn];
     game = const LudoAi(level: AiLevel.normal).playTurn(before);
     lastWasAutoPlay = true;
+    if (late.client != null) {
+      late.missed++;
+      if (late.missed >= missLimit && kickPending == null) _askAbout(late);
+    }
     lastMove = null;
     turnStartedAt = _now();
     if (game!.isOver) phase = RoomPhase.finished;
     broadcastMatch();
     if (!game!.isOver) driveComputers();
+  }
+
+  /// Puts the question to the host: does this player stay? A host who is the
+  /// one missing turns, or who is not there to ask, cannot answer, so the
+  /// player goes.
+  void _askAbout(Seat seat) {
+    final host = seats.where((s) => s.client?.playerId == hostId);
+    if (host.isEmpty || identical(host.first, seat)) {
+      _kick(seat.index);
+      return;
+    }
+    kickPending = (seat: seat.index, deadline: _now().add(kickAskTime));
+    host.first.client!.send(KickAsk(
+      seat: seat.index,
+      name: seat.client!.displayName,
+      missed: seat.missed,
+      seconds: kickAskTime.inSeconds,
+    ));
+  }
+
+  /// The host's answer. Yes gives the player another [missLimit] chances.
+  String? answerKick(String playerId, int seatIndex, bool keep) {
+    if (playerId != hostId) return 'only the host decides that';
+    final pending = kickPending;
+    if (pending == null || pending.seat != seatIndex) return null;
+    if (keep) {
+      kickPending = null;
+      seats[seatIndex].missed = 0;
+    } else {
+      _kick(seatIndex);
+    }
+    return null;
+  }
+
+  /// Takes the player in [seatIndex] off the table for good; the computer
+  /// plays the seat from here on.
+  void _kick(int seatIndex) {
+    if (kickPending?.seat == seatIndex) kickPending = null;
+    final seat = seats[seatIndex];
+    final client = seat.client;
+    if (client == null) return;
+    seat
+      ..client = null
+      ..computer = AiLevel.normal
+      ..ready = true
+      ..heldFor = null
+      ..heldName = null
+      ..heldAvatar = null
+      ..droppedAt = null
+      ..missed = 0;
+    if (client.playerId == hostId) _passHost();
+    client.send(const Oops(
+      'You missed too many turns and were taken off the table.',
+      code: 'kicked',
+    ));
+    onKicked?.call(client);
+    broadcastRoom();
+    broadcastMatch();
+    if (game != null && !game!.isOver) driveComputers();
   }
 
   /// A seat held past its window is given up to the computer, so a dead client

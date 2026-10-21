@@ -124,7 +124,9 @@ class LudoHub {
           random: Random(_random.nextInt(0x7FFFFFFF)),
           clock: _now,
         );
-        room.onFinished = _recordResult;
+        room
+          ..onFinished = _recordResult
+          ..onKicked = _kicked;
         rooms[room.code] = room;
         _roomOf[client.playerId] = room;
         final refused = room.join(client);
@@ -183,6 +185,10 @@ class LudoHub {
       case AddComputer(seat: final seat, level: final level):
         _withRoom(
             client, (room) => room.addComputer(client.playerId, seat, level));
+
+      case KickAnswer(seat: final seat, keep: final keep):
+        _withRoom(
+            client, (room) => room.answerKick(client.playerId, seat, keep));
 
       case SwapSeats(a: final a, b: final b):
         _withRoom(client, (room) => room.swapSeats(client.playerId, a, b));
@@ -345,6 +351,7 @@ class LudoHub {
             TransferCode() ||
             Reaction() ||
             Said() ||
+            KickAsk() ||
             Oops() ||
             Pong():
         client.send(const Oops('the server does not accept that message'));
@@ -484,6 +491,16 @@ class LudoHub {
 
   /// Leaves the current table on purpose. From a matched game still being
   /// played, that earns a wait before the next one.
+  /// A player taken off a table for missing turns is no longer at it.
+  void _kicked(Client client) {
+    if (_roomOf[client.playerId]
+            ?.seats
+            .every((s) => s.client?.playerId != client.playerId) ??
+        false) {
+      _roomOf.remove(client.playerId);
+    }
+  }
+
   void _walkOut(String playerId) {
     final room = _roomOf[playerId];
     if (room != null && room.matchmade && room.phase == RoomPhase.playing) {
@@ -533,7 +550,9 @@ class LudoHub {
       random: Random(_random.nextInt(0x7FFFFFFF)),
       clock: _now,
     );
-    room.onFinished = _recordResult;
+    room
+      ..onFinished = _recordResult
+      ..onKicked = _kicked;
     rooms[room.code] = room;
     for (final w in who) {
       w.client.send(

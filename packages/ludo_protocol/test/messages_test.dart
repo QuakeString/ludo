@@ -89,6 +89,10 @@ void main() {
     expect(trip(const SwapSeats(1, 2)).b, 2);
     expect(trip(const SetAvatar('a:3')).avatar, 'a:3');
     expect(trip(const SetAvatar(null)).avatar, isNull);
+    expect(
+        trip(const KickAsk(seat: 2, name: 'Ammu', missed: 5, seconds: 10)).name,
+        'Ammu');
+    expect(trip(const KickAnswer(seat: 2, keep: true)).keep, isTrue);
     expect(trip(const Said(seat: 1, text: 'gg 😂')).seat, 1);
     expect(trip(const AnswerFriend('g2', accept: true)).accept, isTrue);
     expect(trip(const SetNickname('g2', null)).nickname, isNull);
