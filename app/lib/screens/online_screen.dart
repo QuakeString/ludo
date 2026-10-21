@@ -8,46 +8,10 @@ import 'package:share_plus/share_plus.dart';
 
 import '../net/connection.dart';
 import '../net/online_session.dart';
+import '../net/server_address.dart';
 import '../theme/seat_colors.dart';
 import 'game_screen.dart';
 import 'profile_screen.dart';
-
-/// Where the server lives: the hosted one, unless a build says otherwise. A
-/// debug build can point at a laptop without editing code:
-///
-///   flutter run --dart-define=LUDO_SERVER=ws://192.168.1.20:8080/ws
-const serverUri = String.fromEnvironment(
-  'LUDO_SERVER',
-  defaultValue: 'wss://$serverHost/ws',
-);
-
-/// The hosted server's address, also used for invite links. Set in `fly.toml`.
-const serverHost = 'quakestring-ludo.fly.dev';
-
-/// The link that invites somebody to [code]: a page on the server that opens
-/// the app, or offers it to a phone that does not have it yet.
-String inviteLink(String code) => 'https://$serverHost/r/$code';
-
-/// True when this build was never given a server to talk to.
-///
-/// The default points at localhost, which is right on a developer's machine
-/// and meaningless anywhere else — a build published to a web host would sit
-/// there trying to open a socket to the *player's own* computer and then
-/// report a connection error, which reads as "this app is broken" rather than
-/// "this copy has no server". Worth naming, so the screen can say the true
-/// thing instead.
-///
-/// A browser also refuses a plain ws:// socket from a page served over https,
-/// so on a hosted build this could not work even if something were listening.
-bool get serverIsUnset {
-  final target = Uri.tryParse(serverUri);
-  final pointsAtThisMachine =
-      target?.host == 'localhost' || target?.host == '127.0.0.1';
-  final host = Uri.base.host;
-  final runningHere =
-      host.isEmpty || host == 'localhost' || host == '127.0.0.1';
-  return pointsAtThisMachine && !runningHere;
-}
 
 /// Getting online, from tapping the button to sitting at a table.
 ///
@@ -103,24 +67,30 @@ class _OnlineScreenState extends State<OnlineScreen> {
     super.dispose();
   }
 
+  /// No server address yet: ask for one rather than guess.
+  bool _askServer = false;
+
   Future<void> _connect() async {
-    if (serverIsUnset) {
-      // Don't open a socket that cannot succeed just to report the failure.
-      setState(() {
-        _connecting = false;
-        _problem =
-            'This build has no game server behind it.\n\n'
-            'Everything else works: pass & play and playing the computer are '
-            'entirely on your device. Online play needs the server running '
-            'somewhere this app can reach.';
-      });
-      return;
-    }
     setState(() {
       _connecting = true;
       _problem = null;
     });
-    final connection = LudoConnection(uri: Uri.parse(serverUri));
+    final server = await ServerAddress.load();
+    if (!mounted) return;
+    if (server == null) {
+      setState(() {
+        _connecting = false;
+        _askServer = true;
+      });
+      return;
+    }
+    // Changing servers: let go of the old one first.
+    await _inviteSub?.cancel();
+    _session?.dispose();
+    await _connection?.dispose();
+    _session = null;
+    _connection = null;
+    final connection = LudoConnection(uri: server);
     try {
       await connection.connect();
       if (!mounted) return;
@@ -143,8 +113,8 @@ class _OnlineScreenState extends State<OnlineScreen> {
         _problem = connection.outOfDate
             ? 'This copy of Ludo is out of date. Install the latest version '
                   'to play online.'
-            : 'Could not reach the game server. Check your connection and '
-                  'try again.\n\n($e)';
+            : 'Could not reach the game server at ${server.host}. Check your '
+                  'connection and the server address, and try again.\n\n($e)';
       });
     }
   }
@@ -176,6 +146,25 @@ class _OnlineScreenState extends State<OnlineScreen> {
       if (session.searching) session.cancelQuickMatch();
       session.joinRoom(invite.code);
     }
+  }
+
+  Future<void> _changeServer() async {
+    final current = _session?.connection.uri ?? await ServerAddress.load();
+    if (!mounted) return;
+    final typed = await showDialog<String>(
+      context: context,
+      builder: (_) => _ServerDialog(initial: current?.toString() ?? ''),
+    );
+    if (typed == null || !mounted) return;
+    if (ServerAddress.normalise(typed) == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('That does not look like an address')),
+      );
+      return;
+    }
+    await ServerAddress.save(typed);
+    setState(() => _askServer = false);
+    _connect();
   }
 
   void _openProfile() {
@@ -249,6 +238,11 @@ class _OnlineScreenState extends State<OnlineScreen> {
       appBar: AppBar(
         title: Text(widget.quick ? 'Online' : 'Play with friends'),
         actions: [
+          IconButton(
+            tooltip: 'Game server',
+            onPressed: _changeServer,
+            icon: const Icon(Icons.dns_outlined),
+          ),
           if (session != null && !_askName)
             IconButton(
               tooltip: 'Profile and friends',
@@ -267,11 +261,13 @@ class _OnlineScreenState extends State<OnlineScreen> {
             constraints: const BoxConstraints(maxWidth: 460),
             child: _connecting
                 ? const Center(child: CircularProgressIndicator())
+                : _askServer
+                ? _NoServer(onSet: _changeServer)
                 : _problem != null
                 ? _Problem(
                     message: _problem!,
-                    // Nothing to retry when there is no server to reach.
-                    onRetry: serverIsUnset ? null : _connect,
+                    onRetry: _connect,
+                    onChangeServer: _changeServer,
                   )
                 : _askName
                 ? _NamePrompt(
@@ -530,7 +526,7 @@ class _Lobby extends StatelessWidget {
   final VoidCallback onLeave;
 
   void _invite(BuildContext context, String code) {
-    final link = inviteLink(code);
+    final link = ServerAddress.inviteLink(session.connection.uri, code);
     final text =
         'Join my Ludo game! Tap $link to open it, or type the room code '
         '$code under Play with friends.';
@@ -928,11 +924,100 @@ class _RenameDialogState extends State<_RenameDialog> {
   }
 }
 
+/// First time online on a build with no server address: ask for it.
+class _NoServer extends StatelessWidget {
+  const _NoServer({required this.onSet});
+  final VoidCallback onSet;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          const Icon(Icons.dns_outlined, size: 44),
+          const SizedBox(height: 14),
+          const Text(
+            'Which game server?',
+            style: TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+          ),
+          const SizedBox(height: 6),
+          const Text(
+            'Online play goes through a server. Enter its address once, '
+            'like 203.0.113.7 or ludo.example.com, and it is remembered.',
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 18),
+          FilledButton(onPressed: onSet, child: const Text('Enter address')),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServerDialog extends StatefulWidget {
+  const _ServerDialog({required this.initial});
+  final String initial;
+
+  @override
+  State<_ServerDialog> createState() => _ServerDialogState();
+}
+
+class _ServerDialogState extends State<_ServerDialog> {
+  late final _text = TextEditingController(text: widget.initial);
+
+  @override
+  void dispose() {
+    _text.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Game server'),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text(
+            'An IP address connects straight to port 8080. A domain name '
+            'connects over HTTPS.',
+            style: TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _text,
+            autofocus: true,
+            keyboardType: TextInputType.url,
+            decoration: const InputDecoration(
+              hintText: '203.0.113.7 or ludo.example.com',
+            ),
+            onSubmitted: (v) => Navigator.of(context).pop(v),
+          ),
+        ],
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Cancel'),
+        ),
+        FilledButton(
+          onPressed: () => Navigator.of(context).pop(_text.text),
+          child: const Text('Connect'),
+        ),
+      ],
+    );
+  }
+}
+
 class _Problem extends StatelessWidget {
-  const _Problem({required this.message, this.onRetry});
+  const _Problem({required this.message, this.onRetry, this.onChangeServer});
 
   final String message;
   final VoidCallback? onRetry;
+  final VoidCallback? onChangeServer;
 
   @override
   Widget build(BuildContext context) {
@@ -953,6 +1038,11 @@ class _Problem extends StatelessWidget {
             ),
             const SizedBox(height: 18),
             FilledButton(onPressed: onRetry, child: const Text('Try again')),
+            if (onChangeServer != null)
+              TextButton(
+                onPressed: onChangeServer,
+                child: const Text('Change server'),
+              ),
           ],
         ],
       ),

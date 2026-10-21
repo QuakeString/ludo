@@ -521,11 +521,12 @@ The game server does not touch it yet — rooms live in memory on purpose.
 
 ### Hosted
 
-The server runs on Fly.io as `quakestring-ludo` (see `fly.toml`): one always-on machine
-in Mumbai with a 1 GB volume at `/data`, where players are kept in `players.json`.
-`.github/workflows/deploy.yml` deploys it on every server change once the repository has
-a `FLY_API_TOKEN` secret, and the app connects to `wss://quakestring-ludo.fly.dev/ws` by
-default.
+The server runs as one Docker container on a VPS (see `DEPLOY.md` and
+`docker-compose.yml`), with players kept in `players.json` on the `ludo-data` volume. It
+listens on 8080 for plain `ws://`; the compose file's `https` profile adds Caddy in front
+for HTTPS on a domain. The app has no address built in: the player enters it once (an IP
+connects to port 8080, a domain over HTTPS) and it is remembered. Server changes on the
+main branch publish `ghcr.io/quakestring/ludo-server:latest`.
 
 A player is an id plus a secret the server minted. Ids are public (everyone at a table
 sees them); the secret never leaves the phone that holds it, and the server stores only its
@@ -534,7 +535,7 @@ rate-limited (a burst of 30, then 10 messages a second).
 
 ### Playing with friends
 
-- **Invites.** The lobby's *Invite friends* button shares `https://quakestring-ludo.fly.dev/r/CODE`.
+- **Invites.** The lobby's *Invite friends* button shares `/r/CODE` on the game server's own address.
   That page opens `ludo://join/CODE`, which Android hands to the app, or offers the APK to a
   phone without it. The code is still shown for typing in by hand.
 - **Names.** The first time online the app asks for a name (2–16 letters or digits, or skip

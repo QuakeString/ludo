@@ -1,0 +1,6 @@
+# HTTPS in front of the game server, with a certificate from Let's Encrypt
+# fetched and renewed by Caddy on its own. Used by `docker compose --profile
+# https up -d`; LUDO_DOMAIN comes from the .env file next to docker-compose.yml.
+{$LUDO_DOMAIN} {
+	reverse_proxy server:8080
+}

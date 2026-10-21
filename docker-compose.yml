@@ -1,15 +1,14 @@
-# Run the whole online stack locally:
+# The online game server, ready for a VPS. See DEPLOY.md.
 #
-#   docker compose up --build
-#   → server on http://localhost:8080, WebSocket at ws://localhost:8080/ws
+#   docker compose up -d                   # server on port 8080, plain ws://
+#   docker compose --profile https up -d   # plus Caddy with HTTPS on 80/443
 #
-# Postgres is here for what comes next — accounts, friends, match history. The
-# game server does not need it yet: rooms live in memory because a room only
-# matters while it is being played, and a match that outlived a restart would
-# be a match everybody had already left.
+# Players, friends and match history live in one JSON file on the ludo-data
+# volume, so a restart or an upgrade keeps them.
 
 services:
   server:
+    image: ghcr.io/quakestring/ludo-server:latest
     build:
       context: .
       dockerfile: server/Dockerfile
@@ -17,10 +16,9 @@ services:
       - "8080:8080"
     environment:
       PORT: 8080
-      DATABASE_URL: postgres://ludo:ludo@db:5432/ludo
-    depends_on:
-      db:
-        condition: service_healthy
+      DATA_DIR: /data
+    volumes:
+      - ludo-data:/data
     restart: unless-stopped
     healthcheck:
       # The image has no shell and no curl, so the binary checks itself: run
@@ -32,20 +30,21 @@ services:
       retries: 3
       start_period: 5s
 
-  db:
-    image: postgres:16-alpine
+  caddy:
+    image: caddy:2
+    profiles: ["https"]
+    ports:
+      - "80:80"
+      - "443:443"
     environment:
-      POSTGRES_USER: ludo
-      POSTGRES_PASSWORD: ludo
-      POSTGRES_DB: ludo
+      LUDO_DOMAIN: ${LUDO_DOMAIN:?set LUDO_DOMAIN in .env to use HTTPS}
     volumes:
-      - ludo-db:/var/lib/postgresql/data
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ludo"]
-      interval: 10s
-      timeout: 3s
-      retries: 5
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      - server
     restart: unless-stopped
 
 volumes:
-  ludo-db:
+  ludo-data:
+  caddy-data:
