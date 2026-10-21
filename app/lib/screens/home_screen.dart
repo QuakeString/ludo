@@ -147,14 +147,6 @@ class _HomeScreenState extends State<HomeScreen> {
                   },
                 ),
                 const SizedBox(height: 18),
-                _ColourPicker(
-                  chosen: favouriteColour ?? ludoRed,
-                  onPick: (colour) async {
-                    await FavouriteColour.save(colour);
-                    if (mounted) setState(() {});
-                  },
-                ),
-                const SizedBox(height: 8),
                 Center(
                   child: TextButton.icon(
                     onPressed: () => _go(context, const HistoryScreen()),
@@ -256,64 +248,6 @@ class _ContinueCard extends StatelessWidget {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// The colour this player plays in, on every board this phone shows.
-class _ColourPicker extends StatelessWidget {
-  const _ColourPicker({required this.chosen, required this.onPick});
-
-  final Color chosen;
-  final ValueChanged<Color> onPick;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = BoardPalette.of(context);
-    return Column(
-      children: [
-        Text(
-          'Your colour',
-          style: TextStyle(fontSize: 12.5, color: palette.faint),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (final colour in seatColors)
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 5),
-                child: Semantics(
-                  label: nameOfColour(colour),
-                  selected: colour == chosen,
-                  button: true,
-                  child: InkResponse(
-                    key: ValueKey('colour-${nameOfColour(colour)}'),
-                    onTap: () => onPick(colour),
-                    radius: 22,
-                    child: Container(
-                      width: 34,
-                      height: 34,
-                      decoration: BoxDecoration(
-                        color: colour,
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: colour == chosen
-                              ? Theme.of(context).colorScheme.onSurface
-                              : Colors.transparent,
-                          width: 3,
-                        ),
-                      ),
-                      child: colour == chosen
-                          ? const Icon(Icons.check, color: Colors.white, size: 18)
-                          : null,
-                    ),
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ],
     );
   }
 }

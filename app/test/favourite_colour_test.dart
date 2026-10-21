@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ludo_app/screens/colour_picker.dart';
 import 'package:ludo_app/screens/home_screen.dart';
 import 'package:ludo_app/theme/seat_colors.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -35,18 +36,19 @@ void main() {
     expect(favouriteColour, ludoGreen);
   });
 
-  testWidgets('picked on the front page', (tester) async {
-    tester.view.physicalSize = const Size(400, 900);
-    tester.view.devicePixelRatio = 1.0;
-    addTearDown(tester.view.reset);
-    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
-    await tester.pumpAndSettle();
-
-    final yellow = find.byKey(const ValueKey('colour-Yellow'));
-    await tester.ensureVisible(yellow);
-    await tester.tap(yellow);
+  testWidgets('picked from the colour row', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(home: Scaffold(body: ColourPicker())),
+    );
+    await tester.tap(find.byKey(const ValueKey('colour-Yellow')));
     await tester.pumpAndSettle();
     expect(favouriteColour, ludoYellow);
     expect(colourOfArm(3, 4), ludoYellow);
+  });
+
+  testWidgets('not on the front page', (tester) async {
+    await tester.pumpWidget(const MaterialApp(home: HomeScreen()));
+    await tester.pumpAndSettle();
+    expect(find.byType(ColourPicker), findsNothing);
   });
 }
