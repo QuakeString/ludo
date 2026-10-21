@@ -39,6 +39,15 @@ class OnlineSession extends ChangeNotifier {
   /// Set when the socket goes away, so the UI can say so plainly.
   bool disconnected = false;
 
+  /// The question the host is being asked about a player who keeps missing
+  /// turns, and when it stops waiting for an answer. Only ever set for the
+  /// host.
+  KickAsk? kickAsk;
+  DateTime? kickAskUntil;
+
+  /// Set when this player was taken off the table for missing turns.
+  bool kicked = false;
+
   String? get playerId => connection.playerId;
   String get myName => connection.displayName ?? 'Guest';
 
@@ -199,6 +208,17 @@ class OnlineSession extends ChangeNotifier {
   /// The picture everyone at the table sees for this player.
   void setAvatar(String? avatar) => connection.send(SetAvatar(avatar));
 
+  /// The host's answer about the player in [kickAsk]: stay for another five
+  /// chances, or go now.
+  void answerKick({required bool keep}) {
+    final ask = kickAsk;
+    if (ask == null) return;
+    connection.send(KickAnswer(seat: ask.seat, keep: keep));
+    kickAsk = null;
+    kickAskUntil = null;
+    notifyListeners();
+  }
+
   void setName(String name) {
     error = null;
     connection.send(SetName(name));
@@ -252,8 +272,26 @@ class OnlineSession extends ChangeNotifier {
       case Said():
         _chat.add(message);
 
+      case KickAsk():
+        kickAsk = message;
+        kickAskUntil = DateTime.now().add(Duration(seconds: message.seconds));
+        notifyListeners();
+        // The server stops waiting then, so the question goes away with it.
+        Timer(Duration(seconds: message.seconds), () {
+          if (_disposed || !identical(kickAsk, message)) return;
+          kickAsk = null;
+          kickAskUntil = null;
+          notifyListeners();
+        });
+
       case Oops(message: final text, code: final code):
         if (code == 'cooldown') queue = null;
+        if (code == 'kicked') {
+          kicked = true;
+          room = null;
+          state = null;
+          yourSeat = null;
+        }
         if (code == 'closed' && !_switching) {
           disconnected = true;
           _reconnect();

@@ -50,7 +50,9 @@ List<String> ruleLines(RuleConfig r) => [
         'at half the number.',
   if (r.turnTimerDots > 0)
     'Each turn has ${r.turnTimerDots * r.secondsPerDot} seconds; when time '
-        'runs out the turn is played for you.'
+        'runs out the turn is played for you. Online, after 5 missed turns in '
+        'a row the host decides whether that player stays; a host who misses '
+        '5 leaves the table.'
   else
     'No turn timer.',
 ];

@@ -20,6 +20,7 @@ import '../saved_game.dart';
 import 'game_over.dart';
 import 'avatars.dart';
 import 'house_rules.dart';
+import 'kick_banner.dart';
 import 'table_chat.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
@@ -303,8 +304,35 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 
   void _sessionChanged() {
-    if (mounted) setState(() {});
+    if (!mounted) return;
+    final session = _session;
+    if (session != null && session.kicked && !_leftForKick) {
+      _leftForKick = true;
+      session.kicked = false;
+      showDialog<void>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text('Taken off the table'),
+          content: const Text(
+            'You missed too many turns in a row, so the computer is playing '
+            'your seat for the rest of this game.',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('OK'),
+            ),
+          ],
+        ),
+      ).then((_) {
+        if (mounted) Navigator.of(context).maybePop();
+      });
+      return;
+    }
+    setState(() {});
   }
+
+  bool _leftForKick = false;
 
   void _reacted(Reaction r) => _bubble(r.seat, emoji: r.emoji);
 
@@ -1268,6 +1296,23 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                               ),
                     ],
                   ),
+                ),
+              ),
+            // Over the top of the board, like the notes, so asking does not
+            // resize the board under everyone's fingers.
+            if (session != null &&
+                session.kickAsk != null &&
+                (session.kickAskUntil?.isAfter(DateTime.now()) ?? false))
+              Positioned(
+                top: 0,
+                left: 0,
+                right: 0,
+                child: KickBanner(
+                  key: ValueKey(session.kickAskUntil),
+                  ask: session.kickAsk!,
+                  until: session.kickAskUntil!,
+                  onKeep: () => session.answerKick(keep: true),
+                  onRemove: () => session.answerKick(keep: false),
                 ),
               ),
             if (_state.isOver)

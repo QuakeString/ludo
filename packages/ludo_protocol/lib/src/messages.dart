@@ -177,6 +177,8 @@ sealed class Envelope {
       'addComputer' => AddComputer.fromJson(j),
       'swapSeats' => SwapSeats.fromJson(j),
       'setAvatar' => SetAvatar.fromJson(j),
+      'kickAsk' => KickAsk.fromJson(j),
+      'kickAnswer' => KickAnswer.fromJson(j),
       'startMatch' => const StartMatch(),
       'play' => Play.fromJson(j),
       'room' => RoomUpdate.fromJson(j),
@@ -340,6 +342,24 @@ class SetAvatar extends Envelope {
 
   factory SetAvatar.fromJson(Map<String, Object?> j) =>
       SetAvatar(j['avatar'] as String?);
+}
+
+/// The host's answer to a [KickAsk]: [keep] gives the player another run of
+/// chances; false takes them off the table now.
+class KickAnswer extends Envelope {
+  const KickAnswer({required this.seat, required this.keep});
+  final int seat;
+  final bool keep;
+
+  @override
+  String get type => 'kickAnswer';
+  @override
+  Map<String, Object?> payload() => {'seat': seat, 'keep': keep};
+
+  factory KickAnswer.fromJson(Map<String, Object?> j) => KickAnswer(
+        seat: (j['seat'] as num).toInt(),
+        keep: j['keep'] as bool? ?? false,
+      );
 }
 
 /// Host moves whoever is in seat [a] to seat [b] and back, before the start.
@@ -867,6 +887,35 @@ class Reaction extends Envelope {
   factory Reaction.fromJson(Map<String, Object?> j) => Reaction(
         seat: (j['seat'] as num).toInt(),
         index: (j['i'] as num).toInt(),
+      );
+}
+
+/// Sent to the host: the player in [seat] has let the clock run out [missed]
+/// turns running. Unless the host answers within [seconds] that they may stay,
+/// the computer takes their seat.
+class KickAsk extends Envelope {
+  const KickAsk({
+    required this.seat,
+    required this.name,
+    required this.missed,
+    required this.seconds,
+  });
+  final int seat;
+  final String name;
+  final int missed;
+  final int seconds;
+
+  @override
+  String get type => 'kickAsk';
+  @override
+  Map<String, Object?> payload() =>
+      {'seat': seat, 'name': name, 'missed': missed, 'seconds': seconds};
+
+  factory KickAsk.fromJson(Map<String, Object?> j) => KickAsk(
+        seat: (j['seat'] as num).toInt(),
+        name: j['name'] as String? ?? 'A player',
+        missed: (j['missed'] as num?)?.toInt() ?? 0,
+        seconds: (j['seconds'] as num?)?.toInt() ?? 10,
       );
 }
 
