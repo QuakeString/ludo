@@ -193,6 +193,9 @@ class OnlineSession extends ChangeNotifier {
 
   void say(String text) => connection.send(Say(text));
 
+  /// Host only, in the lobby: trade who sits in seats [a] and [b].
+  void swapSeats(int a, int b) => connection.send(SwapSeats(a, b));
+
   void setName(String name) {
     error = null;
     connection.send(SetName(name));

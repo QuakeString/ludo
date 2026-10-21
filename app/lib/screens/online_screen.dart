@@ -679,18 +679,44 @@ class _Lobby extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
-        for (final seat in room.seats)
-          _SeatRow(
-            seat: seat,
-            colour: _seatColour(room, seat.seat, session),
-            isYou: seat.playerId == session.playerId,
-            isHost: seat.playerId != null && seat.playerId == room.hostId,
-            // Filling an empty seat with a computer is the host's choice. A
-            // table must never quietly decide that for them.
-            onAddComputer: session.isHost && seat.playerId == null
-                ? (level) => session.addComputer(seat.seat, level)
-                : null,
-          ),
+        // In a team game the seats are listed side by side, so who partners
+        // whom is plain, and the host can move people across.
+        for (final (t, group) in _groups(room).indexed) ...[
+          if (room.rules.isTeamGame)
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 2),
+              child: Text(
+                'Team ${t + 1}',
+                key: ValueKey('team-$t'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          for (final seat in group)
+            _SeatRow(
+              seat: seat,
+              colour: _seatColour(room, seat.seat, session),
+              isYou: seat.playerId == session.playerId,
+              isHost: seat.playerId != null && seat.playerId == room.hostId,
+              // Filling an empty seat with a computer is the host's choice. A
+              // table must never quietly decide that for them.
+              onAddComputer: session.isHost && seat.playerId == null
+                  ? (level) => session.addComputer(seat.seat, level)
+                  : null,
+              swapWith: session.isHost && room.rules.isTeamGame
+                  ? [
+                      for (final other in room.seats)
+                        if (room.rules.teamOf(other.seat) !=
+                            room.rules.teamOf(seat.seat))
+                          other,
+                    ]
+                  : const [],
+              onSwap: (other) => session.swapSeats(seat.seat, other),
+            ),
+        ],
         if (session.isHost &&
             room.seats.any((s) => s.playerId == null && !s.isComputer))
           Padding(
@@ -755,6 +781,20 @@ class _Lobby extends StatelessWidget {
   }
 }
 
+/// The seats in the order the lobby shows them: one group per team in a team
+/// game, otherwise one group of everybody.
+List<List<SeatInfo>> _groups(RoomInfo room) {
+  final teams = room.rules.teams;
+  if (teams == null || teams.isEmpty) return [room.seats];
+  return [
+    for (final team in teams)
+      [
+        for (final s in team)
+          if (s < room.seats.length) room.seats[s],
+      ],
+  ];
+}
+
 /// The colour [seat] will wear once the game starts, on this player's board:
 /// the table turned so their own seat is bottom-left, in their own colour.
 Color _seatColour(RoomInfo room, int seat, OnlineSession session) {
@@ -775,9 +815,16 @@ class _SeatRow extends StatelessWidget {
     required this.isYou,
     this.isHost = false,
     this.onAddComputer,
+    this.swapWith = const [],
+    this.onSwap,
   });
 
   final SeatInfo seat;
+
+  /// Seats on the other teams this one can trade places with — the host's
+  /// way of pairing people up. Empty for everyone else.
+  final List<SeatInfo> swapWith;
+  final ValueChanged<int>? onSwap;
 
   /// The colour this seat will wear on this player's board.
   final Color colour;
@@ -815,9 +862,28 @@ class _SeatRow extends StatelessWidget {
       subtitle: notes.isEmpty
           ? null
           : Text(notes.join(' · '), style: const TextStyle(fontSize: 12)),
-      trailing: onAddComputer == null
-          ? null
-          : PopupMenuButton<AiLevel>(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (swapWith.isNotEmpty)
+            PopupMenuButton<int>(
+              key: ValueKey('swap-${seat.seat}'),
+              tooltip: 'Move to another team',
+              icon: const Icon(Icons.swap_horiz_rounded),
+              onSelected: onSwap,
+              itemBuilder: (_) => [
+                for (final other in swapWith)
+                  PopupMenuItem(
+                    key: ValueKey('swap-${seat.seat}-${other.seat}'),
+                    value: other.seat,
+                    child: Text(
+                      'Swap with ${other.playerId == null && !other.isComputer ? 'empty seat ${other.seat + 1}' : other.displayName ?? 'Player'}',
+                    ),
+                  ),
+              ],
+            ),
+          if (onAddComputer != null)
+            PopupMenuButton<AiLevel>(
               tooltip: 'Add a computer player',
               onSelected: onAddComputer,
               itemBuilder: (_) => [
@@ -832,6 +898,8 @@ class _SeatRow extends StatelessWidget {
                 child: Text('Add computer'),
               ),
             ),
+        ],
+      ),
     );
   }
 }

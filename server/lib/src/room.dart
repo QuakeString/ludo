@@ -36,6 +36,30 @@ class Seat {
   /// When this seat last said something, for the same reason.
   DateTime? saidAt;
 
+  /// Trades who sits here with [other]. The seat numbers stay put; the
+  /// people, and everything about them, move.
+  void swapWith(Seat other) {
+    final c = client, ai = computer, r = ready, d = droppedAt;
+    final hf = heldFor, hn = heldName, ra = reactedAt, sa = saidAt;
+    client = other.client;
+    computer = other.computer;
+    ready = other.ready;
+    droppedAt = other.droppedAt;
+    heldFor = other.heldFor;
+    heldName = other.heldName;
+    reactedAt = other.reactedAt;
+    saidAt = other.saidAt;
+    other
+      ..client = c
+      ..computer = ai
+      ..ready = r
+      ..droppedAt = d
+      ..heldFor = hf
+      ..heldName = hn
+      ..reactedAt = ra
+      ..saidAt = sa;
+  }
+
   bool get isComputer => computer != null;
   bool get isEmpty => client == null && computer == null;
   bool get connected => client != null;
@@ -214,6 +238,21 @@ class Room {
     final seat = seats[seatIndex];
     if (seat.client != null) return 'somebody is sitting there';
     seat.computer = level;
+    broadcastRoom();
+    return null;
+  }
+
+  /// Moves the occupants of two seats past each other, before the match.
+  /// In a team game the seats make the teams, so this is how the host pairs
+  /// people up once everyone is in.
+  String? swapSeats(String playerId, int a, int b) {
+    if (playerId != hostId) return 'only the host can move players';
+    if (phase != RoomPhase.lobby) return 'the match has already started';
+    if (a < 0 || b < 0 || a >= seats.length || b >= seats.length) {
+      return 'no such seat';
+    }
+    if (a == b) return null;
+    seats[a].swapWith(seats[b]);
     broadcastRoom();
     return null;
   }

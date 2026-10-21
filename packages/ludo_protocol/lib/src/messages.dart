@@ -133,6 +133,7 @@ sealed class Envelope {
       'leaveRoom' => const LeaveRoom(),
       'setReady' => SetReady.fromJson(j),
       'addComputer' => AddComputer.fromJson(j),
+      'swapSeats' => SwapSeats.fromJson(j),
       'startMatch' => const StartMatch(),
       'play' => Play.fromJson(j),
       'room' => RoomUpdate.fromJson(j),
@@ -281,6 +282,23 @@ class AddComputer extends Envelope {
         level: AiLevel.values.firstWhere((l) => l.name == j['level'],
             orElse: () => AiLevel.normal),
       );
+}
+
+/// Host moves whoever is in seat [a] to seat [b] and back, before the start.
+/// In a team game the seats are the teams, so this is how the host decides
+/// who partners whom.
+class SwapSeats extends Envelope {
+  const SwapSeats(this.a, this.b);
+  final int a;
+  final int b;
+
+  @override
+  String get type => 'swapSeats';
+  @override
+  Map<String, Object?> payload() => {'a': a, 'b': b};
+
+  factory SwapSeats.fromJson(Map<String, Object?> j) =>
+      SwapSeats((j['a'] as num).toInt(), (j['b'] as num).toInt());
 }
 
 class StartMatch extends Envelope {

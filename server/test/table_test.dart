@@ -198,6 +198,47 @@ void main() {
     });
   });
 
+  group('pairing up', () {
+    const fours = RuleConfig(
+      players: 4,
+      tokensPerPlayer: 2,
+      teams: [
+        [0, 2],
+        [1, 3],
+      ],
+    );
+
+    test('the host moves people between seats, and so between teams', () {
+      hub.handle(host, const CreateRoom(rules: fours));
+      final code = host.last<RoomUpdate>()!.room.code;
+      hub.handle(guest, JoinRoom(code));
+      expect(host.last<RoomUpdate>()!.room.seats[1].playerId, 'p-guest');
+
+      // Host in seat 0, guest in 1: opponents. Move the guest opposite.
+      hub.handle(host, const SwapSeats(1, 2));
+      final seats = guest.last<RoomUpdate>()!.room.seats;
+      expect(seats[1].playerId, isNull);
+      expect(seats[2].playerId, 'p-guest');
+      expect(
+          hub.rooms[code]!.rules.teamOf(0), hub.rooms[code]!.rules.teamOf(2));
+
+      // And the match deals the guest in at their new seat.
+      hub.handle(host, const AddComputer(seat: 1));
+      hub.handle(host, const AddComputer(seat: 3));
+      hub.handle(host, const StartMatch());
+      expect(guest.last<MatchUpdate>()!.yourSeat, 2);
+    });
+
+    test('only the host, and only before the start', () {
+      hub.handle(host, const CreateRoom(rules: fours));
+      final code = host.last<RoomUpdate>()!.room.code;
+      hub.handle(guest, JoinRoom(code));
+      hub.handle(guest, const SwapSeats(0, 1));
+      expect(guest.last<Oops>(), isNotNull);
+      expect(hub.rooms[code]!.seats[0].client?.playerId, 'p-host');
+    });
+  });
+
   group('chat', () {
     test('reaches everyone at the table, from the right seat', () {
       startTwo();

@@ -184,6 +184,9 @@ class LudoHub {
         _withRoom(
             client, (room) => room.addComputer(client.playerId, seat, level));
 
+      case SwapSeats(a: final a, b: final b):
+        _withRoom(client, (room) => room.swapSeats(client.playerId, a, b));
+
       case StartMatch():
         _withRoom(client, (room) => room.start(client.playerId));
 

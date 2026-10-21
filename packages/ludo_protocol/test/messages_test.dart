@@ -86,6 +86,7 @@ void main() {
     expect(trip(const SetName('Ammu')).name, 'Ammu');
     expect(trip(const Reaction(seat: 2, index: 1)).emoji, reactions[1]);
     expect(trip(const Say('nice one 🎉')).text, 'nice one 🎉');
+    expect(trip(const SwapSeats(1, 2)).b, 2);
     expect(trip(const Said(seat: 1, text: 'gg 😂')).seat, 1);
     expect(trip(const AnswerFriend('g2', accept: true)).accept, isTrue);
     expect(trip(const SetNickname('g2', null)).nickname, isNull);

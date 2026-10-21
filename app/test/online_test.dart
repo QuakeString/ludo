@@ -262,6 +262,38 @@ void main() {
     await guest.connection.dispose();
   });
 
+  test('the host pairs people up by moving them between seats', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(
+      const RuleConfig(
+        players: 4,
+        tokensPerPlayer: 2,
+        teams: [
+          [0, 2],
+          [1, 3],
+        ],
+      ),
+    );
+    await until(host, () => host.room != null, what: 'the room');
+    guest.joinRoom(host.room!.code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+    expect(guest.room!.seats[1].playerId, guest.playerId);
+
+    host.swapSeats(1, 2);
+    await until(
+      guest,
+      () => guest.room!.seats[2].playerId == guest.playerId,
+      what: 'the guest to move to the host\'s team',
+    );
+    expect(guest.room!.rules.teamOf(2), guest.room!.rules.teamOf(0));
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
   test('a line of chat reaches the whole table, emoji and all', () async {
     final host = await sitDown();
     final guest = await sitDown();
