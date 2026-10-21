@@ -315,7 +315,10 @@ class _RollPointerState extends State<_RollPointer>
   late final AnimationController _travel = AnimationController(
     vsync: this,
     duration: const Duration(milliseconds: 625),
-  )..repeat(reverse: true);
+    // Four there-and-backs, then it rests at the die. Five seconds of
+    // nudging finds the eye; a pointer still sliding a minute later only
+    // keeps the screen drawing — and the battery draining — for nobody.
+  )..repeat(reverse: true, count: 8);
 
   late final Animation<double> _t = CurvedAnimation(
     parent: _travel,

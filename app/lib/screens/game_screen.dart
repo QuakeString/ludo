@@ -894,13 +894,26 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// player still to roll with nothing highlighted. Leaving the ticker running
   /// through all of that repainted the board sixty times a second to show a
   /// still picture.
+  ///
+  /// Even when they are wanted they only turn a few times and then hold
+  /// still. A phone left on the table while a friend thinks was drawing
+  /// frames for minutes on end, and that is where its battery went. Still
+  /// rings and a lit house say "your turn" just as well once the eye has
+  /// found them; each new position earns them a few more turns.
   void _setPulse({required bool needed}) {
-    if (needed && !_spin.isAnimating) {
-      _spin.repeat();
-    } else if (!needed && _spin.isAnimating) {
-      _spin.stop();
+    if (!needed) {
+      if (_spin.isAnimating) _spin.stop();
+      _pulsedFor = null;
+      return;
     }
+    if (identical(_pulsedFor, _state)) return;
+    _pulsedFor = _state;
+    _spin.repeat(count: pulseTurns);
   }
+
+  /// How many times the rings turn for one position before they rest.
+  static const pulseTurns = 3;
+  GameState? _pulsedFor;
 
   /// A turning ring over every chip that can move.
   List<Widget> _rings(Size size) {
@@ -1456,10 +1469,7 @@ class _ReactionBubble extends StatelessWidget {
         decoration: BoxDecoration(
           color: palette.panel,
           borderRadius: BorderRadius.circular(22),
-          border: Border.all(
-            color: colour,
-            width: 2,
-          ),
+          border: Border.all(color: colour, width: 2),
           boxShadow: [
             BoxShadow(
               color: Colors.black.withValues(alpha: 0.15),

@@ -6,9 +6,16 @@ import 'package:audioplayers/audioplayers.dart';
 /// widget test — none of them is a reason for the game to stop, so every
 /// failure here is swallowed. A missing sound is a missing sound.
 ///
-/// One player is kept per sound rather than one for everything: a chip landing
-/// while the die is still rattling should not cut the die off, and a capture
-/// should not wait its turn.
+/// Every sound is short, so each is played the low-latency way: loaded once
+/// into the system's sound pool and fired from memory. Played the ordinary way
+/// (a media player per sound, stopped and started again for every tap) a
+/// phone has to reopen and re-prepare the file each time, which takes longer
+/// than the gap between two steps of a chip. The requests queued up behind
+/// each other, the steps came late, and after a few of them they stopped
+/// coming at all.
+///
+/// A few voices are kept per sound and taken in turn, so a step does not have
+/// to stop the step before it, and a chip landing does not cut off the die.
 class Sfx {
   Sfx._();
 
@@ -22,7 +29,12 @@ class Sfx {
   /// all — nothing else about those two moments is visible from outside.
   static void Function(String name)? spy;
 
-  final Map<String, AudioPlayer> _players = {};
+  /// How many of one sound can be heard at once.
+  static const voices = 3;
+
+  final Map<String, _Voices> _bank = {};
+
+  _Voices _voices(String name) => _bank.putIfAbsent(name, () => _Voices(name));
 
   Future<void> play(String name, {double volume = 1}) async {
     final watcher = spy;
@@ -32,19 +44,70 @@ class Sfx {
     }
     if (muted) return;
     try {
-      final player = _players.putIfAbsent(name, AudioPlayer.new);
-      await player.stop();
-      await player.play(AssetSource('sounds/$name.wav'), volume: volume);
+      // The first sound of a game loads all the others alongside it, so a
+      // chip's first step is not also the moment its sound is read from
+      // storage.
+      if (_bank.isEmpty) Sound.all.forEach(_voices);
+      await _voices(name).play(volume);
     } catch (_) {
       // See above.
     }
   }
 
   void dispose() {
-    for (final p in _players.values) {
+    for (final v in _bank.values) {
+      v.dispose();
+    }
+    _bank.clear();
+  }
+}
+
+/// The players for one sound, each loaded with it once.
+class _Voices {
+  _Voices(String name) {
+    _ready = _loadAll(name);
+    // A sound that cannot load is silent, not an error on every play.
+    _ready.catchError((_) {});
+  }
+
+  /// One after another: a second player for the same file borrows the
+  /// first one's loaded copy, and there is nothing to borrow until the
+  /// first has finished loading.
+  Future<void> _loadAll(String name) async {
+    for (var i = 0; i < Sfx.voices; i++) {
+      _players.add(await _load(name));
+    }
+  }
+
+  final List<AudioPlayer> _players = [];
+  late final Future<void> _ready;
+  var _next = 0;
+
+  static Future<AudioPlayer> _load(String name) async {
+    final player = AudioPlayer();
+    await player.setPlayerMode(PlayerMode.lowLatency);
+    await player.setReleaseMode(ReleaseMode.stop);
+    await player.setSource(AssetSource('sounds/$name.wav'));
+    return player;
+  }
+
+  Future<void> play(double volume) async {
+    await _ready;
+    if (_players.isEmpty) return;
+    final player = _players[_next];
+    _next = (_next + 1) % _players.length;
+    // A pool stream that has finished is still the player's stream, and
+    // "start" on it only resumes what has already ended. Stopping first is
+    // what makes the next start a fresh play.
+    await player.stop();
+    await player.setVolume(volume);
+    await player.resume();
+  }
+
+  void dispose() {
+    for (final p in _players) {
       p.dispose();
     }
-    _players.clear();
   }
 }
 
@@ -62,4 +125,6 @@ abstract final class Sound {
   /// fanfare says the game is finished, and this says the room is pleased
   /// about it. Kept separate they can also be levelled against each other.
   static const crackers = 'crackers';
+
+  static const all = [die, step, home, capture, safe, victory, crackers];
 }

@@ -10,6 +10,7 @@ import '../net/connection.dart';
 import '../net/online_session.dart';
 import '../net/server_address.dart';
 import '../theme/seat_colors.dart';
+import 'colour_picker.dart';
 import 'game_screen.dart';
 import 'profile_screen.dart';
 
@@ -312,6 +313,8 @@ class _OnlineScreenState extends State<OnlineScreen> {
       'No account needed — this device is remembered, that is all.',
       style: TextStyle(fontSize: 12.5),
     ),
+    const SizedBox(height: 16),
+    ColourPicker(onPicked: () => setState(() {})),
     if (session.rejoinCode != null) ...[
       const SizedBox(height: 16),
       Card(
