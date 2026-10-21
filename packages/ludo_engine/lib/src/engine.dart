@@ -200,8 +200,11 @@ class LudoEngine {
     final lead = members.first;
     final target = _targetProgress(s, lead.progress, steps);
     if (target == null) return null;
+    // Each member walks its own path: a partner's chip on the same square
+    // counts its progress from a different start.
     for (final m in members) {
-      if (!_mayFinish(s, m.owner, target)) return null;
+      final own = _targetProgress(s, m.progress, steps);
+      if (own == null || !_mayFinish(s, m.owner, own)) return null;
     }
 
     final ring = s.board.ringIndex(s.armOf(lead.owner), target);
@@ -341,10 +344,47 @@ class LudoEngine {
 
     final tokens = [...s.tokens];
     for (final id in m.tokenIds) {
-      tokens[id] = tokens[id].copyWith(progress: m.toProgress);
+      tokens[id] = tokens[id].copyWith(
+          progress: m.kind == MoveKind.advancePair
+              ? _targetProgress(s, s.tokens[id].progress, m.steps)!
+              : m.toProgress);
     }
     for (final id in m.capturedTokenIds) {
       tokens[id] = tokens[id].copyWith(progress: -1, pairId: -1);
+    }
+    // A pair comes apart by itself where it is safe to: on a star, a start
+    // square or the home stretch. From there its chips go their own ways,
+    // or are linked again for the next stretch.
+    if (m.kind == MoveKind.advancePair &&
+        (_safeGround(s, m.tokenId, m.toProgress) ||
+            !_sameSquare(
+                s, tokens[m.tokenIds.first], tokens[m.tokenIds.last]))) {
+      for (final id in m.tokenIds) {
+        tokens[id] = tokens[id].copyWith(pairId: -1);
+      }
+    }
+    // And one forms by itself where it is not: a chip that stops on an
+    // ordinary square beside a chip it may pair with links up with it.
+    var nextPairId = s.nextPairId;
+    if (s.rules.pairMove &&
+        m.kind == MoveKind.advance &&
+        !_safeGround(s, m.tokenId, m.toProgress)) {
+      final owners = s.movableOwners(s.turn).toSet();
+      final ring =
+          s.board.ringIndex(s.armOf(s.tokens[m.tokenId].owner), m.toProgress);
+      if (ring != null) {
+        for (final t in tokens) {
+          if (t.id == m.tokenId || t.inYard || t.isPaired) continue;
+          if (!_pairEligible(s, t.owner, owners)) continue;
+          if (s.board.ringIndex(s.armOf(t.owner), t.progress) != ring) {
+            continue;
+          }
+          tokens[m.tokenId] = tokens[m.tokenId].copyWith(pairId: nextPairId);
+          tokens[t.id] = t.copyWith(pairId: nextPairId);
+          nextPairId++;
+          break;
+        }
+      }
     }
 
     final captures = [...s.captures];
@@ -360,7 +400,11 @@ class LudoEngine {
       tally = tally.withLosses(s.tokens[id].owner, 1);
     }
 
-    var next = s.copyWith(tokens: tokens, captures: captures, stats: tally);
+    var next = s.copyWith(
+        tokens: tokens,
+        captures: captures,
+        stats: tally,
+        nextPairId: nextPairId);
     next = _recordFinishes(next);
 
     if (next.isOver) return next.copyWith(dice: null);
@@ -387,6 +431,21 @@ class LudoEngine {
           dice: null, consecutiveSixes: rolledMax ? s.consecutiveSixes : 0);
     }
     return _advanceTurn(next.copyWith(consecutiveSixes: 0));
+  }
+
+  /// Whether two chips stand on the same square. A partner's chip on the
+  /// same square has a different progress, counted from its own start.
+  bool _sameSquare(GameState s, Token a, Token b) {
+    if (a.owner == b.owner) return a.progress == b.progress;
+    final ra = s.board.ringIndex(s.armOf(a.owner), a.progress);
+    return ra != null && ra == s.board.ringIndex(s.armOf(b.owner), b.progress);
+  }
+
+  /// Whether [token] standing at [progress] would be on a safe square.
+  bool _safeGround(GameState s, int token, int progress) {
+    if (s.board.isOnHomeStretch(progress)) return true;
+    final ring = s.board.ringIndex(s.armOf(s.tokens[token].owner), progress);
+    return ring != null && s.safeRingSquares.contains(ring);
   }
 
   GameState _pass(GameState s) {

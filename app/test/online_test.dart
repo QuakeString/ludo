@@ -338,6 +338,25 @@ void main() {
     await guest.connection.dispose();
   });
 
+  test('a throw at one player is seen by the whole table', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+    guest.joinRoom(host.room!.code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+
+    final seen = host.throws.first;
+    guest.throwAt(0, 0);
+    final t = await seen.timeout(const Duration(seconds: 5));
+    expect([t.from, t.to, t.emoji], [1, 0, '🔨']);
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
   test('connecting again is the same player, and finds their seat', () async {
     final host = await sitDown();
     final guest = await sitDown();

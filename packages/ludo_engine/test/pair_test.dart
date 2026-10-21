@@ -297,4 +297,53 @@ void main() {
       expect(move.isCapture, isFalse);
     });
   });
+
+  group('pairs that make and unmake themselves', () {
+    final base = GameState.newGame(paired);
+    bool safe(int progress) =>
+        base.safeRingSquares.contains(base.board.ringIndex(0, progress));
+    // Two squares a roll of 2 apart, neither safe; and a safe one with an
+    // ordinary square two before it.
+    final plain = [
+      for (var p = 3; p < 40; p++)
+        if (!safe(p) && !safe(p - 2)) p
+    ].first;
+    final star = [
+      for (var p = 3; p < 40; p++)
+        if (safe(p) && !safe(p - 4)) p
+    ].first;
+
+    test('a chip that stops beside one it may pair with links up', () {
+      final s = situation(paired, at: {0: plain - 2, 1: plain}, dice: 2);
+      final move = engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      final next = engine.apply(s, PlayMove(move));
+      expect(next.tokens[0].isPaired, isTrue);
+      expect(next.tokens[0].pairId, next.tokens[1].pairId);
+    });
+
+    test('but not on a safe square, where the 🔗 is offered instead', () {
+      final s = situation(paired, at: {0: star - 2, 1: star}, dice: 2);
+      final move = engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      final next = engine.apply(s, PlayMove(move));
+      expect(next.tokens[0].isPaired, isFalse);
+    });
+
+    test('a pair that lands on a safe square comes apart', () {
+      final s = situation(paired,
+          at: {0: star - 2, 1: star - 2}, pairs: {0: 0, 1: 0}, dice: 4);
+      final move = engine.legalMoves(s).single;
+      expect(move.kind, MoveKind.advancePair);
+      final next = engine.apply(s, PlayMove(move));
+      expect(next.tokens[0].progress, star);
+      expect(next.tokens[0].isPaired, isFalse);
+      expect(next.tokens[1].isPaired, isFalse);
+    });
+
+    test('with pair move off, nothing links', () {
+      final s =
+          situation(const RuleConfig(), at: {0: plain - 2, 1: plain}, dice: 2);
+      final move = engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      expect(engine.apply(s, PlayMove(move)).tokens[0].isPaired, isFalse);
+    });
+  });
 }

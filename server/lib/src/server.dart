@@ -12,12 +12,20 @@ import 'room.dart';
 /// Deliberately free of sockets: the whole thing can be driven from a test with
 /// fake clients, which is how the match flow is covered without opening a port.
 class LudoHub {
-  LudoHub({Random? random, DateTime Function()? clock, PlayerStore? players})
-      : _random = random ?? Random.secure(),
+  LudoHub({
+    Random? random,
+    DateTime Function()? clock,
+    PlayerStore? players,
+    this.schedule,
+  })  : _random = random ?? Random.secure(),
         _now = clock ?? DateTime.now,
         players = players ?? PlayerStore(random: random);
 
   final Random _random;
+
+  /// Paces computer turns in every room; see [Room.schedule]. The real
+  /// server passes a timer. Unset, computers play at once.
+  final void Function(Duration delay, void Function() then)? schedule;
 
   /// Everyone who has ever connected, and the secret that proves it.
   final PlayerStore players;
@@ -126,7 +134,8 @@ class LudoHub {
         );
         room
           ..onFinished = _recordResult
-          ..onKicked = _kicked;
+          ..onKicked = _kicked
+          ..schedule = schedule;
         rooms[room.code] = room;
         _roomOf[client.playerId] = room;
         final refused = room.join(client);
@@ -204,6 +213,9 @@ class LudoHub {
 
       case React(index: final index):
         _withRoom(client, (room) => room.react(client.playerId, index));
+
+      case ThrowAt(to: final to, index: final index):
+        _withRoom(client, (room) => room.throwAt(client.playerId, to, index));
 
       case Say(text: final text):
         _withRoom(client, (room) => room.say(client.playerId, text));
@@ -350,6 +362,7 @@ class LudoHub {
             Invite() ||
             TransferCode() ||
             Reaction() ||
+            Thrown() ||
             Said() ||
             KickAsk() ||
             Oops() ||
@@ -552,7 +565,8 @@ class LudoHub {
     );
     room
       ..onFinished = _recordResult
-      ..onKicked = _kicked;
+      ..onKicked = _kicked
+      ..schedule = schedule;
     rooms[room.code] = room;
     for (final w in who) {
       w.client.send(

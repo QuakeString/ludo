@@ -201,6 +201,8 @@ sealed class Envelope {
       'rematch' => const Rematch(),
       'react' => React.fromJson(j),
       'reaction' => Reaction.fromJson(j),
+      'throwAt' => ThrowAt.fromJson(j),
+      'thrown' => Thrown.fromJson(j),
       'say' => Say.fromJson(j),
       'said' => Said.fromJson(j),
       'ping' => const Ping(),
@@ -391,13 +393,20 @@ class StartMatch extends Envelope {
 /// wants to do — so it cannot talk the server out of the rules.
 class Play extends Envelope {
   const Play(
-      {required this.action, this.tokenId, this.toProgress, this.pairId});
+      {required this.action,
+      this.tokenId,
+      this.toProgress,
+      this.pairId,
+      this.withToken});
 
   /// One of: roll, move, pass, formPair, breakPair.
   final String action;
   final int? tokenId;
   final int? toProgress;
   final int? pairId;
+
+  /// For formPair: the token [tokenId] joins.
+  final int? withToken;
 
   @override
   String get type => 'play';
@@ -407,6 +416,7 @@ class Play extends Envelope {
         if (tokenId != null) 'token': tokenId,
         if (toProgress != null) 'to': toProgress,
         if (pairId != null) 'pair': pairId,
+        if (withToken != null) 'with': withToken,
       };
 
   factory Play.fromJson(Map<String, Object?> j) => Play(
@@ -414,6 +424,7 @@ class Play extends Envelope {
         tokenId: (j['token'] as num?)?.toInt(),
         toProgress: (j['to'] as num?)?.toInt(),
         pairId: (j['pair'] as num?)?.toInt(),
+        withToken: (j['with'] as num?)?.toInt(),
       );
 
   static Play roll() => const Play(action: 'roll');
@@ -425,6 +436,8 @@ class Play extends Envelope {
       );
   static Play breakPair(int pairId) =>
       Play(action: 'breakPair', pairId: pairId);
+  static Play formPair(int a, int b) =>
+      Play(action: 'formPair', tokenId: a, withToken: b);
 }
 
 /// Table sizes a player can ask to be matched into.
@@ -590,6 +603,38 @@ class React extends Envelope {
 
   factory React.fromJson(Map<String, Object?> j) =>
       React((j['i'] as num?)?.toInt() ?? -1);
+}
+
+/// What one player can throw at another by tapping their picture: the
+/// emoji, and what it is called. Each lands with its own little show.
+const throwables = <(String, String)>[
+  ('🔨', 'Hammer'),
+  ('❤️', 'Love'),
+  ('💋', 'Kiss'),
+  ('🤝', 'Handshake'),
+  ('🌹', 'Rose'),
+  ('🍅', 'Tomato'),
+  ('🥚', 'Egg'),
+  ('💣', 'Bomb'),
+  ('👏', 'Clap'),
+  ('🍺', 'Cheers'),
+];
+
+/// One of [throwables], by index, thrown at the player in seat [to].
+class ThrowAt extends Envelope {
+  const ThrowAt({required this.to, required this.index});
+  final int to;
+  final int index;
+
+  @override
+  String get type => 'throwAt';
+  @override
+  Map<String, Object?> payload() => {'to': to, 'i': index};
+
+  factory ThrowAt.fromJson(Map<String, Object?> j) => ThrowAt(
+        to: (j['to'] as num?)?.toInt() ?? -1,
+        index: (j['i'] as num?)?.toInt() ?? -1,
+      );
 }
 
 /// The longest chat line, in characters. Long enough for a sentence, short
@@ -886,6 +931,28 @@ class Reaction extends Envelope {
 
   factory Reaction.fromJson(Map<String, Object?> j) => Reaction(
         seat: (j['seat'] as num).toInt(),
+        index: (j['i'] as num).toInt(),
+      );
+}
+
+/// The player in seat [from] threw one of the [throwables] at seat [to].
+/// Everyone at the table sees it fly.
+class Thrown extends Envelope {
+  const Thrown({required this.from, required this.to, required this.index});
+  final int from;
+  final int to;
+  final int index;
+
+  String get emoji => throwables[index.clamp(0, throwables.length - 1)].$1;
+
+  @override
+  String get type => 'thrown';
+  @override
+  Map<String, Object?> payload() => {'from': from, 'to': to, 'i': index};
+
+  factory Thrown.fromJson(Map<String, Object?> j) => Thrown(
+        from: (j['from'] as num).toInt(),
+        to: (j['to'] as num).toInt(),
         index: (j['i'] as num).toInt(),
       );
 }

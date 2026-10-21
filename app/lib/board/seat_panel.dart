@@ -31,7 +31,15 @@ class SeatPanel extends StatelessWidget {
     this.pointerBelow = true,
     this.teamLetter,
     this.avatar,
+    this.avatarKey,
+    this.onAvatarTap,
   });
+
+  /// Marks the picture, so things thrown at this seat know where to land.
+  final Key? avatarKey;
+
+  /// Tapping the picture: online, that is how you throw something at them.
+  final VoidCallback? onAvatarTap;
 
   /// The player's picture, as [Avatar] writes it, or null for none.
   final String? avatar;
@@ -140,11 +148,15 @@ class SeatPanel extends StatelessWidget {
                 SizedBox(height: compact ? 2 : 3),
                 Row(
                   children: [
-                    AvatarBubble(
-                      avatar: avatar,
-                      colour: colour,
-                      radius: compact ? 11 : 13,
-                      robot: isComputer,
+                    GestureDetector(
+                      key: avatarKey,
+                      onTap: onAvatarTap,
+                      child: AvatarBubble(
+                        avatar: avatar,
+                        colour: colour,
+                        radius: compact ? 11 : 13,
+                        robot: isComputer,
+                      ),
                     ),
                     if (teamLetter != null) ...[
                       SizedBox(width: compact ? 3 : 4),

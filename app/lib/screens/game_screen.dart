@@ -22,6 +22,7 @@ import 'avatars.dart';
 import 'house_rules.dart';
 import 'kick_banner.dart';
 import 'table_chat.dart';
+import 'throw_flight.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
@@ -141,6 +142,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   StreamSubscription<MatchUpdate>? _matchSub;
   StreamSubscription<Reaction>? _reactionSub;
   StreamSubscription<Said>? _chatSub;
+  StreamSubscription<Thrown>? _throwSub;
 
   /// Reactions on screen right now, newest last. Each goes after a moment.
   final List<_Bubble> _bubbles = [];
@@ -188,6 +190,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _matchSub = session.matches.listen(_serverSaid);
       _reactionSub = session.reactions.listen(_reacted);
       _chatSub = session.chat.listen(_chatted);
+      _throwSub = session.throws.listen(_thrown);
       session.addListener(_sessionChanged);
     } else if (saved != null) {
       // Saved games can stop between a roll and its move. Pick the turn up
@@ -213,6 +216,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _matchSub?.cancel();
     _reactionSub?.cancel();
     _chatSub?.cancel();
+    _throwSub?.cancel();
     for (final b in _bubbles) {
       b.timer.cancel();
     }
@@ -466,6 +470,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (!_myMove || _state.awaitingRoll) return false;
     final moves = _legalMoves;
     if (!_nothingToChoose(moves)) return false;
+    // Linking a pair is a choice too, so the turn waits.
+    if (_pairings.isNotEmpty) return false;
 
     setState(() {
       _flash = moves.isEmpty
@@ -953,7 +959,47 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ? String.fromCharCode(65 + rules.teamOf(seat))
           : null,
       avatar: _avatarOf(seat),
+      avatarKey: _avatarKeys.putIfAbsent(seat, GlobalKey.new),
+      onAvatarTap: session != null && seat != session.yourSeat
+          ? () => _throwAt(seat)
+          : null,
     );
+  }
+
+  /// Each seat's picture, so a throw knows where it starts and lands.
+  final Map<int, GlobalKey> _avatarKeys = {};
+
+  /// Where the [Stack] the throws fly in sits.
+  final GlobalKey _stage = GlobalKey();
+
+  final List<(int, Thrown)> _flights = [];
+  int _flightCount = 0;
+
+  Future<void> _throwAt(int seat) async {
+    final session = _session;
+    if (session == null) return;
+    final picked = await pickThrow(context, at: _nameOf(seat));
+    if (picked != null) session.throwAt(seat, picked);
+  }
+
+  void _thrown(Thrown t) {
+    if (!mounted) return;
+    setState(() {
+      _flights.add((_flightCount++, t));
+      // A flurry is fun; a blizzard is not.
+      while (_flights.length > 6) {
+        _flights.removeAt(0);
+      }
+    });
+  }
+
+  /// The centre of [seat]'s picture in the throws' Stack, if it is on show.
+  Offset? _pictureOf(int seat) {
+    final stage = _stage.currentContext?.findRenderObject() as RenderBox?;
+    final box =
+        _avatarKeys[seat]?.currentContext?.findRenderObject() as RenderBox?;
+    if (stage == null || box == null || !box.attached) return null;
+    return stage.globalToLocal(box.localToGlobal(box.size.center(Offset.zero)));
   }
 
   /// Runs the shared ticker only while something on the board is moving.
@@ -1017,6 +1063,70 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ),
           ),
     ];
+  }
+
+  /// Pairs this device may link right now. Only on a safe square: anywhere
+  /// else chips link by themselves, and a pair comes apart by itself when it
+  /// reaches safety, so there is never anything to split by hand.
+  List<FormPair> get _pairings => _myMove && !_busy
+      ? engine.pairActions(_state).whereType<FormPair>().toList()
+      : const <FormPair>[];
+
+  void _link(FormPair pairing) {
+    final session = _session;
+    if (session != null) {
+      session.formPair(pairing.tokenA, pairing.tokenB);
+      return;
+    }
+    _apply(pairing);
+    _autoAdvance();
+  }
+
+  /// A small 🔗 over a square where two chips may be linked into a pair.
+  List<Widget> _pairButtons(Size size) {
+    final pairings = _pairings;
+    if (pairings.isEmpty) return const [];
+    final side = math.min(size.width, size.height);
+    final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
+    final cell = _geometry.cellSize * side;
+    final button = math.max(26.0, cell * 0.95);
+    final layout = chipLayout(_state, _geometry);
+
+    final out = <Widget>[];
+    final placed = <String>{};
+    for (final pairing in pairings) {
+      final token = pairing.tokenA;
+      final at = layout[token];
+      if (at == null) continue;
+      // One button to a square: three chips on one square offer three ways
+      // to pair, and the first is as good as the others.
+      final spot =
+          '${_state.tokens[token].progress}:'
+          '${_state.armOf(_state.tokens[token].owner)}';
+      if (!placed.add(spot)) continue;
+      out.add(
+        Positioned(
+          left: origin.dx + at.x * side - button / 2,
+          top: origin.dy + at.y * side - button * 1.55,
+          width: button,
+          height: button,
+          child: Material(
+            key: ValueKey('pair-${pairing.tokenA}-${pairing.tokenB}'),
+            shape: const CircleBorder(),
+            color: Colors.white,
+            elevation: 3,
+            child: InkWell(
+              customBorder: const CircleBorder(),
+              onTap: () => _link(pairing),
+              child: Center(
+                child: Text('🔗', style: TextStyle(fontSize: button * 0.55)),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return out;
   }
 
   @override
@@ -1090,22 +1200,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             onPressed: () => showRuleBoard(context, rules),
             icon: const Icon(Icons.menu_book_rounded),
           ),
-          if (session != null)
-            PopupMenuButton<int>(
-              tooltip: 'Send a reaction',
-              icon: const Icon(Icons.add_reaction_outlined),
-              onSelected: session.react,
-              itemBuilder: (_) => [
-                for (var i = 0; i < reactions.length; i++)
-                  PopupMenuItem(
-                    value: i,
-                    child: Text(
-                      reactions[i],
-                      style: const TextStyle(fontSize: 26),
-                    ),
-                  ),
-              ],
-            ),
           if (session == null)
             IconButton(
               tooltip: 'New game',
@@ -1116,6 +1210,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ),
       body: SafeArea(
         child: Stack(
+          key: _stage,
           children: [
             Column(
               children: [
@@ -1232,6 +1327,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                                   ),
                                                 ),
                                           ),
+                                          ..._pairButtons(size),
                                         ],
                                       ),
                                     ),
@@ -1328,6 +1424,24 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   onRemove: () => session.answerKick(keep: false),
                 ),
               ),
+            for (final (id, t) in _flights)
+              if ((_pictureOf(t.from), _pictureOf(t.to)) case (
+                final Offset from,
+                final Offset to,
+              ))
+                Positioned.fill(
+                  child: ThrowFlight(
+                    key: ValueKey('flight-$id'),
+                    index: t.index,
+                    from: from,
+                    to: to,
+                    onDone: () {
+                      if (mounted) {
+                        setState(() => _flights.removeWhere((f) => f.$1 == id));
+                      }
+                    },
+                  ),
+                ),
             if (session != null && !_state.isOver)
               Positioned(
                 left: 0,
