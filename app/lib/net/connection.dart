@@ -58,7 +58,14 @@ class LudoConnection {
   /// Two clients with the same identity are the same person coming back, so
   /// anything running more than one player from one device — tests, two
   /// windows — needs this.
-  Future<Welcome> connect({String? preferredName, bool fresh = false}) async {
+  ///
+  /// [transfer] is a code made on another phone: this device becomes that
+  /// player, and remembers it in place of whoever it was before.
+  Future<Welcome> connect({
+    String? preferredName,
+    bool fresh = false,
+    String? transfer,
+  }) async {
     if (_channel != null) await close();
 
     final channel = WebSocketChannel.connect(uri);
@@ -87,6 +94,11 @@ class LudoConnection {
           }
           if (!welcomed.isCompleted) welcomed.complete(message);
         }
+        if (message is Oops && message.code == 'transfer') {
+          if (!welcomed.isCompleted) {
+            welcomed.completeError(StateError(message.message));
+          }
+        }
         if (message is Oops && message.code == 'update') {
           outOfDate = true;
           if (!welcomed.isCompleted) {
@@ -113,14 +125,17 @@ class LudoConnection {
 
     // Already somebody on this connection, from before it dropped: be them
     // again. Otherwise whoever this device remembers, unless told not to.
-    final known = playerId != null && _secret != null;
-    final saved = known || fresh ? (null, null, null) : await _saved();
+    final known = transfer == null && playerId != null && _secret != null;
+    final saved = known || fresh || transfer != null
+        ? (null, null, null)
+        : await _saved();
     if (!known) _secret = saved.$3;
     send(
       Hello(
         guestId: known ? playerId : saved.$1,
         secret: known ? _secret : saved.$3,
         displayName: preferredName ?? (known ? displayName : saved.$2),
+        transfer: transfer?.trim().toUpperCase().replaceAll('-', ''),
       ),
     );
     _keepAlive?.cancel();

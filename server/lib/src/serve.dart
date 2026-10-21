@@ -49,6 +49,10 @@ Future<RunningServer> startServer({
 
   final sockets = webSocketHandler((WebSocketChannel socket, _) {
     String? playerId;
+    // This socket's own client. A player who reconnects has a new socket and a
+    // new client before the old one is noticed to be dead, so the old socket
+    // must only ever speak for, and clean up after, itself.
+    SocketClient? me;
     final limiter = (limits ?? RateLimiter.new)();
 
     socket.stream.listen(
@@ -74,17 +78,26 @@ Future<RunningServer> startServer({
                 code: 'update',
               ).encode());
               socket.sink.close(1000, 'update');
+            case BadTransfer():
+              socket.sink.add(const Oops(
+                'That code did not work. Codes work once, for ten minutes; '
+                'make a new one on your other phone.',
+                code: 'transfer',
+              ).encode());
+              socket.sink.close(1000, 'transfer');
             case Identified(player: final player, secret: final secret):
               playerId = player.id;
               final client =
                   SocketClient(player: player, sink: socket.sink.add);
+              me = client;
               clients[player.id] = client;
               client.send(theHub.welcomeFor(player, secret: secret));
+              theHub.connected(client);
           }
           return;
         }
 
-        final client = clients[playerId];
+        final client = me;
         if (client == null) return;
         switch (limiter.take(DateTime.now())) {
           case Allowance.ok:
@@ -98,8 +111,8 @@ Future<RunningServer> startServer({
             socket.sink.close(1008, 'too many messages');
         }
       },
-      onDone: () => _gone(theHub, clients, playerId),
-      onError: (_) => _gone(theHub, clients, playerId),
+      onDone: () => _gone(theHub, clients, me),
+      onError: (_) => _gone(theHub, clients, me),
       cancelOnError: true,
     );
   });
@@ -216,8 +229,11 @@ class RateLimiter {
   }
 }
 
-void _gone(LudoHub hub, Map<String, SocketClient> clients, String? playerId) {
-  if (playerId == null) return;
-  hub.disconnected(playerId);
-  clients.remove(playerId);
+void _gone(LudoHub hub, Map<String, SocketClient> clients, SocketClient? me) {
+  if (me == null) return;
+  // Already replaced by a newer connection for the same player: that one is
+  // sitting in the seat now, and this socket going away changes nothing.
+  if (clients[me.playerId] != me) return;
+  hub.disconnected(me.playerId);
+  clients.remove(me.playerId);
 }

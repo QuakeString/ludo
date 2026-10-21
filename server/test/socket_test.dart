@@ -109,6 +109,21 @@ void main() {
     await again.close();
   });
 
+  test('an old connection dying late does not unseat the new one', () async {
+    final (old, welcome) = await connect(server, name: 'Rajat');
+    final (fresh, _) = await connect(server,
+        guestId: welcome.playerId, secret: welcome.secret);
+    expect(server.hub.online[welcome.playerId], isNotNull);
+
+    // A phone that switched networks: the new socket is up before the old
+    // one is noticed to be gone.
+    await old.close();
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(server.hub.online[welcome.playerId], isNotNull,
+        reason: 'the player is still here, on the newer connection');
+    await fresh.close();
+  });
+
   test('an id without its secret is not enough to be somebody', () async {
     final (first, welcome) = await connect(server, name: 'Rajat');
     await first.close();
