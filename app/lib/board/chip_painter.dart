@@ -5,9 +5,12 @@ import 'package:flutter/material.dart';
 
 /// Draws the game chip.
 ///
-/// A carrom-style pawn lit from the upper left with a hard white rim — the rim
-/// is what keeps a blue chip readable on a blue square, which is where most
-/// Ludo apps fall down. Drawn as vector geometry so one shape recolours for
+/// A carrom-style pawn lit from the upper left, outlined twice: a white line
+/// against the chip and a dark one outside it, a pixel each. Either one alone
+/// disappears somewhere — white against the pale squares of a light board,
+/// dark against the dark board — and together one of them always shows. That
+/// pair is what keeps a green chip readable on a green square, which is where
+/// most Ludo apps fall down. Drawn as vector geometry so one shape recolours for
 /// all six seats and stays sharp at every density.
 ///
 /// Everything is authored in a 100 x 132 box and scaled, so the proportions
@@ -56,6 +59,8 @@ class ChipArt {
     double fade = 1,
     int? badge,
     Color rim = Colors.white,
+    Color edge = const Color(0xFF15130F),
+    double depth = 1,
   }) {
     final s = width * scale / 100;
     canvas.save();
@@ -85,26 +90,39 @@ class ChipArt {
     canvas.scale(s);
     canvas.translate(-groundPoint.dx, -groundPoint.dy);
 
-    // White rim: stroke every part first so the outline reads as one union,
-    // then fill on top. Stroking after filling would leave a seam where the
-    // head meets the collar.
+    // The outlines: stroke every part first so each reads as one union, then
+    // fill on top. Stroking after filling would leave a seam where the head
+    // meets the collar. Sized in screen pixels rather than chip units, so they
+    // stay a crisp pixel each however large or small the board is drawn; a
+    // stroke straddles its path, so twice the width is one pixel outside it.
+    final pixel = 1 / s;
+    final edgeAlpha = fade >= 1 ? 1.0 : fade;
     final rimPaint = Paint()
       ..color = rim
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 7
+      ..strokeWidth = math.max(2 * pixel, 4)
+      ..strokeJoin = StrokeJoin.round;
+    final edgePaint = Paint()
+      ..color = edge.withValues(alpha: edge.a * edgeAlpha)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = rimPaint.strokeWidth + 2 * pixel
       ..strokeJoin = StrokeJoin.round;
     final rimFill = Paint()..color = rim;
-    for (final draw in [rimPaint, rimFill]) {
+    for (final draw in [edgePaint, rimPaint, rimFill]) {
       canvas.drawPath(_body, draw);
       canvas.drawOval(_collar, draw);
       canvas.drawCircle(_head, _headR, draw);
     }
 
+    // Deepened on a light board. The seat colours are tuned to be painted on
+    // the board's own squares, and a chip the same strength as the square it
+    // stands on is a chip that blends into it.
+    final body = depth < 1 ? _darken(color, depth) : color;
     final base = Paint()
-      ..color = fade >= 1 ? color : color.withValues(alpha: fade);
+      ..color = fade >= 1 ? body : body.withValues(alpha: fade);
     canvas.drawPath(_body, base);
     _shade(canvas, _body.getBounds(), (p) => canvas.drawPath(_body, p));
-    canvas.drawOval(_collar, Paint()..color = _darken(color, 0.78));
+    canvas.drawOval(_collar, Paint()..color = _darken(body, 0.78));
     canvas.drawCircle(_head, _headR, base);
     _shade(
       canvas,

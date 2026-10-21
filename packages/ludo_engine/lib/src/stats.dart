@@ -68,7 +68,8 @@ class MatchStats {
     // Out of range rather than an assertion: a stats sheet must never be the
     // reason a game stops. If the rules changed under it, the counting is
     // wrong and the game is still fine.
-    if (seat < 0 || seat >= players || face < 1 || face > diceSides) return this;
+    if (seat < 0 || seat >= players || face < 1 || face > diceSides)
+      return this;
     final next = [
       for (var p = 0; p < players; p++)
         p == seat
@@ -78,8 +79,7 @@ class MatchStats {
               ])
             : rolls[p]
     ];
-    return MatchStats(
-        rolls: List.unmodifiable(next), moves: moves, lost: lost);
+    return MatchStats(rolls: List.unmodifiable(next), moves: moves, lost: lost);
   }
 
   /// A copy with one more move recorded against [seat].
@@ -87,9 +87,8 @@ class MatchStats {
     if (seat < 0 || seat >= players) return this;
     return MatchStats(
       rolls: rolls,
-      moves: List.unmodifiable([
-        for (var p = 0; p < players; p++) moves[p] + (p == seat ? 1 : 0)
-      ]),
+      moves: List.unmodifiable(
+          [for (var p = 0; p < players; p++) moves[p] + (p == seat ? 1 : 0)]),
       lost: lost,
     );
   }
@@ -100,9 +99,8 @@ class MatchStats {
     return MatchStats(
       rolls: rolls,
       moves: moves,
-      lost: List.unmodifiable([
-        for (var p = 0; p < players; p++) lost[p] + (p == seat ? n : 0)
-      ]),
+      lost: List.unmodifiable(
+          [for (var p = 0; p < players; p++) lost[p] + (p == seat ? n : 0)]),
     );
   }
 
@@ -120,9 +118,8 @@ class MatchStats {
     if (j is! Map) return MatchStats.blank(players, diceSides);
     List<int> ints(Object? v, int len) {
       final xs = [for (final x in (v as List? ?? const [])) (x as num).toInt()];
-      return List<int>.unmodifiable([
-        for (var i = 0; i < len; i++) i < xs.length ? xs[i] : 0
-      ]);
+      return List<int>.unmodifiable(
+          [for (var i = 0; i < len; i++) i < xs.length ? xs[i] : 0]);
     }
 
     final rows = (j['r'] as List?) ?? const [];

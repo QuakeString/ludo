@@ -71,7 +71,7 @@ void main() {
 
     test('an opponent\'s token can never join your pair', () {
       var s = GameState.newGame(paired);
-      final mine = progressForRing(s, 0, 6);
+      final mine = progressForRing(s, 0, 8);
       final theirs = progressForRing(s, 1, 6);
       s = situation(paired, at: {0: mine, 4: theirs}, dice: 4);
       expect(engine.pairActions(s).whereType<FormPair>(), isEmpty);
@@ -241,17 +241,48 @@ void main() {
           reason: 'the pair was passed, not blocked');
     });
 
-    test('two unlinked opposing tokens are not a pair, and both go home', () {
-      // Worth keeping next to the pair rules: two tokens sharing a square look
-      // the same on the board whether they are linked or not, and the two
-      // cases are governed differently. Unlinked, they are simply two chips —
-      // land on them and both are sent home.
+    test('two unlinked opposing tokens still stand together', () {
+      // Two chips sharing a square look the same on the board whether they
+      // are linked or not, so they are treated the same: one chip cannot
+      // land on them. Sending both home with one used to be the rule.
       var s = GameState.newGame(paired);
       final theirs = progressForRing(s, 1, 10);
       final mine = progressForRing(s, 0, 8);
       s = situation(paired, at: {0: mine, 4: theirs, 5: theirs}, dice: 2);
+      expect(engine.legalMoves(s), isEmpty);
+    });
+
+    test('a pair can take two unlinked chips standing together', () {
+      var s = GameState.newGame(paired);
+      final theirs = progressForRing(s, 1, 10);
+      final mine = progressForRing(s, 0, 8);
+      s = situation(paired,
+          at: {0: mine, 1: mine, 4: theirs, 5: theirs},
+          pairs: {0: 0, 1: 0},
+          dice: 4); // a pair moves half the pips
       final move = engine.legalMoves(s).single;
+      expect(move.kind, MoveKind.advancePair);
       expect(move.capturedTokenIds, unorderedEquals([4, 5]));
+    });
+
+    test('partners sharing a square are not knocked off by one chip', () {
+      const teams = RuleConfig(teams: [
+        [0, 2],
+        [1, 3]
+      ]);
+      var s = GameState.newGame(teams);
+      final square = progressForRing(s, 1, 10); // seat 1's chip 4 lands here
+      // Seats 0 and 2 have one chip each on the square seat 1 is about to
+      // land on.
+      final p0 = progressForRing(s, 0, 10);
+      final p2 = progressForRing(s, 2, 10);
+      s = situation(teams, at: {0: p0, 8: p2, 4: square - 2}, turn: 1, dice: 2);
+      expect(engine.legalMoves(s), isEmpty,
+          reason: 'one chip sent a player and their partner home together');
+
+      // Once one of them has walked on, the other is alone and fair game.
+      s = situation(teams, at: {0: p0, 4: square - 2}, turn: 1, dice: 2);
+      expect(engine.legalMoves(s).single.capturedTokenIds, [0]);
     });
 
     test('a pair on a safe square is not captured at all', () {

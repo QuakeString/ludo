@@ -258,16 +258,31 @@ class LudoEngine {
       return const [];
     }
 
-    final victims = <int>[];
-    final pairsSeen = <int>{};
+    // Who is standing here, grouped by side. Two or more chips of one side on
+    // a square — linked into a pair or not, one player's or two partners' —
+    // stand together, and one lone chip cannot knock a pair of them off. Only
+    // what [RuleConfig.pairCapture] allows can: by default, a pair.
+    //
+    // It used to be the other way round for anything but a formally linked
+    // pair. Your chip and your partner's chip sharing a square were simply two
+    // victims, and a single opponent landing there sent both home at once. As
+    // soon as one of them walks away the other is alone again, and alone it can
+    // be taken like any other chip.
+    final sides = <int, List<Token>>{};
     for (final t in s.tokensOnRing(ring)) {
       if (ignore.contains(t.id)) continue;
       if (rules.sameSide(t.owner, owner)) {
         if (t.owner != owner && !rules.partnersCanCapture) continue;
         if (t.owner == owner) continue;
       }
-      if (t.isPaired) {
-        if (!pairsSeen.add(t.pairId)) continue;
+      final side = rules.isTeamGame ? rules.teamOf(t.owner) : t.owner;
+      sides.putIfAbsent(side, () => []).add(t);
+    }
+
+    final victims = <int>[];
+    for (final group in sides.values) {
+      final stack = group.length >= 2 || group.any((t) => t.isPaired);
+      if (stack) {
         switch (rules.pairCapture) {
           case PairCapture.never:
             return null; // cannot land here at all
@@ -276,10 +291,8 @@ class LudoEngine {
           case PairCapture.anyone:
             break;
         }
-        victims.addAll(s.pairMembers(t.pairId).map((m) => m.id));
-        continue;
       }
-      victims.add(t.id);
+      victims.addAll(group.map((t) => t.id));
     }
     return victims;
   }
@@ -362,7 +375,11 @@ class LudoEngine {
         (m.isCapture && s.rules.captureGrantsExtraRoll) ||
         (broughtHome && s.rules.finishGrantsExtraRoll);
 
-    if (again) {
+    // A seat that has just brought its last chip home has nothing to throw
+    // for, so the extra roll that chip earned goes nowhere and the turn moves
+    // on. In a game that ends with one winner this never came up, because
+    // that chip ended the game.
+    if (again && next.movableOwners(s.turn).isNotEmpty) {
       // A roll earned by a capture or by a chip getting home starts a fresh
       // six-count; one earned by rolling the top face carries the count on, so
       // three sixes still forfeit.

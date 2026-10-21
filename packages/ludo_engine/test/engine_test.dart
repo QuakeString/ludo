@@ -198,10 +198,11 @@ void main() {
   });
 
   group('crowded squares', () {
-    test('a crowd is just a crowd — nothing blocks passage or landing', () {
-      // Two of one player on a square used to be a wall. That rule is gone:
-      // chips pass through each other, and landing on the pile sends all of it
-      // home.
+    test('a crowd can be passed, but one chip cannot land on it', () {
+      // Two of one side on a square stand together. Walking past them is
+      // fine; a single chip landing on them is not, because only a pair can
+      // knock a pair off — and with one chip there is nothing to knock off
+      // with.
       var s = GameState.newGame(classic);
       final crowd = progressForRing(s, 1, 5);
       final me = progressForRing(s, 0, 3);
@@ -214,12 +215,19 @@ void main() {
       );
 
       final onto = situation(classic, at: {0: me, 4: crowd, 5: crowd}, dice: 2);
-      final move = engine.legalMoves(onto).single;
       expect(
-        move.capturedTokenIds,
-        unorderedEquals([4, 5]),
-        reason: 'landing on them sends both home',
+        engine.legalMoves(onto),
+        isEmpty,
+        reason: 'one chip landed on two and sent both home',
       );
+    });
+
+    test('a chip left alone when its neighbour walks off can be taken', () {
+      var s = GameState.newGame(classic);
+      final there = progressForRing(s, 1, 5);
+      final me = progressForRing(s, 0, 3);
+      s = situation(classic, at: {0: me, 4: there}, dice: 2);
+      expect(engine.legalMoves(s).single.capturedTokenIds, [4]);
     });
 
     test('your own tokens never get in your way', () {
@@ -322,7 +330,8 @@ void main() {
       }
       expect(counts[6], 0, reason: 'a six got through');
       for (var f = 1; f <= 5; f++) {
-        expect(counts[f], closeTo(6000, 400), reason: 'face $f came up $counts');
+        expect(counts[f], closeTo(6000, 400),
+            reason: 'face $f came up $counts');
       }
     });
 
@@ -330,8 +339,8 @@ void main() {
       const rules = RuleConfig(players: 2, sixRun: SixRun.unlimited);
       var found = false;
       for (var seed = 1; seed < 300 && !found; seed++) {
-        final s = GameState.newGame(rules, seed: seed)
-            .copyWith(consecutiveSixes: 5);
+        final s =
+            GameState.newGame(rules, seed: seed).copyWith(consecutiveSixes: 5);
         if (engine.peekRoll(s) == 6) found = true;
       }
       expect(found, isTrue, reason: 'sixes were capped with the rule off');
@@ -396,15 +405,37 @@ void main() {
   });
 
   group('winning', () {
-    test('a seat that brings every token home wins', () {
+    test('the first seat home wins, and the rest play on for places', () {
       final finalP = BoardSpec.cross.finalProgress;
       final s = situation(classic,
           at: {0: finalP, 1: finalP, 2: finalP, 3: finalP - 3}, dice: 3);
-      expect(s.isOver, isFalse);
+      final next = engine.apply(s, PlayMove(engine.legalMoves(s).single));
+      expect(next.finishOrder, [0]);
+      expect(
+        next.isOver,
+        isFalse,
+        reason: 'three people were left halfway through a game they '
+            'had no way to finish',
+      );
+      expect(next.winner, isNull);
+      expect(next.turn, isNot(0), reason: 'a seat that is home sits out');
+    });
+
+    test('the game ends when only one seat still has chips out', () {
+      const two = RuleConfig(players: 2, tokensPerPlayer: 1);
+      final finalP = BoardSpec.cross.finalProgress;
+      final s = situation(two, at: {0: finalP - 3}, dice: 3);
       final next = engine.apply(s, PlayMove(engine.legalMoves(s).single));
       expect(next.isOver, isTrue);
       expect(next.winner, 0);
-      expect(next.finishOrder, contains(0));
+
+      const three = RuleConfig(players: 3, tokensPerPlayer: 1);
+      var t =
+          situation(three, at: {0: finalP, 2: finalP - 2}, turn: 2, dice: 2);
+      t = engine.apply(t, PlayMove(engine.legalMoves(t).single));
+      expect(t.isOver, isTrue);
+      expect(t.winner, 0, reason: 'first home is the winner, not the last');
+      expect(t.finishOrder, [0, 2]);
     });
 
     test('a team wins only when every partner is home', () {

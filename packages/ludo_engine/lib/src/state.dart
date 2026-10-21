@@ -156,14 +156,17 @@ class GameState {
 
   Set<int> get safeRingSquares => board.safeRingSquares(rules.safeSquares);
 
-  /// The seat that has won, or null. In a team game this is the first member
-  /// of the winning team; use [winningTeam] for the team itself.
+  /// The seat that has won, or null while the game is still going. In a team
+  /// game this is the first member of the winning team; use [winningTeam] for
+  /// the team itself.
   int? get winner {
     if (rules.isTeamGame) {
       final team = winningTeam;
       if (team == null) return null;
       return rules.teams![team].first;
     }
+    if (!isOver) return null;
+    if (finishOrder.isNotEmpty) return finishOrder.first;
     for (var p = 0; p < rules.players; p++) {
       if (hasFinished(p)) return p;
     }
@@ -179,7 +182,22 @@ class GameState {
     return null;
   }
 
-  bool get isOver => winner != null;
+  /// Whether play has stopped.
+  ///
+  /// A team game ends when one side is all home. Every other game plays on
+  /// until only one seat is left with chips out: the first player home has
+  /// won, but second and third are still worth playing for, and a four-seat
+  /// table that stopped the moment one person finished left three people
+  /// halfway through a game they had no way to finish. Seats already home are
+  /// skipped when the turn goes round, so the rest simply carry on.
+  bool get isOver {
+    if (rules.isTeamGame) return winningTeam != null;
+    var home = 0;
+    for (var p = 0; p < rules.players; p++) {
+      if (hasFinished(p)) home++;
+    }
+    return home > 0 && home >= rules.players - 1;
+  }
 
   /// Seats whose tokens this player may move on their turn. Normally just
   /// themselves; a player who is home keeps rolling for a partner.

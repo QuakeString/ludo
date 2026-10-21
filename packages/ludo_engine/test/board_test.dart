@@ -30,7 +30,8 @@ void main() {
       expect(BoardSpec.cross.seatArms(2), [3, 1]);
       expect(BoardSpec.cross.seatArms(4), [3, 0, 1, 2]);
       expect(BoardSpec.cross.seatArms(2).first, BoardSpec.cross.firstSeatArm);
-      expect(BoardSpec.hexagon.seatArms(6).first, BoardSpec.hexagon.firstSeatArm);
+      expect(
+          BoardSpec.hexagon.seatArms(6).first, BoardSpec.hexagon.firstSeatArm);
     });
 
     test('six players fill the hexagon and never share an arm', () {

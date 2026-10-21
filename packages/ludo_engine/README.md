@@ -32,7 +32,7 @@ dart run example/play_a_game.dart --rules=teams --seed=42
 | Chips | 2, 3 or 4 per player, at every seat count. |
 | Entry | Roll a six, or any roll — `entryRoll: 0`. |
 | Safety | Star squares, start squares, both, or nothing. |
-| Blockades | Two *unlinked* tokens of one seat wall the square off. |
+| Crowds | Two or more chips of one side on a square can only be taken by an opposing pair. They never block passing. |
 | Home | Exact count required, or overshoot-and-stop. |
 | Teams | 2v2 at four seats, 3v3 or 2v2v2 at six. Partners don't capture or block each other, and a player who is home keeps rolling for a partner. |
 | Pair move | Two tokens on one square link and travel as one on an even roll, at half the pips. Locked until a safe square. Only an opposing pair can take a pair. |
@@ -65,16 +65,20 @@ byte-for-byte on a phone and on the server.
 
 ## Two tokens on a square
 
-Two tokens sharing a square are either a **pair** or just a crowd, and the
-difference is whether they are linked. A pair moves as one, cannot be broken
-until it reaches safety, and is captured only by another pair. An unlinked
-crowd is nothing special: chips travel through it, and landing on it sends all
-of it home.
+Two or more tokens of one side sharing a square — one player's, or two
+partners' — stand together, linked or not. A single chip may walk past them
+but cannot land on them; only an opposing pair can take them, exactly as with a
+linked pair. Once one of them walks away the other is alone again, and alone it
+can be taken like any other chip.
 
-There used to be a third case — a *blockade*, two unlinked tokens of one seat
-walling the square against everyone. It was removed. It is a real variant, but
-on a board it reads as a chip that inexplicably will not move, and nobody
-playing here wanted it.
+It used to be that an unlinked crowd was nothing special and one chip landing
+on it sent all of it home. In a team game that meant one opponent knocking a
+player and their partner off together, which nobody at the table thought was
+fair. Linking still matters for moving: a linked pair travels as one, cannot be
+broken until it reaches safety, and is the only thing that can take a crowd.
+
+The old *blockade* — two tokens walling the square so nobody could even pass —
+stays gone. On a board it read as a chip that inexplicably would not move.
 
 ## Computer players
 

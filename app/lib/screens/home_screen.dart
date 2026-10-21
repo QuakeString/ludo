@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
+import '../saved_game.dart';
 import '../theme/seat_colors.dart';
+import 'game_screen.dart';
 import 'online_screen.dart';
 import 'setup_screen.dart';
 
@@ -12,12 +14,37 @@ import 'setup_screen.dart';
 /// how they want to play (alone against the machine, round one phone, with
 /// friends who are elsewhere) decides which settings even apply. So the mode
 /// comes first and every dial moves behind it.
-class HomeScreen extends StatelessWidget {
+///
+/// The one exception is a game left unfinished on this device, which goes
+/// above all four: somebody who closed the app mid-game and opens it again
+/// almost always wants that game back.
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  SavedGame? _saved;
+
+  @override
+  void initState() {
+    super.initState();
+    _lookForSavedGame();
+  }
+
+  /// Read again every time this page comes back into view: the game just left
+  /// may have ended, or a new one may have taken its place.
+  Future<void> _lookForSavedGame() async {
+    final saved = await SavedGameStore.load();
+    if (mounted) setState(() => _saved = saved);
+  }
 
   @override
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
+    final saved = _saved;
 
     return Scaffold(
       backgroundColor: palette.felt,
@@ -36,6 +63,13 @@ class HomeScreen extends StatelessWidget {
                   style: TextStyle(fontSize: 13.5, color: palette.faint),
                 ),
                 const SizedBox(height: 30),
+                if (saved != null) ...[
+                  _ContinueCard(
+                    saved: saved,
+                    onTap: () => _go(context, GameScreen.resumed(saved)),
+                  ),
+                  const SizedBox(height: 12),
+                ],
                 LayoutBuilder(
                   builder: (context, box) {
                     // Two across when there is room for two to be worth
@@ -139,9 +173,87 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _go(BuildContext context, Widget screen) => Navigator.of(
-    context,
-  ).push(MaterialPageRoute(builder: (_) => screen));
+  Future<void> _go(BuildContext context, Widget screen) async {
+    await Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen));
+    _lookForSavedGame();
+  }
+}
+
+/// The game left unfinished on this device, and whose turn it is in it.
+class _ContinueCard extends StatelessWidget {
+  const _ContinueCard({required this.saved, required this.onTap});
+
+  final SavedGame saved;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = BoardPalette.of(context);
+    final state = saved.state;
+    final arm = state.armOf(state.turn);
+    final colour = colourOfArm(arm, state.board.arms);
+    final who = saved.aiSeats.containsKey(state.turn)
+        ? 'the computer'
+        : nameOfArm(arm, state.board.arms);
+
+    return Material(
+      color: palette.panel,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(16),
+            // Edged in the colour on turn, so it reads as the game itself
+            // rather than as a fifth way to start one.
+            border: Border.all(color: colour, width: 1.5),
+          ),
+          child: Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  color: colour.withValues(alpha: 0.16),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(Icons.play_arrow_rounded, size: 26, color: colour),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Text(
+                      'Continue game',
+                      style: TextStyle(
+                        fontSize: 15.5,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '${state.rules.name} · ${state.rules.players} seats · '
+                      '${who[0].toUpperCase()}${who.substring(1)} to play',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: palette.faint,
+                        height: 1.25,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded, color: palette.faint),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 /// LUDO, a letter per seat colour.
