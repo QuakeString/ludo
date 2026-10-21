@@ -113,7 +113,7 @@ class _OnlineScreenState extends State<OnlineScreen> {
         _problem = connection.outOfDate
             ? 'This copy of Ludo is out of date. Install the latest version '
                   'to play online.'
-            : 'Could not reach the game server at ${server.host}. Check your '
+            : 'Could not reach the game server at $server. Check your '
                   'connection and the server address, and try again.\n\n($e)';
       });
     }
