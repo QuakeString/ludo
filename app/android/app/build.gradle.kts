@@ -29,11 +29,28 @@ android {
         versionName = flutter.versionName
     }
 
+    // One fixed key for every published build, so a new APK installs over
+    // the old one. Flutter's debug key is made fresh on each machine, and
+    // every CI runner is a fresh machine: each build came out signed
+    // differently, and Android will not update an app whose signature has
+    // changed. CI writes the key from the repository's secrets; without them
+    // (a local build, a pull request) the debug key is used as before.
+    val keystore = System.getenv("LUDO_KEYSTORE")?.let { file(it) }
+    val signed = keystore != null && keystore.exists()
+    if (signed) {
+        signingConfigs {
+            create("upload") {
+                storeFile = keystore
+                storePassword = System.getenv("LUDO_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("LUDO_KEY_ALIAS") ?: "ludo"
+                keyPassword = System.getenv("LUDO_KEYSTORE_PASSWORD")
+            }
+        }
+    }
+
     buildTypes {
         release {
-            // TODO: Add your own signing config for the release build.
-            // Signing with the debug keys for now, so `flutter run --release` works.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName(if (signed) "upload" else "debug")
         }
     }
 }

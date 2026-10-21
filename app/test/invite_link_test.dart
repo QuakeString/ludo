@@ -31,6 +31,12 @@ void main() {
     expect(n('https://ludo.example.com/'), 'wss://ludo.example.com/ws');
     expect(n('http://203.0.113.7:8091'), 'ws://203.0.113.7:8091/ws');
     expect(n('wss://ludo.example.com/ws'), 'wss://ludo.example.com/ws');
+    expect(n('https://11.11.0.3:8091/'), 'ws://11.11.0.3:8091/ws');
+    expect(n('https://11.11.0.3'), 'ws://11.11.0.3:8091/ws');
+    expect(n('http://11.11.0.3:8091/play/'), 'ws://11.11.0.3:8091/ws');
+    expect(n('wss://11.11.0.3:8091/ws'), 'ws://11.11.0.3:8091/ws');
+    expect(n('ludo.example.com:8091'), 'ws://ludo.example.com:8091/ws');
+    expect(n('https://ludo.example.com/play/'), 'wss://ludo.example.com/ws');
     expect(n(''), isNull);
     expect(n('ftp://x'), isNull);
   });

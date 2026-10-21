@@ -114,8 +114,10 @@ class _OnlineScreenState extends State<OnlineScreen> {
         _problem = connection.outOfDate
             ? 'This copy of Ludo is out of date. Install the latest version '
                   'to play online.'
-            : 'Could not reach the game server at $server. Check your '
-                  'connection and the server address, and try again.\n\n($e)';
+            : 'Could not reach the game server at $server.\n\n'
+                  'If this phone\'s browser can open the same address, a VPN '
+                  'may be letting the browser through but not this app: '
+                  'allow Ludo in the VPN\'s app settings.\n\n($e)';
       });
     }
   }
@@ -1015,7 +1017,19 @@ class _ServerDialogState extends State<_ServerDialog> {
             decoration: const InputDecoration(
               hintText: '203.0.113.7 or ludo.example.com',
             ),
+            onChanged: (_) => setState(() {}),
             onSubmitted: (v) => Navigator.of(context).pop(v),
+          ),
+          const SizedBox(height: 8),
+          // What it will actually dial, so a typed address that means
+          // something other than intended is seen before it is tried.
+          Text(
+            switch (ServerAddress.normalise(_text.text)) {
+              null => 'Type the server\'s address',
+              final uri => 'Connects to $uri',
+            },
+            key: const ValueKey('server-preview'),
+            style: const TextStyle(fontSize: 12),
           ),
         ],
       ),

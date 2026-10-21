@@ -2,6 +2,7 @@
 library;
 
 import 'dart:async';
+import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ludo_app/net/connection.dart';
@@ -66,6 +67,33 @@ void main() {
       session.removeListener(check);
     }
   }
+
+  test('a server that never answers is given up on, not waited on', () async {
+    // Accepts the connection and then says nothing, the way a server the
+    // phone cannot really reach looks from the phone.
+    final silent = await ServerSocket.bind('127.0.0.1', 0);
+    final held = <Socket>[];
+    silent.listen(held.add);
+    addTearDown(() async {
+      for (final s in held) {
+        s.destroy();
+      }
+      await silent.close();
+    });
+
+    final connection = LudoConnection(
+      uri: Uri.parse('ws://127.0.0.1:${silent.port}/ws'),
+    );
+    final started = DateTime.now();
+    await expectLater(
+      connection.connect(fresh: true),
+      throwsA(isA<TimeoutException>()),
+    );
+    expect(
+      DateTime.now().difference(started),
+      lessThan(LudoConnection.connectTimeout + const Duration(seconds: 3)),
+    );
+  }, timeout: const Timeout(Duration(seconds: 30)));
 
   test('a guest gets an identity without ever making an account', () async {
     final session = await sitDown();
