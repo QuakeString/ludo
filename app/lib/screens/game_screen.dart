@@ -1064,7 +1064,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // overlays, so the ticker costs frames for them and never for the board.
     _setPulse(needed: moves.isNotEmpty || glowSeat != null);
 
+    // The keyboard opens over the game rather than squeezing it: only the
+    // chat bar rides up on top of it. SafeArea already keeps the bar clear
+    // of the system's own bottom strip, which the keyboard covers too.
+    final keyboard = math.max(
+      0.0,
+      MediaQuery.viewInsetsOf(context).bottom -
+          MediaQuery.paddingOf(context).bottom,
+    );
+
     return Scaffold(
+      resizeToAvoidBottomInset: false,
       backgroundColor: palette.felt,
       appBar: AppBar(
         backgroundColor: palette.felt,
@@ -1246,8 +1256,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   isComputerTurn: !_myMove && !_state.isOver,
                   onPass: () => session == null ? _passLocal() : session.pass(),
                 ),
+                // Room kept for the chat bar, which itself is laid over
+                // the screen below so the keyboard can lift it without the
+                // board shrinking.
                 if (session != null && !_state.isOver)
-                  ChatBar(onSend: session.say),
+                  const SizedBox(height: chatBarHeight),
               ],
             ),
             // Laid over the top of the board rather than above it, so a note
@@ -1314,6 +1327,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   onKeep: () => session.answerKick(keep: true),
                   onRemove: () => session.answerKick(keep: false),
                 ),
+              ),
+            if (session != null && !_state.isOver)
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: keyboard,
+                child: ChatBar(onSend: session.say),
               ),
             if (_state.isOver)
               GameOverSheet(
