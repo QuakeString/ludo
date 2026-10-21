@@ -1,6 +1,7 @@
-# Publishes the game server's Docker image to GitHub's container registry, so
-# a VPS can run the latest server with `docker compose pull && docker compose
-# up -d` instead of building it. See DEPLOY.md.
+# Publishes the game server's Docker image to GitHub's container registry and,
+# once the DOCKERHUB_TOKEN secret is set, to Docker Hub as
+# quakestring/ludo-time-server, so a VPS can pull the latest server instead of
+# building it. See DEPLOY.md.
 name: Server image
 
 on:
@@ -20,6 +21,8 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    env:
+      DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v4
 
@@ -29,11 +32,28 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
+      - uses: docker/login-action@v3
+        if: env.DOCKERHUB_TOKEN != ''
+        with:
+          username: quakestring
+          password: ${{ env.DOCKERHUB_TOKEN }}
+
+      - id: tags
+        run: |
+          {
+            echo 'list<<EOF'
+            echo "ghcr.io/quakestring/ludo-server:latest"
+            echo "ghcr.io/quakestring/ludo-server:${GITHUB_SHA}"
+            if [ -n "$DOCKERHUB_TOKEN" ]; then
+              echo "quakestring/ludo-time-server:latest"
+              echo "quakestring/ludo-time-server:${GITHUB_SHA}"
+            fi
+            echo EOF
+          } >> "$GITHUB_OUTPUT"
+
       - uses: docker/build-push-action@v6
         with:
           context: .
           file: server/Dockerfile
           push: true
-          tags: |
-            ghcr.io/quakestring/ludo-server:latest
-            ghcr.io/quakestring/ludo-server:${{ github.sha }}
+          tags: ${{ steps.tags.outputs.list }}
