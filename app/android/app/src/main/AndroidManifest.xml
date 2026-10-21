@@ -3,6 +3,9 @@
          builds, so without it here the installed APK could never reach the
          game server. -->
     <uses-permission android:name="android.permission.INTERNET"/>
+    <!-- In-app updates: the new APK is handed to Android's installer, which
+         still asks the player before anything is installed. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"/>
     <application
         android:label="Ludo"
         android:usesCleartextTraffic="true"
@@ -39,6 +42,15 @@
                 <data android:scheme="ludo" android:host="join"/>
             </intent-filter>
         </activity>
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.updates"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/update_paths" />
+        </provider>
         <!-- Don't delete the meta-data below.
              This is used by the Flutter tool to generate GeneratedPluginRegistrant.java -->
         <meta-data
