@@ -106,7 +106,7 @@ class GameOverSheet extends StatelessWidget {
     final colour = colourOfArm(state.armOf(champion.seat), arms);
     final name =
         nameOf?.call(champion.seat) ??
-            nameOfArm(state.armOf(champion.seat), arms);
+        nameOfArm(state.armOf(champion.seat), arms);
 
     return Stack(
       children: [

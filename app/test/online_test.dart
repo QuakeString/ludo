@@ -254,7 +254,11 @@ void main() {
     );
 
     final welcome = await guest.connection.connect();
-    expect(welcome.playerId, id, reason: 'a dropped signal is not a new player');
+    expect(
+      welcome.playerId,
+      id,
+      reason: 'a dropped signal is not a new player',
+    );
     expect(welcome.rejoin, code, reason: 'the seat is still theirs');
 
     guest.joinRoom(code);
@@ -269,6 +273,26 @@ void main() {
     guest.dispose();
     await host.connection.dispose();
     await guest.connection.dispose();
+  });
+
+  test('two strangers looking for a game are matched', () async {
+    final a = await sitDown();
+    final b = await sitDown();
+    a.quickMatch(2);
+    await until(a, () => a.queue?.found == 1, what: 'the queue');
+    expect(a.searching, isTrue);
+
+    b.quickMatch(2);
+    await until(a, () => a.state != null, what: 'a match for the first');
+    await until(b, () => b.state != null, what: 'a match for the second');
+    expect(a.searching, isFalse);
+    expect({a.yourSeat, b.yourSeat}, {0, 1});
+    expect(a.room!.code, b.room!.code);
+
+    a.dispose();
+    b.dispose();
+    await a.connection.dispose();
+    await b.connection.dispose();
   });
 
   test('a player cannot move on somebody else\'s turn', () async {

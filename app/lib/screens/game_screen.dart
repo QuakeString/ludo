@@ -699,12 +699,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final n = _state.rules.players;
     final houses = {for (var seat = 0; seat < n; seat++) seat: _houseOf(seat)};
 
-    final ranked = [for (var seat = 0; seat < n; seat++) seat]..sort((a, b) {
-      final byHeight = houses[a]!.y.compareTo(houses[b]!.y);
-      // Level houses go left to the top rail and right to the bottom, so the
-      // one on each side of the screen stays on that side of the screen.
-      return byHeight != 0 ? byHeight : houses[a]!.x.compareTo(houses[b]!.x);
-    });
+    final ranked = [for (var seat = 0; seat < n; seat++) seat]
+      ..sort((a, b) {
+        final byHeight = houses[a]!.y.compareTo(houses[b]!.y);
+        // Level houses go left to the top rail and right to the bottom, so the
+        // one on each side of the screen stays on that side of the screen.
+        return byHeight != 0 ? byHeight : houses[a]!.x.compareTo(houses[b]!.x);
+      });
 
     final split = (n + 1) ~/ 2;
     final above = ranked.take(split).toList()
@@ -963,7 +964,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 for (var i = 0; i < reactions.length; i++)
                   PopupMenuItem(
                     value: i,
-                    child: Text(reactions[i], style: const TextStyle(fontSize: 26)),
+                    child: Text(
+                      reactions[i],
+                      style: const TextStyle(fontSize: 26),
+                    ),
                   ),
               ],
             ),
