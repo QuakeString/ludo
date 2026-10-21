@@ -10,9 +10,7 @@ name: Android
 
 on:
   push:
-    # The second branch is the save-and-resume and rules fixes, built while
-    # its pull request is open so it can be tried on a phone before merging.
-    branches: [claude/ludo-board-game-design-qd5nm3, claude/project-thread-znxi4s]
+    branches: [claude/ludo-board-game-design-qd5nm3]
     paths:
       - 'app/**'
       - 'packages/**'
