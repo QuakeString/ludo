@@ -14,6 +14,8 @@ class FakeClient implements Client {
   final String playerId;
   @override
   final String displayName;
+  @override
+  String? get avatar => null;
 
   final List<Envelope> inbox = [];
 

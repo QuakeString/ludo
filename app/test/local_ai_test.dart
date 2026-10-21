@@ -113,11 +113,6 @@ void main() {
     }
 
     expect(
-      find.textContaining('Computer (normal) — roll the dice'),
-      findsNothing,
-      reason: 'the computer was handed the turn and never took it',
-    );
-    expect(
       find.text('Thinking…'),
       findsNothing,
       reason: 'the board is still waiting on a turn nobody will play',

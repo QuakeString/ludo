@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'screens/avatars.dart';
 import 'screens/home_screen.dart';
 import 'screens/online_screen.dart';
 import 'theme/seat_colors.dart';
@@ -7,6 +8,7 @@ import 'theme/seat_colors.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FavouriteColour.load();
+  await MyAvatar.load();
   runApp(const LudoApp());
 }
 
@@ -72,7 +74,7 @@ class _LudoAppState extends State<LudoApp> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     return MaterialApp(
       navigatorKey: _navigator,
-      title: 'Ludo',
+      title: 'LUDO Time',
       debugShowCheckedModeBanner: false,
       // Light and dark are both first class, following the system until the
       // player overrides it in settings.

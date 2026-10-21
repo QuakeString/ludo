@@ -9,6 +9,9 @@ import 'package:ludo_protocol/ludo_protocol.dart';
 abstract class Client {
   String get playerId;
   String get displayName;
+
+  /// The player's picture, as [Avatar] writes it, or null.
+  String? get avatar;
   void send(Envelope message);
 }
 
@@ -28,10 +31,41 @@ class Seat {
   /// back to them and nobody else, and the table still shows whose it is.
   String? heldFor;
   String? heldName;
+  String? heldAvatar;
 
   /// When this seat last sent a reaction, so one player cannot fill everyone
   /// else's screen with them.
   DateTime? reactedAt;
+
+  /// When this seat last said something, for the same reason.
+  DateTime? saidAt;
+
+  /// Trades who sits here with [other]. The seat numbers stay put; the
+  /// people, and everything about them, move.
+  void swapWith(Seat other) {
+    final c = client, ai = computer, r = ready, d = droppedAt;
+    final hf = heldFor, hn = heldName, ha = heldAvatar;
+    final ra = reactedAt, sa = saidAt;
+    client = other.client;
+    computer = other.computer;
+    ready = other.ready;
+    droppedAt = other.droppedAt;
+    heldFor = other.heldFor;
+    heldName = other.heldName;
+    heldAvatar = other.heldAvatar;
+    reactedAt = other.reactedAt;
+    saidAt = other.saidAt;
+    other
+      ..client = c
+      ..computer = ai
+      ..ready = r
+      ..droppedAt = d
+      ..heldFor = hf
+      ..heldName = hn
+      ..heldAvatar = ha
+      ..reactedAt = ra
+      ..saidAt = sa;
+  }
 
   bool get isComputer => computer != null;
   bool get isEmpty => client == null && computer == null;
@@ -45,6 +79,7 @@ class Seat {
         isComputer: isComputer,
         connected: connected || isComputer,
         ready: ready || isComputer,
+        avatar: client?.avatar ?? heldAvatar,
       );
 }
 
@@ -79,6 +114,9 @@ class Room {
 
   /// How often one seat may send a reaction.
   static const reactionGap = Duration(milliseconds: 1500);
+
+  /// How often one seat may send a line of chat.
+  static const chatGap = Duration(milliseconds: 800);
 
   final String code;
   final RuleConfig rules;
@@ -137,7 +175,8 @@ class Room {
         ..client = client
         ..droppedAt = null
         ..heldFor = null
-        ..heldName = null;
+        ..heldName = null
+        ..heldAvatar = null;
       broadcastRoom();
       _sendMatchTo(own.first);
       return null;
@@ -165,6 +204,7 @@ class Room {
         seat
           ..heldFor = playerId
           ..heldName = seat.client?.displayName
+          ..heldAvatar = seat.client?.avatar
           ..client = null
           ..droppedAt = _now();
       } else {
@@ -212,6 +252,21 @@ class Room {
     return null;
   }
 
+  /// Moves the occupants of two seats past each other, before the match.
+  /// In a team game the seats make the teams, so this is how the host pairs
+  /// people up once everyone is in.
+  String? swapSeats(String playerId, int a, int b) {
+    if (playerId != hostId) return 'only the host can move players';
+    if (phase != RoomPhase.lobby) return 'the match has already started';
+    if (a < 0 || b < 0 || a >= seats.length || b >= seats.length) {
+      return 'no such seat';
+    }
+    if (a == b) return null;
+    seats[a].swapWith(seats[b]);
+    broadcastRoom();
+    return null;
+  }
+
   String? start(String playerId) {
     if (playerId != hostId) return 'only the host can start the match';
     if (phase != RoomPhase.lobby) return 'the match has already started';
@@ -254,7 +309,8 @@ class Room {
       seat
         ..droppedAt = null
         ..heldFor = null
-        ..heldName = null;
+        ..heldName = null
+        ..heldAvatar = null;
     }
     phase = RoomPhase.playing;
     _reported = false;
@@ -280,6 +336,24 @@ class Room {
     if (last != null && _now().difference(last) < reactionGap) return null;
     seat.reactedAt = _now();
     final message = Reaction(seat: seat.index, index: index);
+    for (final c in _clients) {
+      c.send(message);
+    }
+    return null;
+  }
+
+  /// Passes a line of chat round the table, tidied: control characters and
+  /// runs of space go, and it is cut to [chatLimit] characters.
+  String? say(String playerId, String text) {
+    final mine = seats.where((s) => s.client?.playerId == playerId);
+    if (mine.isEmpty) return 'you are not at this table';
+    final line = tidyChat(text);
+    if (line.isEmpty) return null;
+    final seat = mine.first;
+    final last = seat.saidAt;
+    if (last != null && _now().difference(last) < chatGap) return null;
+    seat.saidAt = _now();
+    final message = Said(seat: seat.index, text: line);
     for (final c in _clients) {
       c.send(message);
     }
@@ -401,6 +475,7 @@ class Room {
         ..droppedAt = null
         ..heldFor = null
         ..heldName = null
+        ..heldAvatar = null
         ..computer = phase == RoomPhase.playing ? AiLevel.normal : null;
       changed = true;
     }
@@ -451,4 +526,17 @@ class Room {
       autoPlayed: lastWasAutoPlay,
     ));
   }
+}
+
+/// [text] made fit to show: no control characters, no runs of space, at most
+/// [chatLimit] characters. Counted in code points, so an emoji is never cut
+/// in half.
+String tidyChat(String text) {
+  final flat = text
+      .replaceAll(RegExp(r'[\u0000-\u001F\u007F]'), ' ')
+      .replaceAll(RegExp(r'\s+'), ' ')
+      .trim();
+  final runes = flat.runes.toList();
+  if (runes.length <= chatLimit) return flat;
+  return String.fromCharCodes(runes.take(chatLimit)).trim();
 }

@@ -75,9 +75,12 @@ jobs:
         run: |
           flutter build apk --release \
             --build-name="1.0.${GITHUB_RUN_NUMBER}" \
-            --build-number="${GITHUB_RUN_NUMBER}"
+            --build-number="${GITHUB_RUN_NUMBER}" \
+            --dart-define=LUDO_BUILD="${GITHUB_RUN_NUMBER}"
           mkdir -p ../out
           cp build/app/outputs/flutter-apk/app-release.apk ../out/ludo.apk
+          # What installed copies read to learn a newer build is out.
+          echo "{\"build\": ${GITHUB_RUN_NUMBER}}" > ../out/version.json
           ls -la ../out
 
       - uses: actions/upload-artifact@v4
@@ -104,6 +107,8 @@ jobs:
             not Play Store material.
 
             Built from `${{ github.sha }}` (run ${{ github.run_number }}).
-          files: out/ludo.apk
+          files: |
+            out/ludo.apk
+            out/version.json
           prerelease: true
           make_latest: false

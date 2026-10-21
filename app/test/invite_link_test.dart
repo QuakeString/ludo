@@ -41,6 +41,13 @@ void main() {
     expect(n('ftp://x'), isNull);
   });
 
+  test('the app comes pointed at ludo.invenia.in', () {
+    expect(
+      ServerAddress.normalise(ServerAddress.built).toString(),
+      'wss://ludo.invenia.in/ws',
+    );
+  });
+
   test('the invite page lives on the same server, over the web', () {
     expect(
       ServerAddress.inviteLink(Uri.parse('ws://203.0.113.7:8091/ws'), 'AB12CD'),

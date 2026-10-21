@@ -10,8 +10,10 @@ import '../net/connection.dart';
 import '../net/online_session.dart';
 import '../net/server_address.dart';
 import '../theme/seat_colors.dart';
+import 'avatars.dart';
 import 'colour_picker.dart';
 import 'game_screen.dart';
+import 'house_rules.dart';
 import 'profile_screen.dart';
 
 /// Getting online, from tapping the button to sitting at a table.
@@ -97,7 +99,10 @@ class _OnlineScreenState extends State<OnlineScreen> {
       if (!mounted) return;
       final session = OnlineSession(connection)
         ..addListener(_changed)
-        ..refreshProfile();
+        ..refreshProfile()
+        // Kept on this phone, and told to the server each time, so a picture
+        // chosen while it was out of reach still arrives.
+        ..setAvatar(myAvatar);
       _inviteSub = session.invites.listen(_invited);
       setState(() {
         _connection = connection;
@@ -223,15 +228,16 @@ class _OnlineScreenState extends State<OnlineScreen> {
       ? _shapes[_shape.clamp(0, _shapes.length - 1)]
       : null;
 
-  RuleConfig get _rules => RuleConfig(
+  /// The host's house rules. Online, a turn that never ends is a table
+  /// everyone else has to sit and wait at, so the clock starts on: six dots
+  /// of five seconds each.
+  RuleConfig _house = const RuleConfig(turnTimerDots: 6);
+
+  RuleConfig get _rules => _house.copyWith(
     name: 'Online',
     players: _players,
     tokensPerPlayer: _tokens,
     teams: _chosenShape?.groups,
-    // Online, a turn that never ends is a table everyone else has to sit
-    // and wait at, so the clock is on by default here: six dots of five
-    // seconds each.
-    turnTimerDots: 6,
   );
 
   @override
@@ -295,9 +301,45 @@ class _OnlineScreenState extends State<OnlineScreen> {
   }
 
   /// Who this device is playing as, and any game it can go back to.
+  Future<void> _changeAvatar(OnlineSession session) async {
+    final chosen = await pickAvatar(context);
+    if (chosen == null || !mounted) return;
+    session.setAvatar(chosen);
+    setState(() {});
+  }
+
   List<Widget> _whoAmI(OnlineSession session) => [
     Row(
       children: [
+        Semantics(
+          button: true,
+          label: 'Change your picture',
+          child: InkResponse(
+            key: const ValueKey('my-avatar'),
+            onTap: () => _changeAvatar(session),
+            radius: 30,
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                AvatarBubble(
+                  avatar: myAvatar,
+                  colour: favouriteColour ?? ludoRed,
+                  radius: 24,
+                ),
+                Positioned(
+                  right: -2,
+                  bottom: -2,
+                  child: CircleAvatar(
+                    radius: 10,
+                    backgroundColor: Theme.of(context).colorScheme.surface,
+                    child: const Icon(Icons.edit, size: 12),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
         Expanded(
           child: Text(
             'Playing as ${session.myName}',
@@ -505,6 +547,11 @@ class _OnlineScreenState extends State<OnlineScreen> {
               onChanged: (v) => setState(() => _shape = v),
             ),
         ],
+        RulesEditor(
+          rules: _rules,
+          online: true,
+          onChanged: (r) => setState(() => _house = r),
+        ),
         const SizedBox(height: 16),
         FilledButton(
           onPressed: () => session.createRoom(_rules),
@@ -641,6 +688,12 @@ class _Lobby extends StatelessWidget {
                       icon: const Icon(Icons.share),
                       label: const Text('Invite friends'),
                     ),
+                    OutlinedButton.icon(
+                      key: const ValueKey('lobby-rules'),
+                      onPressed: () => showRuleBoard(context, room.rules),
+                      icon: const Icon(Icons.menu_book_rounded),
+                      label: const Text('Rules'),
+                    ),
                     if (session.profile?.friends.isNotEmpty ?? false)
                       OutlinedButton.icon(
                         onPressed: () => _pickFriend(context),
@@ -666,18 +719,44 @@ class _Lobby extends StatelessWidget {
           style: const TextStyle(fontWeight: FontWeight.w700),
         ),
         const SizedBox(height: 4),
-        for (final seat in room.seats)
-          _SeatRow(
-            seat: seat,
-            colour: _seatColour(room, seat.seat, session),
-            isYou: seat.playerId == session.playerId,
-            isHost: seat.playerId != null && seat.playerId == room.hostId,
-            // Filling an empty seat with a computer is the host's choice. A
-            // table must never quietly decide that for them.
-            onAddComputer: session.isHost && seat.playerId == null
-                ? (level) => session.addComputer(seat.seat, level)
-                : null,
-          ),
+        // In a team game the seats are listed side by side, so who partners
+        // whom is plain, and the host can move people across.
+        for (final (t, group) in _groups(room).indexed) ...[
+          if (room.rules.isTeamGame)
+            Padding(
+              padding: const EdgeInsets.only(top: 10, bottom: 2),
+              child: Text(
+                'Team ${t + 1}',
+                key: ValueKey('team-$t'),
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.5,
+                ),
+              ),
+            ),
+          for (final seat in group)
+            _SeatRow(
+              seat: seat,
+              colour: _seatColour(room, seat.seat, session),
+              isYou: seat.playerId == session.playerId,
+              isHost: seat.playerId != null && seat.playerId == room.hostId,
+              // Filling an empty seat with a computer is the host's choice. A
+              // table must never quietly decide that for them.
+              onAddComputer: session.isHost && seat.playerId == null
+                  ? (level) => session.addComputer(seat.seat, level)
+                  : null,
+              swapWith: session.isHost && room.rules.isTeamGame
+                  ? [
+                      for (final other in room.seats)
+                        if (room.rules.teamOf(other.seat) !=
+                            room.rules.teamOf(seat.seat))
+                          other,
+                    ]
+                  : const [],
+              onSwap: (other) => session.swapSeats(seat.seat, other),
+            ),
+        ],
         if (session.isHost &&
             room.seats.any((s) => s.playerId == null && !s.isComputer))
           Padding(
@@ -742,6 +821,20 @@ class _Lobby extends StatelessWidget {
   }
 }
 
+/// The seats in the order the lobby shows them: one group per team in a team
+/// game, otherwise one group of everybody.
+List<List<SeatInfo>> _groups(RoomInfo room) {
+  final teams = room.rules.teams;
+  if (teams == null || teams.isEmpty) return [room.seats];
+  return [
+    for (final team in teams)
+      [
+        for (final s in team)
+          if (s < room.seats.length) room.seats[s],
+      ],
+  ];
+}
+
 /// The colour [seat] will wear once the game starts, on this player's board:
 /// the table turned so their own seat is bottom-left, in their own colour.
 Color _seatColour(RoomInfo room, int seat, OnlineSession session) {
@@ -762,9 +855,16 @@ class _SeatRow extends StatelessWidget {
     required this.isYou,
     this.isHost = false,
     this.onAddComputer,
+    this.swapWith = const [],
+    this.onSwap,
   });
 
   final SeatInfo seat;
+
+  /// Seats on the other teams this one can trade places with — the host's
+  /// way of pairing people up. Empty for everyone else.
+  final List<SeatInfo> swapWith;
+  final ValueChanged<int>? onSwap;
 
   /// The colour this seat will wear on this player's board.
   final Color colour;
@@ -781,15 +881,14 @@ class _SeatRow extends StatelessWidget {
     ];
     return ListTile(
       contentPadding: EdgeInsets.zero,
-      leading: CircleAvatar(
-        backgroundColor: colour,
-        radius: 14,
-        child: seat.isComputer
-            ? const Icon(Icons.smart_toy, size: 15, color: Colors.white)
-            : isHost
-            ? const Icon(Icons.star_rounded, size: 16, color: Colors.white)
-            : null,
-      ),
+      leading: empty
+          ? CircleAvatar(backgroundColor: colour, radius: 16)
+          : AvatarBubble(
+              avatar: seat.avatar,
+              colour: colour,
+              radius: 15,
+              robot: seat.isComputer,
+            ),
       title: Text(
         empty
             ? 'Empty seat'
@@ -802,9 +901,28 @@ class _SeatRow extends StatelessWidget {
       subtitle: notes.isEmpty
           ? null
           : Text(notes.join(' · '), style: const TextStyle(fontSize: 12)),
-      trailing: onAddComputer == null
-          ? null
-          : PopupMenuButton<AiLevel>(
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (swapWith.isNotEmpty)
+            PopupMenuButton<int>(
+              key: ValueKey('swap-${seat.seat}'),
+              tooltip: 'Move to another team',
+              icon: const Icon(Icons.swap_horiz_rounded),
+              onSelected: onSwap,
+              itemBuilder: (_) => [
+                for (final other in swapWith)
+                  PopupMenuItem(
+                    key: ValueKey('swap-${seat.seat}-${other.seat}'),
+                    value: other.seat,
+                    child: Text(
+                      'Swap with ${other.playerId == null && !other.isComputer ? 'empty seat ${other.seat + 1}' : other.displayName ?? 'Player'}',
+                    ),
+                  ),
+              ],
+            ),
+          if (onAddComputer != null)
+            PopupMenuButton<AiLevel>(
               tooltip: 'Add a computer player',
               onSelected: onAddComputer,
               itemBuilder: (_) => [
@@ -819,6 +937,8 @@ class _SeatRow extends StatelessWidget {
                 child: Text('Add computer'),
               ),
             ),
+        ],
+      ),
     );
   }
 }

@@ -15,6 +15,9 @@ class FakeClient implements Client {
   @override
   String displayName;
 
+  @override
+  String? avatar;
+
   final List<Envelope> inbox = [];
 
   @override
@@ -195,6 +198,96 @@ void main() {
       hub.handle(guest, const React(99));
       expect(guest.last<Oops>(), isNotNull);
       expect(host.inbox.whereType<Reaction>(), isEmpty);
+    });
+  });
+
+  group('pairing up', () {
+    const fours = RuleConfig(
+      players: 4,
+      tokensPerPlayer: 2,
+      teams: [
+        [0, 2],
+        [1, 3],
+      ],
+    );
+
+    test('the host moves people between seats, and so between teams', () {
+      hub.handle(host, const CreateRoom(rules: fours));
+      final code = host.last<RoomUpdate>()!.room.code;
+      hub.handle(guest, JoinRoom(code));
+      expect(host.last<RoomUpdate>()!.room.seats[1].playerId, 'p-guest');
+
+      // Host in seat 0, guest in 1: opponents. Move the guest opposite.
+      hub.handle(host, const SwapSeats(1, 2));
+      final seats = guest.last<RoomUpdate>()!.room.seats;
+      expect(seats[1].playerId, isNull);
+      expect(seats[2].playerId, 'p-guest');
+      expect(
+          hub.rooms[code]!.rules.teamOf(0), hub.rooms[code]!.rules.teamOf(2));
+
+      // And the match deals the guest in at their new seat.
+      hub.handle(host, const AddComputer(seat: 1));
+      hub.handle(host, const AddComputer(seat: 3));
+      hub.handle(host, const StartMatch());
+      expect(guest.last<MatchUpdate>()!.yourSeat, 2);
+    });
+
+    test('only the host, and only before the start', () {
+      hub.handle(host, const CreateRoom(rules: fours));
+      final code = host.last<RoomUpdate>()!.room.code;
+      hub.handle(guest, JoinRoom(code));
+      hub.handle(guest, const SwapSeats(0, 1));
+      expect(guest.last<Oops>(), isNotNull);
+      expect(hub.rooms[code]!.seats[0].client?.playerId, 'p-host');
+    });
+  });
+
+  group('pictures', () {
+    test('a player\'s picture shows on their seat at the table', () {
+      final (record, _) = hub.players.mint();
+      final me = FakeClient(record.id, record.name);
+      hub.handle(me, const SetAvatar('a:5'));
+      expect(record.avatar, 'a:5');
+      me.avatar = record.avatar;
+      hub.handle(me, const CreateRoom(rules: twoSeats));
+      expect(me.last<RoomUpdate>()!.room.seats[0].avatar, 'a:5');
+    });
+
+    test('anything that is not a picture is refused', () {
+      final (record, _) = hub.players.mint();
+      final me = FakeClient(record.id, record.name);
+      hub.handle(me, const SetAvatar('p:<img onerror=alert(1)>'));
+      expect(me.last<Oops>(), isNotNull);
+      expect(record.avatar, isNull);
+    });
+  });
+
+  group('chat', () {
+    test('reaches everyone at the table, from the right seat', () {
+      startTwo();
+      hub.handle(guest, const Say('  nice   one 🎉 '));
+      final heard = host.last<Said>();
+      expect(heard?.seat, 1);
+      expect(heard?.text, 'nice one 🎉');
+      expect(guest.last<Said>()?.text, 'nice one 🎉');
+    });
+
+    test('is cut to length and never sent empty', () {
+      startTwo();
+      hub.handle(guest, const Say('   '));
+      expect(host.inbox.whereType<Said>(), isEmpty);
+      hub.handle(guest, Say('😂' * 400));
+      expect(host.last<Said>()!.text.runes, hasLength(chatLimit));
+    });
+
+    test('cannot be sent faster than a line a moment', () {
+      startTwo();
+      hub.handle(guest, const Say('one'));
+      hub.handle(guest, const Say('two'));
+      expect(host.inbox.whereType<Said>(), hasLength(1));
+      clock.advance(const Duration(seconds: 1));
+      hub.handle(guest, const Say('three'));
+      expect(host.inbox.whereType<Said>(), hasLength(2));
     });
   });
 

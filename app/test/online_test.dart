@@ -8,6 +8,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:ludo_app/net/connection.dart';
 import 'package:ludo_app/net/online_session.dart';
 import 'package:ludo_engine/ludo_engine.dart';
+import 'package:ludo_protocol/ludo_protocol.dart' show Avatar;
 import 'package:ludo_server/ludo_server.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -255,6 +256,81 @@ void main() {
     final reaction = await heard.timeout(const Duration(seconds: 5));
     expect(reaction.seat, 1);
     expect(reaction.emoji, '🎉');
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
+  test('the host pairs people up by moving them between seats', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(
+      const RuleConfig(
+        players: 4,
+        tokensPerPlayer: 2,
+        teams: [
+          [0, 2],
+          [1, 3],
+        ],
+      ),
+    );
+    await until(host, () => host.room != null, what: 'the room');
+    guest.joinRoom(host.room!.code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+    expect(guest.room!.seats[1].playerId, guest.playerId);
+
+    host.swapSeats(1, 2);
+    await until(
+      guest,
+      () => guest.room!.seats[2].playerId == guest.playerId,
+      what: 'the guest to move to the host\'s team',
+    );
+    expect(guest.room!.rules.teamOf(2), guest.room!.rules.teamOf(0));
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
+  test('a player\'s picture shows on their seat for everyone', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+    guest.joinRoom(host.room!.code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+
+    guest.setAvatar(Avatar.animal(16));
+    await until(
+      host,
+      () => host.room!.seats[1].avatar == Avatar.animal(16),
+      what: 'the guest\'s bee',
+    );
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
+  test('a line of chat reaches the whole table, emoji and all', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+    guest.joinRoom(host.room!.code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+
+    final heard = host.chat.first;
+    final echoed = guest.chat.first;
+    guest.say('nice roll 🎲🔥');
+    final line = await heard.timeout(const Duration(seconds: 5));
+    expect(line.seat, 1);
+    expect(line.text, 'nice roll 🎲🔥');
+    expect((await echoed.timeout(const Duration(seconds: 5))).seat, 1);
 
     host.dispose();
     guest.dispose();

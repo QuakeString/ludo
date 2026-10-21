@@ -18,6 +18,9 @@ import '../fresh_seed.dart';
 import '../match_history.dart';
 import '../saved_game.dart';
 import 'game_over.dart';
+import 'avatars.dart';
+import 'house_rules.dart';
+import 'table_chat.dart';
 import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 
@@ -136,6 +139,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   final List<MatchUpdate> _queued = [];
   StreamSubscription<MatchUpdate>? _matchSub;
   StreamSubscription<Reaction>? _reactionSub;
+  StreamSubscription<Said>? _chatSub;
 
   /// Reactions on screen right now, newest last. Each goes after a moment.
   final List<_Bubble> _bubbles = [];
@@ -182,6 +186,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (session != null) {
       _matchSub = session.matches.listen(_serverSaid);
       _reactionSub = session.reactions.listen(_reacted);
+      _chatSub = session.chat.listen(_chatted);
       session.addListener(_sessionChanged);
     } else if (saved != null) {
       // Saved games can stop between a roll and its move. Pick the turn up
@@ -206,6 +211,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     _silence();
     _matchSub?.cancel();
     _reactionSub?.cancel();
+    _chatSub?.cancel();
     for (final b in _bubbles) {
       b.timer.cancel();
     }
@@ -300,15 +306,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (mounted) setState(() {});
   }
 
-  void _reacted(Reaction r) {
+  void _reacted(Reaction r) => _bubble(r.seat, emoji: r.emoji);
+
+  /// A line of chat stays up long enough to read; a reaction is a glance.
+  void _chatted(Said s) => _bubble(
+    s.seat,
+    text: s.text,
+    stay: Duration(milliseconds: 4000 + 40 * s.text.length),
+  );
+
+  void _bubble(
+    int seat, {
+    String? emoji,
+    String? text,
+    Duration stay = const Duration(milliseconds: 2600),
+  }) {
     if (!mounted) return;
     final id = _bubbleCount++;
     final bubble = _Bubble(
       id: id,
-      who: _nameOf(r.seat),
-      seat: r.seat,
-      emoji: r.emoji,
-      timer: Timer(const Duration(milliseconds: 2600), () {
+      who: seat == _session?.yourSeat ? 'You' : _nameOf(seat),
+      seat: seat,
+      emoji: emoji,
+      text: text,
+      timer: Timer(stay, () {
         if (mounted) setState(() => _bubbles.removeWhere((b) => b.id == id));
       }),
     );
@@ -769,6 +790,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return nameOfArm(_state.armOf(seat), _state.board.arms);
   }
 
+  /// The picture over a seat. Online it is whatever that player chose; against
+  /// the computer the person is this phone's player; in pass & play, where
+  /// one phone has several people, each seat gets an animal of its own.
+  String? _avatarOf(int seat) {
+    final seats = _session?.room?.seats;
+    if (seats != null) return seat < seats.length ? seats[seat].avatar : null;
+    if (_isComputer(seat)) return null;
+    if (widget.aiSeats.isNotEmpty) return myAvatar;
+    return Avatar.animal(_passPlayAnimals[seat % _passPlayAnimals.length]);
+  }
+
+  /// Lion, fox, panda, penguin, butterfly, bee: one each, never two alike.
+  static const _passPlayAnimals = [0, 4, 3, 9, 15, 16];
+
   /// How tall a seat rail is, including its padding.
   ///
   /// Fixed, and used to work out the board's square before either is laid
@@ -889,6 +924,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       teamLetter: rules.isTeamGame
           ? String.fromCharCode(65 + rules.teamOf(seat))
           : null,
+      avatar: _avatarOf(seat),
     );
   }
 
@@ -1010,6 +1046,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               : 'Room ${session.room?.code ?? ''}',
         ),
         actions: [
+          IconButton(
+            key: const ValueKey('game-rules'),
+            tooltip: 'Rules',
+            onPressed: () => showRuleBoard(context, rules),
+            icon: const Icon(Icons.menu_book_rounded),
+          ),
           if (session != null)
             PopupMenuButton<int>(
               tooltip: 'Send a reaction',
@@ -1039,12 +1081,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           children: [
             Column(
               children: [
-                _TurnBar(
-                  state: _state,
-                  flash: _flash,
-                  aiSeats: widget.aiSeats,
-                  session: session,
-                ),
                 if (session?.disconnected ?? false)
                   const _Banner(
                     icon: Icons.wifi_off,
@@ -1061,9 +1097,18 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                       // player's die most of a screen away from the house it
                       // belongs to.
                       final band = _seatBandHeight(rules);
+                      // A chip on an outside square is wider than the square
+                      // and hangs over the board's edge; on a phone, where the
+                      // board is as wide as the screen, that edge is the
+                      // screen's, and the chip was cut off. A small gutter
+                      // either side keeps it whole.
+                      const gutter = 8.0;
                       final side = math.max(
                         160.0,
-                        math.min(outer.maxWidth, outer.maxHeight - band * 2),
+                        math.min(
+                          outer.maxWidth - gutter * 2,
+                          outer.maxHeight - band * 2,
+                        ),
                       );
                       return Center(
                         child: SizedBox(
@@ -1173,25 +1218,54 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   isComputerTurn: !_myMove && !_state.isOver,
                   onPass: () => session == null ? _passLocal() : session.pass(),
                 ),
+                if (session != null && !_state.isOver)
+                  ChatBar(onSend: session.say),
               ],
+            ),
+            // Laid over the top of the board rather than above it, so a note
+            // coming and going never resizes the board under the player's
+            // finger.
+            Positioned(
+              top: 0,
+              left: 0,
+              right: 0,
+              child: IgnorePointer(
+                child: _TurnBar(
+                  state: _state,
+                  flash: _flash,
+                  aiSeats: widget.aiSeats,
+                  session: session,
+                ),
+              ),
             ),
             if (_bubbles.isNotEmpty)
               Positioned(
-                top: 64,
+                top: 4,
                 left: 0,
                 right: 0,
                 child: IgnorePointer(
                   child: Column(
                     children: [
                       for (final b in _bubbles)
-                        _ReactionBubble(
-                          key: ValueKey(b.id),
-                          bubble: b,
-                          colour: colourOfArm(
-                            _state.armOf(b.seat),
-                            _state.board.arms,
-                          ),
-                        ),
+                        b.text != null
+                            ? ChatLine(
+                                key: ValueKey(b.id),
+                                who: b.who,
+                                avatar: _avatarOf(b.seat),
+                                text: b.text!,
+                                colour: colourOfArm(
+                                  _state.armOf(b.seat),
+                                  _state.board.arms,
+                                ),
+                              )
+                            : _ReactionBubble(
+                                key: ValueKey(b.id),
+                                bubble: b,
+                                colour: colourOfArm(
+                                  _state.armOf(b.seat),
+                                  _state.board.arms,
+                                ),
+                              ),
                     ],
                   ),
                 ),
@@ -1225,7 +1299,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   }
 }
 
-/// Whose turn it is, plus the turn clock when the rules use one.
+/// Who won, or a passing note such as a turn that had no move.
 class _TurnBar extends StatelessWidget {
   const _TurnBar({
     required this.state,
@@ -1258,36 +1332,48 @@ class _TurnBar extends StatelessWidget {
     final over = state.isOver;
     final seat = over ? state.winner! : state.turn;
     final who = _nameFor(seat);
+    // Whose turn it is already shows on the board, by the seat with the die,
+    // so the bar only speaks when there is something else to say.
     final label = over
         ? state.rules.isTeamGame
               ? 'Team ${state.winningTeam! + 1} wins'
               : '$who wins'
-        : flash ??
-              (state.awaitingRoll
-                  ? '$who — roll the dice'
-                  : '$who — move a chip');
+        : flash;
+    if (label == null) return const SizedBox.shrink();
 
+    final palette = BoardPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 6, 16, 2),
-      child: Row(
-        children: [
-          Container(
-            width: 13,
-            height: 13,
-            decoration: BoxDecoration(
-              color: colourOfArm(state.armOf(seat), state.board.arms),
-              shape: BoxShape.circle,
-            ),
+      child: Center(
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+          decoration: BoxDecoration(
+            color: palette.panel.withValues(alpha: 0.94),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: palette.panelEdge),
           ),
-          const SizedBox(width: 9),
-          Expanded(
-            child: Text(
-              label,
-              style: Theme.of(context).textTheme.titleMedium
-                  ?.copyWith(fontWeight: FontWeight.w600),
-            ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 11,
+                height: 11,
+                decoration: BoxDecoration(
+                  color: colourOfArm(state.armOf(seat), state.board.arms),
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Flexible(
+                child: Text(
+                  label,
+                  style: Theme.of(context).textTheme.titleSmall
+                      ?.copyWith(fontWeight: FontWeight.w600),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -1438,14 +1524,18 @@ class _Bubble {
     required this.id,
     required this.who,
     required this.seat,
-    required this.emoji,
+    this.emoji,
+    this.text,
     required this.timer,
   });
 
   final int id;
   final String who;
   final int seat;
-  final String emoji;
+  final String? emoji;
+
+  /// A line of chat, when this is one rather than a reaction.
+  final String? text;
   final Timer timer;
 }
 
@@ -1487,7 +1577,7 @@ class _ReactionBubble extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Text(bubble.emoji, style: const TextStyle(fontSize: 28)),
+            Text(bubble.emoji ?? '', style: const TextStyle(fontSize: 28)),
             const SizedBox(width: 8),
             Text(
               bubble.who,

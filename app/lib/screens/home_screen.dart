@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../app_update.dart';
 import '../saved_game.dart';
 import '../theme/seat_colors.dart';
 import 'game_screen.dart';
@@ -29,10 +30,43 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   SavedGame? _saved;
 
+  /// A newer build than this one, once the check has found one.
+  int? _update;
+  bool _updating = false;
+
   @override
   void initState() {
     super.initState();
     _lookForSavedGame();
+    _lookForUpdate();
+  }
+
+  Future<void> _lookForUpdate() async {
+    final newer = await AppUpdate.newer();
+    if (mounted && newer != null) setState(() => _update = newer);
+  }
+
+  Future<void> _installUpdate() async {
+    setState(() => _updating = true);
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      final outcome = await AppUpdate.install();
+      if (outcome == 'permission') {
+        messenger.showSnackBar(
+          const SnackBar(
+            content: Text(
+              'Allow Ludo to install updates, then tap Update again.',
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      messenger.showSnackBar(
+        SnackBar(content: Text('The update did not download ($e)')),
+      );
+    } finally {
+      if (mounted) setState(() => _updating = false);
+    }
   }
 
   /// Read again every time this page comes back into view: the game just left
@@ -64,6 +98,10 @@ class _HomeScreenState extends State<HomeScreen> {
                   style: TextStyle(fontSize: 13.5, color: palette.faint),
                 ),
                 const SizedBox(height: 30),
+                if (_update != null) ...[
+                  _UpdateCard(busy: _updating, onUpdate: _installUpdate),
+                  const SizedBox(height: 12),
+                ],
                 if (saved != null) ...[
                   _ContinueCard(
                     saved: saved,
@@ -252,26 +290,100 @@ class _ContinueCard extends StatelessWidget {
   }
 }
 
+/// A newer version is out: one tap fetches it and opens the installer.
+class _UpdateCard extends StatelessWidget {
+  const _UpdateCard({required this.busy, required this.onUpdate});
+
+  final bool busy;
+  final VoidCallback onUpdate;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = BoardPalette.of(context);
+    return Material(
+      color: palette.panel,
+      borderRadius: BorderRadius.circular(16),
+      child: Container(
+        padding: const EdgeInsets.fromLTRB(16, 12, 12, 12),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: seatColors[1], width: 1.5),
+        ),
+        child: Row(
+          children: [
+            Icon(Icons.system_update_rounded, color: seatColors[1]),
+            const SizedBox(width: 12),
+            const Expanded(
+              child: Text(
+                'A new version of Ludo is ready',
+                style: TextStyle(fontWeight: FontWeight.w700),
+              ),
+            ),
+            FilledButton(
+              key: const ValueKey('update-app'),
+              onPressed: busy ? null : onUpdate,
+              child: busy
+                  ? const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : const Text('Update'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// LUDO, a letter per seat colour.
+/// LUDO in the four board colours, and Time written by hand beside it.
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      for (var i = 0; i < 4; i++)
-        Text(
-          'LUDO'[i],
-          style: TextStyle(
-            fontSize: 46,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 4,
-            color: seatColors[i],
-          ),
+  Widget build(BuildContext context) {
+    final ink = Theme.of(context).colorScheme.onSurface;
+    return Semantics(
+      label: 'LUDO Time',
+      excludeSemantics: true,
+      // Shrinks rather than overflows on the narrowest phones.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            for (var i = 0; i < 4; i++)
+              Text(
+                'LUDO'[i],
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 50,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 3,
+                  color: seatColors[i],
+                ),
+              ),
+            const SizedBox(width: 10),
+            Transform.rotate(
+              angle: -0.1,
+              child: Text(
+                'Time',
+                style: TextStyle(
+                  fontFamily: 'Pacifico',
+                  fontSize: 36,
+                  color: ink,
+                ),
+              ),
+            ),
+          ],
         ),
-    ],
-  );
+      ),
+    );
+  }
 }
 
 class _ModeCard extends StatelessWidget {

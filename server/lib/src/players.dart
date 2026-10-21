@@ -25,6 +25,7 @@ class PlayerRecord {
     Set<String>? incoming,
     Set<String>? outgoing,
     List<MatchSummary>? history,
+    this.avatar,
   })  : secretHashes = [if (secretHash.isNotEmpty) secretHash],
         friends = friends ?? {},
         incoming = incoming ?? {},
@@ -39,6 +40,9 @@ class PlayerRecord {
   final List<String> secretHashes;
   String name;
   bool chosenName;
+
+  /// Their picture, as [Avatar] writes it, or null for none.
+  String? avatar;
 
   /// What a friend types to send a request. Separate from [id], which every
   /// table shows.
@@ -93,6 +97,7 @@ class PlayerRecord {
         'in': incoming.toList(),
         'out': outgoing.toList(),
         'history': [for (final m in history) m.toJson()],
+        if (avatar != null) 'avatar': avatar,
       };
 
   factory PlayerRecord.fromJson(Map<String, Object?> j) {
@@ -102,6 +107,7 @@ class PlayerRecord {
       secretHash: j['secret'] as String? ?? '',
       name: j['name'] as String? ?? 'Guest',
       chosenName: j['chosen'] as bool? ?? false,
+      avatar: j['avatar'] as String?,
       friendCode: j['code'] as String? ?? '',
       xp: (j['xp'] as num?)?.toInt() ?? 0,
       played: (j['played'] as num?)?.toInt() ?? 0,

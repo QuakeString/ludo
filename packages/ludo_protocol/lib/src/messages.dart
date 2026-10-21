@@ -22,9 +22,13 @@ class SeatInfo {
     this.connected = true,
     this.ready = false,
     this.level = 1,
+    this.avatar,
   });
 
   final int seat;
+
+  /// The player's picture, as [Avatar] writes it. Null for none chosen.
+  final String? avatar;
 
   /// Null when the seat is empty.
   final String? playerId;
@@ -46,6 +50,7 @@ class SeatInfo {
         'connected': connected,
         'ready': ready,
         'level': level,
+        if (avatar != null) 'avatar': avatar,
       };
 
   factory SeatInfo.fromJson(Map<String, Object?> j) => SeatInfo(
@@ -56,7 +61,44 @@ class SeatInfo {
         connected: j['connected'] as bool? ?? true,
         ready: j['ready'] as bool? ?? false,
         level: (j['level'] as num?)?.toInt() ?? 1,
+        avatar: j['avatar'] as String?,
       );
+}
+
+/// A player's picture, as it travels: `a:<n>` for one of the [animalCount]
+/// drawn animals, or `p:<base64>` for a small photo of their own.
+class Avatar {
+  const Avatar._();
+
+  static const animalCount = 20;
+
+  /// The most a photo may take, encoded. A photo is shrunk on the phone to a
+  /// thumbnail first, which comes in well under this.
+  static const photoLimit = 24000;
+
+  static String animal(int n) => 'a:$n';
+  static String photo(String base64) => 'p:$base64';
+
+  /// The animal [avatar] names, or null when it is not one.
+  static int? animalOf(String? avatar) {
+    if (avatar == null || !avatar.startsWith('a:')) return null;
+    final n = int.tryParse(avatar.substring(2));
+    return n != null && n >= 0 && n < animalCount ? n : null;
+  }
+
+  /// The photo [avatar] carries, still encoded, or null.
+  static String? photoOf(String? avatar) =>
+      avatar != null && avatar.startsWith('p:') ? avatar.substring(2) : null;
+
+  /// Whether [avatar] is one the server will pass on.
+  static bool isValid(String avatar) {
+    if (animalOf(avatar) != null) return true;
+    final p = photoOf(avatar);
+    return p != null &&
+        p.isNotEmpty &&
+        avatar.length <= photoLimit &&
+        RegExp(r'^[A-Za-z0-9+/]+={0,2}$').hasMatch(p);
+  }
 }
 
 /// Everything the client needs to draw a lobby.
@@ -133,6 +175,8 @@ sealed class Envelope {
       'leaveRoom' => const LeaveRoom(),
       'setReady' => SetReady.fromJson(j),
       'addComputer' => AddComputer.fromJson(j),
+      'swapSeats' => SwapSeats.fromJson(j),
+      'setAvatar' => SetAvatar.fromJson(j),
       'startMatch' => const StartMatch(),
       'play' => Play.fromJson(j),
       'room' => RoomUpdate.fromJson(j),
@@ -155,6 +199,8 @@ sealed class Envelope {
       'rematch' => const Rematch(),
       'react' => React.fromJson(j),
       'reaction' => Reaction.fromJson(j),
+      'say' => Say.fromJson(j),
+      'said' => Said.fromJson(j),
       'ping' => const Ping(),
       'pong' => const Pong(),
       _ => throw FormatException('unknown message "$t"'),
@@ -279,6 +325,38 @@ class AddComputer extends Envelope {
         level: AiLevel.values.firstWhere((l) => l.name == j['level'],
             orElse: () => AiLevel.normal),
       );
+}
+
+/// The picture to show for this player at every table, as [Avatar] writes
+/// it. Null takes it away.
+class SetAvatar extends Envelope {
+  const SetAvatar(this.avatar);
+  final String? avatar;
+
+  @override
+  String get type => 'setAvatar';
+  @override
+  Map<String, Object?> payload() => {if (avatar != null) 'avatar': avatar};
+
+  factory SetAvatar.fromJson(Map<String, Object?> j) =>
+      SetAvatar(j['avatar'] as String?);
+}
+
+/// Host moves whoever is in seat [a] to seat [b] and back, before the start.
+/// In a team game the seats are the teams, so this is how the host decides
+/// who partners whom.
+class SwapSeats extends Envelope {
+  const SwapSeats(this.a, this.b);
+  final int a;
+  final int b;
+
+  @override
+  String get type => 'swapSeats';
+  @override
+  Map<String, Object?> payload() => {'a': a, 'b': b};
+
+  factory SwapSeats.fromJson(Map<String, Object?> j) =>
+      SwapSeats((j['a'] as num).toInt(), (j['b'] as num).toInt());
 }
 
 class StartMatch extends Envelope {
@@ -492,6 +570,24 @@ class React extends Envelope {
 
   factory React.fromJson(Map<String, Object?> j) =>
       React((j['i'] as num?)?.toInt() ?? -1);
+}
+
+/// The longest chat line, in characters. Long enough for a sentence, short
+/// enough that a line across the top of the board stays one line or two.
+const chatLimit = 140;
+
+/// A line of chat for the rest of the table. Emoji are just characters here.
+class Say extends Envelope {
+  const Say(this.text);
+  final String text;
+
+  @override
+  String get type => 'say';
+  @override
+  Map<String, Object?> payload() => {'text': text};
+
+  factory Say.fromJson(Map<String, Object?> j) =>
+      Say(j['text'] as String? ?? '');
 }
 
 // --- server to app ---------------------------------------------------------
@@ -771,6 +867,23 @@ class Reaction extends Envelope {
   factory Reaction.fromJson(Map<String, Object?> j) => Reaction(
         seat: (j['seat'] as num).toInt(),
         index: (j['i'] as num).toInt(),
+      );
+}
+
+/// Somebody at the table said something.
+class Said extends Envelope {
+  const Said({required this.seat, required this.text});
+  final int seat;
+  final String text;
+
+  @override
+  String get type => 'said';
+  @override
+  Map<String, Object?> payload() => {'seat': seat, 'text': text};
+
+  factory Said.fromJson(Map<String, Object?> j) => Said(
+        seat: (j['seat'] as num).toInt(),
+        text: j['text'] as String? ?? '',
       );
 }
 
