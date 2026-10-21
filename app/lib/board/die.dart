@@ -191,7 +191,9 @@ int faceShownFor(int value) {
   var best = 0;
   var bestZ = double.negativeInfinity;
   for (var f = 0; f < 6; f++) {
-    final z = _CubePainter._rotate(_CubePainter._normalOf(f), rx, ry)[2];
+    final z = _CubePainter._view(
+      _CubePainter._rotate(_CubePainter._normalOf(f), rx, ry),
+    )[2];
     if (z > bestZ) {
       bestZ = z;
       best = f;
@@ -384,7 +386,7 @@ class _CubePainter extends CustomPainter {
   /// the eye and goes back down, and one that only slides up the screen reads
   /// as being pushed rather than thrown.
   static double halfFor(double s, double t) =>
-      s * 0.33 * (1 + 0.22 * math.sin(math.pi * t.clamp(0.0, 1.0)));
+      s * 0.28 * (1 + 0.22 * math.sin(math.pi * t.clamp(0.0, 1.0)));
 
   /// The rotation that brings a given number to the front.
   /// Screen y grows downward, so the face marked 2 sits at -Y and needs a
@@ -413,10 +415,11 @@ class _CubePainter extends CustomPainter {
     final lift = math.sin(math.pi * t.clamp(0.0, 1.0));
     final half = halfFor(s, t);
 
-    // The throw tumbles in three dimensions, and then the die lands square to
-    // the camera. A number read off a corner-on cube is a number you have to
-    // work out; the point of the roll is the answer, so the answer is shown
-    // flat. The 3D is in the throw, not in the result.
+    // The throw tumbles in three dimensions, and the die lands with the
+    // rolled number facing the camera. Seen dead square, though, a cube is a
+    // square: so it is seen from a little above and to the right ([_view]),
+    // enough that the top and side show it is solid, never so much that the
+    // number has to be worked out.
     final (restX, restY) = _restFor(value);
 
     final settle = Curves.easeOutCubic.transform(t.clamp(0.0, 1.0));
@@ -427,7 +430,7 @@ class _CubePainter extends CustomPainter {
     final hop = lift * s * 0.15;
 
     Offset project(List<double> v) {
-      final p = _rotate(v, rx, ry);
+      final p = _view(_rotate(v, rx, ry));
       // Weak perspective — enough to read as a solid, not so much that the
       // near face balloons and the die turns into a truncated pyramid.
       final k = 7.0 / (7.0 - p[2]);
@@ -474,7 +477,7 @@ class _CubePainter extends CustomPainter {
 
     for (final f in visible) {
       final quad = [for (final i in _faces[f]) projected[i]];
-      final normal = _rotate(_normalOf(f), rx, ry);
+      final normal = _view(_rotate(_normalOf(f), rx, ry));
       final inset = _shrink(quad, half * 0.16);
       final path = _rounded(inset, half * 0.22);
 
@@ -702,6 +705,10 @@ class _CubePainter extends CustomPainter {
     final z2 = v[1] * sx + z1 * cx;
     return [x1, y2, z2];
   }
+
+  /// Where the camera stands: a little above the die and to its right, so a
+  /// settled die shows its top and one side as well as the number.
+  static List<double> _view(List<double> v) => _rotate(v, -0.38, -0.46);
 
   static double _lerp(double a, double b, double t) => a + (b - a) * t;
 

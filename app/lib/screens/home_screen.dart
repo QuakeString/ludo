@@ -338,25 +338,52 @@ class _UpdateCard extends StatelessWidget {
 }
 
 /// LUDO, a letter per seat colour.
+/// LUDO in the four board colours, and Time written by hand beside it.
 class _Wordmark extends StatelessWidget {
   const _Wordmark();
 
   @override
-  Widget build(BuildContext context) => Row(
-    mainAxisAlignment: MainAxisAlignment.center,
-    children: [
-      for (var i = 0; i < 4; i++)
-        Text(
-          'LUDO'[i],
-          style: TextStyle(
-            fontSize: 46,
-            fontWeight: FontWeight.w800,
-            letterSpacing: 4,
-            color: seatColors[i],
-          ),
+  Widget build(BuildContext context) {
+    final ink = Theme.of(context).colorScheme.onSurface;
+    return Semantics(
+      label: 'LUDO Time',
+      excludeSemantics: true,
+      // Shrinks rather than overflows on the narrowest phones.
+      child: FittedBox(
+        fit: BoxFit.scaleDown,
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.baseline,
+          textBaseline: TextBaseline.alphabetic,
+          children: [
+            for (var i = 0; i < 4; i++)
+              Text(
+                'LUDO'[i],
+                style: TextStyle(
+                  fontFamily: 'Fredoka',
+                  fontSize: 50,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 3,
+                  color: seatColors[i],
+                ),
+              ),
+            const SizedBox(width: 10),
+            Transform.rotate(
+              angle: -0.1,
+              child: Text(
+                'Time',
+                style: TextStyle(
+                  fontFamily: 'Pacifico',
+                  fontSize: 36,
+                  color: ink,
+                ),
+              ),
+            ),
+          ],
         ),
-    ],
-  );
+      ),
+    );
+  }
 }
 
 class _ModeCard extends StatelessWidget {
