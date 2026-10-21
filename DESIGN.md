@@ -519,6 +519,19 @@ docker compose up --build     # server on :8080, WebSocket at ws://localhost:808
 Postgres is in the compose file for what comes next (accounts, friends, match history).
 The game server does not touch it yet — rooms live in memory on purpose.
 
+### Hosted
+
+The server runs on Fly.io as `quakestring-ludo` (see `fly.toml`): one always-on machine
+in Mumbai with a 1 GB volume at `/data`, where players are kept in `players.json`.
+`.github/workflows/deploy.yml` deploys it on every server change once the repository has
+a `FLY_API_TOKEN` secret, and the app connects to `wss://quakestring-ludo.fly.dev/ws` by
+default.
+
+A player is an id plus a secret the server minted. Ids are public (everyone at a table
+sees them); the secret never leaves the phone that holds it, and the server stores only its
+SHA-256. An app speaking an older protocol is told to update, and each connection is
+rate-limited (a burst of 30, then 10 messages a second).
+
 ### Where it goes
 
 One process holds every live room, so the first deployment is **one container**: any VPS,

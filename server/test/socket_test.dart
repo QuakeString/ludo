@@ -58,11 +58,16 @@ class Player {
 }
 
 Future<(Player, Welcome)> connect(RunningServer server,
-    {String? guestId, String? name}) async {
+    {String? guestId, String? secret, String? name, int? version}) async {
   final channel = IOWebSocketChannel.connect(server.webSocketUri);
   await channel.ready;
   final player = Player(channel);
-  player.send(Hello(guestId: guestId, displayName: name));
+  player.send(Hello(
+    guestId: guestId,
+    secret: secret,
+    displayName: name,
+    version: version ?? protocolVersion,
+  ));
   return (player, await player.next<Welcome>());
 }
 
@@ -89,22 +94,46 @@ void main() {
   });
 
   test('a returning guest keeps the identity it was given', () async {
-    final (first, welcome) =
-        await connect(server, guestId: 'g-known', name: 'Rajat');
-    expect(welcome.playerId, 'g-known');
+    final (first, welcome) = await connect(server, name: 'Rajat');
     expect(welcome.displayName, 'Rajat');
+    expect(welcome.chosenName, isTrue);
+    expect(welcome.secret, isNotNull, reason: 'a new player gets a secret');
     await first.close();
 
-    final (again, second) =
-        await connect(server, guestId: 'g-known', name: 'Rajat');
-    expect(second.playerId, 'g-known',
+    final (again, second) = await connect(server,
+        guestId: welcome.playerId, secret: welcome.secret);
+    expect(second.playerId, welcome.playerId,
         reason: 'coming back must not mint a new identity');
+    expect(second.displayName, 'Rajat');
+    expect(second.secret, isNull, reason: 'the secret is only sent once');
     await again.close();
   });
 
+  test('an id without its secret is not enough to be somebody', () async {
+    final (first, welcome) = await connect(server, name: 'Rajat');
+    await first.close();
+
+    // Ids are public: everyone at a table sees them. Knowing one must not let
+    // anybody sit down as that player.
+    final (thief, stolen) =
+        await connect(server, guestId: welcome.playerId, secret: 'a guess');
+    expect(stolen.playerId, isNot(welcome.playerId));
+    await thief.close();
+  });
+
+  test('an out-of-date app is told to update', () async {
+    final channel = IOWebSocketChannel.connect(server.webSocketUri);
+    await channel.ready;
+    final player = Player(channel);
+    player.send(const Hello(version: 1));
+    final oops = await player.next<Oops>();
+    expect(oops.code, 'update');
+    await player.close();
+  });
+
   test('two players meet in a room and play a move over the wire', () async {
-    final (host, _) = await connect(server, guestId: 'g-host', name: 'Rajat');
-    final (guest, _) = await connect(server, guestId: 'g-guest', name: 'Ammu');
+    final (host, _) = await connect(server, name: 'Rajat');
+    final (guest, _) = await connect(server, name: 'Ammu');
 
     host.send(
         const CreateRoom(rules: RuleConfig(players: 2, tokensPerPlayer: 2)));
@@ -133,8 +162,8 @@ void main() {
   });
 
   test('the server refuses a move from the wrong player', () async {
-    final (host, _) = await connect(server, guestId: 'g-h2');
-    final (guest, _) = await connect(server, guestId: 'g-g2');
+    final (host, _) = await connect(server);
+    final (guest, _) = await connect(server);
 
     host.send(
         const CreateRoom(rules: RuleConfig(players: 2, tokensPerPlayer: 2)));
@@ -153,7 +182,7 @@ void main() {
   });
 
   test('a malformed frame is answered, not fatal', () async {
-    final (player, _) = await connect(server, guestId: 'g-junk');
+    final (player, _) = await connect(server);
     player.channel.sink.add('this is not json');
     final oops = await player.next<Oops>();
     expect(oops.message, contains('could not read'));

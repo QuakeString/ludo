@@ -2,6 +2,13 @@ import 'dart:convert';
 
 import 'package:ludo_engine/ludo_engine.dart';
 
+/// The version of this wire format.
+///
+/// Sent by the app in [Hello]. The server refuses anything older than it can
+/// talk to with an [Oops] whose code is `update`, so a phone with an old copy of
+/// the app is told to update instead of failing in some stranger way later.
+const protocolVersion = 2;
+
 /// What a room is doing right now.
 enum RoomPhase { lobby, playing, finished }
 
@@ -140,24 +147,42 @@ sealed class Envelope {
 
 // --- app to server ---------------------------------------------------------
 
-/// First thing a client sends. [guestId] returns an existing anonymous
-/// identity; leaving it out asks the server to mint one.
+/// First thing a client sends. [guestId] and [secret] return an existing
+/// anonymous identity; leaving them out asks the server to mint one.
+///
+/// The id alone is not enough to be somebody. Ids are public — every player at
+/// a table sees everyone else's — so the server only accepts an id together
+/// with the secret it handed out when it minted that id.
 class Hello extends Envelope {
-  const Hello({this.guestId, this.displayName});
+  const Hello({
+    this.guestId,
+    this.secret,
+    this.displayName,
+    this.version = protocolVersion,
+  });
   final String? guestId;
+  final String? secret;
   final String? displayName;
+
+  /// The [protocolVersion] the sender speaks. Absent means the first version,
+  /// from before the field existed.
+  final int version;
 
   @override
   String get type => 'hello';
   @override
   Map<String, Object?> payload() => {
         if (guestId != null) 'guestId': guestId,
+        if (secret != null) 'secret': secret,
         if (displayName != null) 'name': displayName,
+        'v': version,
       };
 
   factory Hello.fromJson(Map<String, Object?> j) => Hello(
         guestId: j['guestId'] as String?,
+        secret: j['secret'] as String?,
         displayName: j['name'] as String?,
+        version: (j['v'] as num?)?.toInt() ?? 1,
       );
 }
 
@@ -283,18 +308,38 @@ class Play extends Envelope {
 // --- server to app ---------------------------------------------------------
 
 class Welcome extends Envelope {
-  const Welcome({required this.playerId, required this.displayName});
+  const Welcome({
+    required this.playerId,
+    required this.displayName,
+    this.secret,
+    this.chosenName = false,
+  });
   final String playerId;
   final String displayName;
+
+  /// Only sent when the server has just minted [playerId]. The app keeps it
+  /// and sends it back in every later [Hello]; nobody else ever sees it.
+  final String? secret;
+
+  /// Whether the player picked [displayName] themselves, rather than being
+  /// handed a `Guest_1234`. The app asks for a name once while this is false.
+  final bool chosenName;
 
   @override
   String get type => 'welcome';
   @override
-  Map<String, Object?> payload() => {'playerId': playerId, 'name': displayName};
+  Map<String, Object?> payload() => {
+        'playerId': playerId,
+        'name': displayName,
+        if (secret != null) 'secret': secret,
+        'chosen': chosenName,
+      };
 
   factory Welcome.fromJson(Map<String, Object?> j) => Welcome(
         playerId: j['playerId'] as String,
         displayName: j['name'] as String,
+        secret: j['secret'] as String?,
+        chosenName: j['chosen'] as bool? ?? false,
       );
 }
 

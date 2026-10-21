@@ -8,14 +8,17 @@ import '../net/online_session.dart';
 import '../theme/seat_colors.dart';
 import 'game_screen.dart';
 
-/// Where the server lives. Overridable at build time so a debug build can
-/// point at a laptop without editing code:
+/// Where the server lives: the hosted one, unless a build says otherwise. A
+/// debug build can point at a laptop without editing code:
 ///
 ///   flutter run --dart-define=LUDO_SERVER=ws://192.168.1.20:8080/ws
 const serverUri = String.fromEnvironment(
   'LUDO_SERVER',
-  defaultValue: 'ws://localhost:8080/ws',
+  defaultValue: 'wss://$serverHost/ws',
 );
+
+/// The hosted server's address, also used for invite links. Set in `fly.toml`.
+const serverHost = 'quakestring-ludo.fly.dev';
 
 /// True when this build was never given a server to talk to.
 ///
@@ -110,7 +113,11 @@ class _OnlineScreenState extends State<OnlineScreen> {
       if (!mounted) return;
       setState(() {
         _connecting = false;
-        _problem = 'Could not reach the server at $serverUri.\n$e';
+        _problem = connection.outOfDate
+            ? 'This copy of Ludo is out of date. Install the latest version '
+                  'to play online.'
+            : 'Could not reach the game server. Check your connection and '
+                  'try again.\n\n($e)';
       });
     }
   }
