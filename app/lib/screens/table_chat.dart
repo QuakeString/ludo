@@ -13,6 +13,9 @@ const chatEmoji = [
   '🔥', '🎉', '❤️', '💔', '⭐', '🎲', '🏆', '🍀', '😈', '👀',
 ];
 
+/// How tall the chat bar is with its emoji panel shut.
+const chatBarHeight = 56.0;
+
 /// Where a player types to the rest of an online table, along the bottom of
 /// the game. What they send shows at the top of everyone's board.
 class ChatBar extends StatefulWidget {
@@ -90,8 +93,9 @@ class _ChatBarState extends State<ChatBar> {
                 ],
               ),
             ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(4, 4, 4, 4),
+          Container(
+            height: chatBarHeight,
+            padding: const EdgeInsets.all(4),
             child: Row(
               children: [
                 IconButton(
