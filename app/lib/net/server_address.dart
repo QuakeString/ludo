@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// Where the game server is.
@@ -24,7 +25,24 @@ class ServerAddress {
       final saved = prefs.getString(_key);
       if (saved != null && saved.isNotEmpty) return normalise(saved);
     } catch (_) {}
-    return built.isEmpty ? null : normalise(built);
+    if (built.isNotEmpty) return normalise(built);
+    return kIsWeb ? servedFrom(Uri.base) : null;
+  }
+
+  /// The server a browser page was loaded from, when it was.
+  ///
+  /// The game server serves the web app itself at /play/, and a page loaded
+  /// from there already knows where its server is: the same host and port,
+  /// over `wss://` if the page came over HTTPS and `ws://` if not. Anywhere
+  /// else — GitHub Pages, say — the page has no server of its own.
+  static Uri? servedFrom(Uri page) {
+    if (!page.hasAuthority || !page.path.startsWith('/play')) return null;
+    return Uri(
+      scheme: page.scheme == 'https' ? 'wss' : 'ws',
+      host: page.host,
+      port: page.hasPort ? page.port : null,
+      path: '/ws',
+    );
   }
 
   static Future<void> save(String address) async {

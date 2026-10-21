@@ -31,7 +31,13 @@ Future<void> main(List<String> args) async {
           : File('$dataDir/players.json'),
     ),
   );
-  final server = await startServer(port: port, hub: hub);
+  // The browser build of the app, if this server was built with it.
+  final web = Platform.environment['WEB_DIR'];
+  final server = await startServer(
+    port: port,
+    hub: hub,
+    webRoot: web == null || web.isEmpty ? null : Directory(web),
+  );
   stdout.writeln('Ludo server listening on port ${server.port}');
 
   // Shut down cleanly so in-flight sockets are closed rather than dropped.

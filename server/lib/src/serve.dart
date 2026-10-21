@@ -8,6 +8,7 @@ import 'package:shelf_web_socket/shelf_web_socket.dart';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 import 'server.dart';
+import 'web_app.dart';
 
 /// A running game server.
 class RunningServer {
@@ -37,7 +38,9 @@ Future<RunningServer> startServer({
   String address = '0.0.0.0',
   LudoHub? hub,
   RateLimiter Function()? limits,
+  Directory? webRoot,
 }) async {
+  final web = webRoot == null ? null : WebApp(webRoot);
   final theHub = hub ?? LudoHub();
   await theHub.players.load();
   final clients = <String, SocketClient>{};
@@ -120,11 +123,18 @@ Future<RunningServer> startServer({
   final handler = Cascade()
       .add((Request request) {
         if (request.url.path == 'health') return Response.ok('ok');
+        final page = web?.handle(request);
+        if (page != null) return page;
+        final inBrowser = web?.available ?? false;
         final invite =
             RegExp(r'^r/([A-Za-z0-9-]{4,12})$').firstMatch(request.url.path);
         if (invite != null) {
-          return Response.ok(invitePage(invite.group(1)!),
+          return Response.ok(invitePage(invite.group(1)!, web: inBrowser),
               headers: {'content-type': 'text/html; charset=utf-8'});
+        }
+        if (request.url.path.isEmpty && inBrowser) {
+          return Response.found(
+              request.requestedUri.replace(path: '/${WebApp.mount}/'));
         }
         if (request.url.path.isEmpty) {
           return Response.ok('Ludo server. Connect a WebSocket to /ws.\n'
@@ -150,8 +160,15 @@ const appDownload =
 /// so this page hands over to the app with a `ludo://join/CODE` link, and
 /// offers the app to anyone who does not have it yet. The code is shown as
 /// well, for typing in by hand when nothing else works.
-String invitePage(String rawCode) {
+///
+/// When the server carries the web app, [web], the page also offers to play
+/// in the browser: the app reads the room from the `#/join/CODE` route.
+String invitePage(String rawCode, {bool web = false}) {
   final code = rawCode.toUpperCase().replaceAll('-', '');
+  final browser = web
+      ? '<a class="button secondary" href="/play/#/join/$code">'
+          'Play in the browser</a>\n  '
+      : '';
   return '''<!doctype html>
 <html lang="en">
 <head>
@@ -178,7 +195,7 @@ String invitePage(String rawCode) {
   <h1>You're invited to Ludo</h1>
   <div class="code">$code</div>
   <a class="button primary" href="ludo://join/$code">Open in Ludo</a>
-  <a class="button secondary" href="$appDownload">Get the app (Android)</a>
+  $browser<a class="button secondary" href="$appDownload">Get the app (Android)</a>
   <p>Already in the app? Choose Play online, then type the code above.</p>
 </main>
 </body>

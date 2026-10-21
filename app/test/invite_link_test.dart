@@ -48,4 +48,21 @@ void main() {
       'https://ludo.example.com/r/AB12CD',
     );
   });
+
+  test('a page served by the game server already knows where it is', () {
+    String? from(String page) =>
+        ServerAddress.servedFrom(Uri.parse(page))?.toString();
+    expect(from('http://203.0.113.7:8091/play/'), 'ws://203.0.113.7:8091/ws');
+    expect(
+      from('http://203.0.113.7:8091/play/#/join/KTP4WQ'),
+      'ws://203.0.113.7:8091/ws',
+    );
+    expect(from('https://ludo.example.com/play/'), 'wss://ludo.example.com/ws');
+    // GitHub Pages has no game server behind it.
+    expect(from('https://quakestring.github.io/ludo/'), isNull);
+  });
+
+  test('a browser opened on an invite goes to that room', () {
+    expect(inviteCodeIn('/join/KTP4WQ'), 'KTP4WQ');
+  });
 }
