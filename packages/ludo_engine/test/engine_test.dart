@@ -226,8 +226,7 @@ void main() {
       // Chip 1 already stands beside the two; chip 0 arrives to make two.
       s = situation(classic,
           at: {0: me, 1: me + 2, 4: crowd, 5: crowd}, dice: 2);
-      final move =
-          engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      final move = engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
       expect(move.capturedTokenIds, unorderedEquals([4, 5]));
     });
 
