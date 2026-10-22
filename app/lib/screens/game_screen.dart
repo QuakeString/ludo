@@ -235,6 +235,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   /// Whether this device may act right now. Offline that means any seat a
   /// person is sitting at; online it means your seat and no other.
+  /// The moves whose chips are ringed. Online, everyone at the table sees
+  /// which chips the player on turn can move, not only that player; only
+  /// they can tap one. The computer moves at once, so its are never shown.
+  List<Move> get _shownMoves {
+    if (_myMove) return _legalMoves;
+    if (_session == null || _busy || _state.isOver) return const [];
+    return _legalMoves;
+  }
+
   bool get _myMove {
     if (_busy || _state.isOver) return false;
     final session = _session;
@@ -1077,15 +1086,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// frames for minutes on end, and that is where its battery went. Still
   /// rings and a lit house say "your turn" just as well once the eye has
   /// found them; each new position earns them a few more turns.
-  void _setPulse({required bool needed}) {
+  void _setPulse({required bool needed, bool endless = false}) {
     if (!needed) {
       if (_spin.isAnimating) _spin.stop();
       _pulsedFor = null;
       return;
     }
-    if (identical(_pulsedFor, _state)) return;
+    if (identical(_pulsedFor, _state) && (!endless || _spin.isAnimating)) {
+      return;
+    }
     _pulsedFor = _state;
-    _spin.repeat(count: pulseTurns);
+    if (endless) {
+      _spin.repeat();
+    } else {
+      _spin.repeat(count: pulseTurns);
+    }
   }
 
   /// How many times the rings turn for one position before they rest.
@@ -1094,7 +1109,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   /// A turning ring over every chip that can move.
   List<Widget> _rings(Size size) {
-    final moves = _myMove ? _legalMoves : const <Move>[];
+    final moves = _shownMoves;
     if (moves.isEmpty) return const [];
 
     final side = math.min(size.width, size.height);
@@ -1234,7 +1249,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     }
     // The rings turn and the house on turn flushes; both are boundaried
     // overlays, so the ticker costs frames for them and never for the board.
-    _setPulse(needed: moves.isNotEmpty || glowSeat != null);
+    _setPulse(
+      needed: _shownMoves.isNotEmpty || glowSeat != null,
+      // Chips waiting to be moved keep turning until one is: a ring that had
+      // stopped looked like the game had frozen. The turn timer bounds it.
+      endless: _shownMoves.isNotEmpty,
+    );
 
     // The keyboard opens over the game rather than squeezing it: only the
     // chat bar rides up on top of it. SafeArea already keeps the bar clear
@@ -1517,15 +1537,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         ),
       ),
     );
-    // Reactions and chat lines float over the top bar rather than the
-    // board's own space, so they never cover the player cards.
+    // Reactions and chat lines float in the gap between the top bar and the
+    // board, covering neither the room name nor the player cards.
     final stage = Stack(
       children: [
         scaffold,
         if (_bubbles.isNotEmpty)
           Positioned(
-            // Up over the top bar, clear of the player cards under it.
-            top: MediaQuery.paddingOf(context).top + 4,
+            // Just under the top bar, so the room name stays readable.
+            top: MediaQuery.paddingOf(context).top + kToolbarHeight + 4,
             left: 0,
             right: 0,
             child: Material(
