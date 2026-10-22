@@ -29,6 +29,11 @@ Widget _panel({
 );
 
 void main() {
+  testWidgets('the card shows no chips-home count', (tester) async {
+    await tester.pumpWidget(_panel());
+    expect(find.text('0/4'), findsNothing);
+  });
+
   testWidgets('a tap anywhere on the card rolls, not only on the die', (
     tester,
   ) async {

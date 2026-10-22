@@ -4,8 +4,8 @@ import '../theme/seat_colors.dart';
 import '../screens/avatars.dart';
 import 'die.dart';
 
-/// One player's place at the table: who they are, how many chips they have
-/// home, and their own spot for the die.
+/// One player's place at the table: who they are and their own spot for the
+/// die.
 ///
 /// Every seat has a die place; only the seat on turn has a die in it. That is
 /// the whole of "the die travels to whoever is next" — no animation needed for
@@ -154,40 +154,23 @@ class SeatPanel extends StatelessWidget {
                       robot: isComputer,
                     ),
                   ),
-                  SizedBox(width: compact ? 4 : 6),
-                  // Shrunk rather than overflowed, so a narrow card never
-                  // shows an overflow stripe.
-                  Flexible(
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          if (teamLetter != null) ...[
-                            _TeamBadge(
-                              letter: teamLetter!,
-                              colour: colour,
-                              compact: compact,
-                            ),
-                            const SizedBox(height: 3),
-                          ],
-                          Text(
-                            '$home/$total',
-                            style: TextStyle(
-                              fontSize: compact ? 11 : 13,
-                              fontWeight: FontWeight.w600,
-                              color: palette.faint,
-                              fontFeatures: const [
-                                FontFeature.tabularFigures(),
-                              ],
-                            ),
-                          ),
-                        ],
+                  // Only a team game marks the card, with its side's letter.
+                  // A chips-home count told nobody anything the board does
+                  // not already show.
+                  if (teamLetter != null) ...[
+                    SizedBox(width: compact ? 4 : 6),
+                    Flexible(
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.centerLeft,
+                        child: _TeamBadge(
+                          letter: teamLetter!,
+                          colour: colour,
+                          compact: compact,
+                        ),
                       ),
                     ),
-                  ),
+                  ],
                 ],
               ),
             ),
@@ -285,7 +268,7 @@ class SeatPanel extends StatelessWidget {
 /// beside the numbers it is made of, because the layout that sizes panels to
 /// the house they sit over has to know when a house has become too small to
 /// hold one — on a short screen it does.
-double _avatarRadius(bool compact) => compact ? 19 : 24;
+double _avatarRadius(bool compact) => compact ? 21 : 27;
 
 // Padding, picture, gap, gap before the die, die, a little count.
 double minPanelWidth(bool compact) => compact

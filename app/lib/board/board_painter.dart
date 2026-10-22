@@ -613,11 +613,8 @@ class BoardPainter extends CustomPainter {
   Color _armColour(int arm) {
     final colour = palette.painted(colourOfArm(arm, spec.arms));
     if (state.seatArms.contains(arm)) return colour;
-    return Color.lerp(colour, palette.felt, unseatedFade)!;
+    return Color.lerp(colour, palette.felt, palette.unseatedFade)!;
   }
-
-  /// How far an arm nobody is sitting at fades towards the table.
-  static const unseatedFade = 0.55;
 
   // --- chips ---------------------------------------------------------------
 

@@ -144,6 +144,7 @@ class BoardPalette {
     required this.chipEdge,
     required this.chipDepth,
     this.paintStrength = 1,
+    this.unseatedFade = 0.55,
   });
 
   final Color plate;
@@ -175,6 +176,9 @@ class BoardPalette {
   /// towards the board, which a dark room needs: full-strength corners glare,
   /// and they compete with the chips standing on them.
   final double paintStrength;
+
+  /// How far an arm nobody is sitting at fades towards the table.
+  final double unseatedFade;
 
   /// A seat colour as the board paints it, as against as a chip wears it.
   Color painted(Color seat) =>
@@ -222,7 +226,12 @@ class BoardPalette {
     // Lifted rather than deepened, so the chips are the brightest thing on
     // the board.
     chipDepth: 1.22,
-    paintStrength: 0.6,
+    // Held back only a little: any further and the corners read as mud on
+    // a phone screen.
+    paintStrength: 0.9,
+    // The felt is near black, so an empty corner needs a lighter fade than
+    // in daylight to still read as a colour.
+    unseatedFade: 0.3,
   );
 
   static BoardPalette of(BuildContext context) =>
