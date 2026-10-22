@@ -29,7 +29,13 @@ class DieFace extends StatefulWidget {
     this.live = false,
     this.onTap,
     this.mute = false,
+    this.rolling = false,
   });
+
+  /// Thrown and still in the air: the roll has been asked for and the number
+  /// is not back yet. The die tumbles meanwhile, and lands on [value] when
+  /// it comes.
+  final bool rolling;
 
   /// The number showing, or null when this seat has not rolled.
   final int? value;
@@ -87,7 +93,19 @@ class _DieFaceState extends State<DieFace> with SingleTickerProviderStateMixin {
     // also a roll — the same face twice running still gets thrown.
     if (widget.value != null && widget.value != old.value) {
       _showing = widget.value!;
+      if (_roll.isAnimating && old.rolling) {
+        // Already in the air: carry on and land on the number.
+        _roll.forward();
+      } else {
+        _startTumble();
+      }
+    } else if (widget.rolling && !old.rolling) {
+      // Thrown before the number is known, so the tap is answered at once.
       _startTumble();
+      _roll.repeat();
+    } else if (!widget.rolling && old.rolling && _roll.isAnimating) {
+      // Asked for and never answered: let it come to rest.
+      _roll.forward();
     }
   }
 

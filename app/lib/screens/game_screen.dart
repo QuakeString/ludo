@@ -381,6 +381,26 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// remote player's move reads the same as your own instead of teleporting.
   void _serverSaid(MatchUpdate update) {
     if (!mounted) return;
+    if (update.state.dice != null) _rollAskedAt = null;
+    // The server agreeing to the move this board is already playing: take
+    // its position, without walking the chip a second time.
+    final ahead = _ahead;
+    final last = update.lastMove;
+    if (ahead != null &&
+        last != null &&
+        last.tokenId == ahead.tokenId &&
+        last.fromProgress == ahead.fromProgress &&
+        last.toProgress == ahead.toProgress) {
+      _ahead = null;
+      if (_busy) {
+        _pendingState = _seen(update.state);
+      } else {
+        setState(() => _state = _seen(update.state));
+        _autoAdvance();
+      }
+      return;
+    }
+    _ahead = null;
     if (_busy) {
       _queued.add(update); // finish the current move first
       return;
@@ -442,8 +462,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
     final session = _session;
     if (session != null) {
-      // Online the dice are the server's. Asking is all this device does.
-      if (session.isMyTurn) session.roll();
+      // Online the dice are the server's. The die starts tumbling now, and
+      // lands on whatever number comes back.
+      if (session.isMyTurn) {
+        session.roll();
+        setState(() => _rollAskedAt = DateTime.now());
+        Timer(_rollPatience, () {
+          if (mounted) setState(() {});
+        });
+      }
       return;
     }
     _apply(const RollDice());
@@ -529,11 +556,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (_busy) return;
     final session = _session;
     if (session != null) {
-      // Ask, then wait. Nothing moves on this board until the server has
-      // agreed it may — a move drawn optimistically and then taken back is a
-      // worse experience than one that starts a moment later.
+      // Ask, and start walking at once rather than waiting a round trip for
+      // the server. The rules here are the server's rules, so a legal move
+      // is a move it will take; if it ever disagrees, its next position
+      // simply replaces this one.
       session.move(move);
-      return;
+      _ahead = move;
     }
     final animation = MoveAnimation(
       move: move,
@@ -550,6 +578,28 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ..forward(from: 0);
   }
 
+  /// When this device asked the server for a roll, so the die can tumble
+  /// while the answer is on its way.
+  DateTime? _rollAskedAt;
+  static const _rollPatience = Duration(seconds: 3);
+
+  bool get _rollInFlight =>
+      _rollAskedAt != null &&
+      _state.awaitingRoll &&
+      DateTime.now().difference(_rollAskedAt!) < _rollPatience;
+
+  /// Our own move played ahead of the server, while it has not answered.
+  Move? _ahead;
+
+  GameState? _predicted(Move move) {
+    if (_ahead == null) return null;
+    try {
+      return engine.apply(_state, PlayMove(move));
+    } on IllegalActionError {
+      return null;
+    }
+  }
+
   /// The move has finished playing — now let the engine have it.
   void _settle() {
     final animation = _playing;
@@ -557,10 +607,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
     if (_online) {
       // Online there is nothing to work out: the position the chips just
-      // walked into is the one the server already sent.
+      // walked into is the one the server already sent — or, for our own
+      // move when the server has not answered yet, the one it will send.
       setState(() {
         _playing = null;
-        _state = _pendingState ?? _state;
+        _state = _pendingState ?? _predicted(animation.move) ?? _state;
         _pendingState = null;
       });
       if (_queued.isNotEmpty) {
@@ -940,6 +991,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       dice: seat == _state.turn ? _state.dice : null,
       turnLength: limit > 0 ? Duration(seconds: limit) : null,
       turnEndsAt: session?.turnEndsAt,
+      rolling: seat == _state.turn && _rollInFlight,
       connected: session == null
           ? true
           : (session.room?.seats.length ?? 0) > seat

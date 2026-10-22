@@ -24,6 +24,7 @@ class SeatPanel extends StatelessWidget {
     this.dice,
     this.turnLength,
     this.turnEndsAt,
+    this.rolling = false,
     this.connected = true,
     this.awaitingRoll = false,
     this.onRoll,
@@ -69,6 +70,9 @@ class SeatPanel extends StatelessWidget {
   /// The border of the seat on turn drains away as the time does.
   final Duration? turnLength;
   final DateTime? turnEndsAt;
+
+  /// The roll has been asked for and the number is not back yet.
+  final bool rolling;
   final bool connected;
 
   /// This seat still has to roll. Drives the pointer at the die — and stops
@@ -103,6 +107,7 @@ class SeatPanel extends StatelessWidget {
         arms: arms,
         size: compact ? 44 : 54,
         live: onTurn,
+        rolling: rolling,
         // The die is the roll button. There is no second one anywhere else.
         onTap: onRoll,
       ),
