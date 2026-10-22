@@ -55,6 +55,15 @@ class LudoEngine {
             final m = _pairMove(s, token.pairId, roll);
             if (m != null) moves.add(m);
           }
+          // A partner pair parts at the square where one member turns in for
+          // home: that member may walk on into its home column alone, with
+          // any roll, and the other stays where it is. Inside the home
+          // column nothing holds a pair: either chip may go on by itself.
+          if ((_atTurnIn(s, token) && _mixedPair(s, token.pairId)) ||
+              s.board.isOnHomeStretch(token.progress)) {
+            final m = _advanceMove(s, token, roll);
+            if (m != null) moves.add(m);
+          }
           continue;
         }
 
@@ -125,6 +134,17 @@ class LudoEngine {
     // A partner's token may join your pair, if the rules allow it.
     return s.rules.pairAcrossPartners &&
         movable.any((m) => s.rules.sameSide(m, owner));
+  }
+
+  /// The last square of the shared ring for this token: the next step takes
+  /// it into its home column.
+  bool _atTurnIn(GameState s, Token t) => t.progress == s.board.trackLength - 2;
+
+  /// A pair of two different players' chips (partners), whose paths part at
+  /// each one's own turn-in.
+  bool _mixedPair(GameState s, int pairId) {
+    final members = s.pairMembers(pairId);
+    return members.length == 2 && members[0].owner != members[1].owner;
   }
 
   /// A pair may only be broken on a star or in the home column, unless the
@@ -202,9 +222,16 @@ class LudoEngine {
     if (target == null) return null;
     // Each member walks its own path: a partner's chip on the same square
     // counts its progress from a different start.
+    final mixed = members.any((m) => m.owner != lead.owner);
     for (final m in members) {
       final own = _targetProgress(s, m.progress, steps);
       if (own == null || !_mayFinish(s, m.owner, own)) return null;
+      // Partners walk together only on the shared ring. Neither may be
+      // carried past the square where it turns in for home; there the pair
+      // stops, and that member goes on alone.
+      if (mixed && s.board.ringIndex(s.armOf(m.owner), own) == null) {
+        return null;
+      }
     }
 
     final ring = s.board.ringIndex(s.armOf(lead.owner), target);
@@ -358,6 +385,21 @@ class LudoEngine {
     for (final id in m.capturedTokenIds) {
       tokens[id] = tokens[id].copyWith(progress: -1, pairId: -1);
     }
+    // A member of a pair stepping off alone leaves the pair behind it.
+    if (m.kind == MoveKind.advance && s.tokens[m.tokenId].isPaired) {
+      final pairId = s.tokens[m.tokenId].pairId;
+      for (var i = 0; i < tokens.length; i++) {
+        if (tokens[i].pairId == pairId) {
+          tokens[i] = tokens[i].copyWith(pairId: -1);
+        }
+      }
+    }
+    // Whoever is left behind alone, beside an opponent who stood there only
+    // because there were two of them, is now one against one, and goes home.
+    final leftBehind = _leftAlone(s, m, tokens);
+    for (final (victim, _) in leftBehind) {
+      tokens[victim] = tokens[victim].copyWith(progress: -1, pairId: -1);
+    }
     // A pair comes apart by itself where it is safe to: on a star, a start
     // square or the home stretch. From there its chips go their own ways,
     // or are linked again for the next stretch.
@@ -405,6 +447,12 @@ class LudoEngine {
     for (final id in m.capturedTokenIds) {
       tally = tally.withLosses(s.tokens[id].owner, 1);
     }
+    // A chip left alone is taken by the opponent standing with it, and the
+    // capture counts for them, not for the player who walked away.
+    for (final (victim, by) in leftBehind) {
+      captures[by] = captures[by] + 1;
+      tally = tally.withLosses(s.tokens[victim].owner, 1);
+    }
 
     var next = s.copyWith(
         tokens: tokens,
@@ -437,6 +485,34 @@ class LudoEngine {
           dice: null, consecutiveSixes: rolledMax ? s.consecutiveSixes : 0);
     }
     return _advanceTurn(next.copyWith(consecutiveSixes: 0));
+  }
+
+  /// Chips of the mover's side left alone on the square [m] set off from,
+  /// with an opponent beside them, each paired with the seat that takes it.
+  ///
+  /// An opponent may stand on a square beside two of yours (one chip cannot
+  /// take two). When one of yours walks off, the one that stays is alone with
+  /// it on an open square, and alone it is taken.
+  List<(int, int)> _leftAlone(GameState s, Move m, List<Token> after) {
+    final mover = s.tokens[m.tokenId];
+    if (mover.inYard) return const [];
+    final ring = s.board.ringIndex(s.armOf(mover.owner), mover.progress);
+    if (ring == null || s.safeRingSquares.contains(ring)) return const [];
+    final rules = s.rules;
+    bool here(Token t) =>
+        !t.inYard && s.board.ringIndex(s.armOf(t.owner), t.progress) == ring;
+
+    final ours = [
+      for (final t in after)
+        if (here(t) && rules.sameSide(t.owner, mover.owner)) t
+    ];
+    if (ours.length != 1 || ours.single.isPaired) return const [];
+    final theirs = [
+      for (final t in after)
+        if (here(t) && !rules.sameSide(t.owner, mover.owner)) t
+    ];
+    if (theirs.isEmpty) return const [];
+    return [(ours.single.id, theirs.first.owner)];
   }
 
   /// Whether two chips stand on the same square. A partner's chip on the

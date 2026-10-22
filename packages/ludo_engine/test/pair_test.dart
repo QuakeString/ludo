@@ -159,6 +159,33 @@ void main() {
       expect(engine.canBreakPair(s, 0), isTrue);
     });
 
+    test('in the home column, either chip may go on alone', () {
+      final finalP = BoardSpec.cross.finalProgress;
+      final s = situation(paired,
+          at: {0: finalP - 1, 1: finalP - 1}, pairs: {0: 0, 1: 0}, dice: 1);
+      final singles =
+          engine.legalMoves(s).where((m) => m.kind == MoveKind.advance);
+      expect(singles.map((m) => m.tokenId), containsAll([0, 1]));
+
+      final next =
+          engine.apply(s, PlayMove(singles.firstWhere((m) => m.tokenId == 0)));
+      expect(next.tokens[0].progress, finalP);
+      expect(next.tokens[1].progress, finalP - 1);
+      expect(next.tokens[1].isPaired, isFalse);
+    });
+
+    test('in the home column, a 2 takes the pair home together', () {
+      final finalP = BoardSpec.cross.finalProgress;
+      final s = situation(paired,
+          at: {0: finalP - 1, 1: finalP - 1}, pairs: {0: 0, 1: 0}, dice: 2);
+      final pair = engine
+          .legalMoves(s)
+          .singleWhere((m) => m.kind == MoveKind.advancePair);
+      final next = engine.apply(s, PlayMove(pair));
+      expect(next.tokens[0].progress, finalP);
+      expect(next.tokens[1].progress, finalP);
+    });
+
     test('with the lock off, a pair splits anywhere', () {
       final rules = paired.copyWith(pairLockedUntilSafe: false);
       final s =
@@ -174,6 +201,66 @@ void main() {
       expect(next.tokens[0].progress, finalP);
       expect(next.tokens[0].isPaired, isFalse);
       expect(next.tokens[1].isPaired, isFalse);
+    });
+  });
+
+  group('a partner pair at the turn-in', () {
+    const teamed = RuleConfig(players: 4, pairMove: true, teams: [
+      [0, 2],
+      [1, 3]
+    ]);
+    final turnIn = BoardSpec.cross.trackLength - 2;
+
+    GameState partnersAt(int progress, int dice, {bool rival = false}) {
+      final s = GameState.newGame(teamed);
+      final ring = s.board.ringIndex(s.armOf(0), progress)!;
+      return situation(teamed,
+          at: {
+            0: progress,
+            8: progressForRing(s, 2, ring),
+            if (rival) 4: progressForRing(s, 1, ring),
+          },
+          pairs: {0: 0, 8: 0},
+          dice: dice);
+    }
+
+    test('one square short, a 6 cannot carry the pair past it', () {
+      final s = partnersAt(turnIn - 1, 6);
+      expect(
+          engine.legalMoves(s).where((m) => m.tokenId == 0 || m.tokenId == 8),
+          isEmpty);
+    });
+
+    test('one square short, a 2 brings the pair to it', () {
+      final s = partnersAt(turnIn - 1, 2);
+      final m = engine.legalMoves(s).single;
+      expect(m.kind, MoveKind.advancePair);
+      final next = engine.apply(s, PlayMove(m));
+      expect(next.tokens[0].progress, turnIn);
+      expect(next.tokens[0].isPaired, isTrue);
+    });
+
+    test('at it, any roll walks my chip home alone', () {
+      for (final dice in [1, 3, 5, 6]) {
+        final s = partnersAt(turnIn, dice);
+        final m =
+            engine.legalMoves(s).singleWhere((m) => m.kind == MoveKind.advance);
+        expect(m.tokenId, 0);
+        final next = engine.apply(s, PlayMove(m));
+        expect(next.tokens[0].progress, turnIn + dice);
+        expect(next.tokens[8].progress, s.tokens[8].progress,
+            reason: 'the partner stays');
+        expect(next.tokens[8].isPaired, isFalse);
+      }
+    });
+
+    test('an opponent standing there takes the partner left behind', () {
+      final s = partnersAt(turnIn, 3, rival: true);
+      final m =
+          engine.legalMoves(s).singleWhere((m) => m.kind == MoveKind.advance);
+      final next = engine.apply(s, PlayMove(m));
+      expect(next.tokens[8].inYard, isTrue);
+      expect(next.tokens[4].progress, s.tokens[4].progress);
     });
   });
 
