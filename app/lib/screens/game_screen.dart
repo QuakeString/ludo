@@ -515,11 +515,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // Linking a pair is a choice too, so the turn waits.
     if (_pairings.isNotEmpty) return false;
 
-    setState(() {
-      _flash = moves.isEmpty
-          ? 'Rolled ${_state.dice} — no legal move'
-          : 'Rolled ${_state.dice} — only one move';
-    });
+    // A single move needs no caption: the chip walking says it.
+    if (moves.isEmpty) {
+      setState(() => _flash = 'Rolled ${_state.dice} — no legal move');
+    }
     _after(moves.isEmpty ? _deadRollMillis : _autoMoveMillis, () {
       // Re-checked rather than remembered: online the server may have moved
       // the game on while the die was on show.
@@ -1926,12 +1925,8 @@ class _Controls extends StatelessWidget {
                 style: TextStyle(fontSize: 12.5, color: palette.faint),
               )
             else if (moves.isEmpty)
-              OutlinedButton(onPressed: onPass, child: const Text('Pass'))
-            else
-              Text(
-                '${moves.length} move${moves.length == 1 ? '' : 's'} — tap a chip',
-                style: const TextStyle(fontSize: 12.5),
-              ),
+              OutlinedButton(onPressed: onPass, child: const Text('Pass')),
+            // With moves to make, the spinning rings already say "tap a chip".
           ],
         ),
       ),
