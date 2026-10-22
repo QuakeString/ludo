@@ -6,6 +6,7 @@ import '../theme/seat_colors.dart';
 import 'game_screen.dart';
 import 'history_screen.dart';
 import 'online_screen.dart';
+import 'settings_screen.dart';
 import 'setup_screen.dart';
 
 /// The front door: four ways to play, and nothing else.
@@ -48,22 +49,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Future<void> _installUpdate() async {
     setState(() => _updating = true);
-    final messenger = ScaffoldMessenger.of(context);
     try {
-      final outcome = await AppUpdate.install();
-      if (outcome == 'permission') {
-        messenger.showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Allow Ludo to install updates, then tap Update again.',
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      messenger.showSnackBar(
-        SnackBar(content: Text('The update did not download ($e)')),
-      );
+      await installAppUpdate(ScaffoldMessenger.of(context));
     } finally {
       if (mounted) setState(() => _updating = false);
     }
@@ -88,8 +75,17 @@ class _HomeScreenState extends State<HomeScreen> {
           child: ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 520),
             child: ListView(
-              padding: const EdgeInsets.fromLTRB(20, 28, 20, 28),
+              padding: const EdgeInsets.fromLTRB(20, 4, 20, 28),
               children: [
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: IconButton(
+                    key: const ValueKey('open-settings'),
+                    tooltip: 'Settings',
+                    icon: const Icon(Icons.settings_rounded),
+                    onPressed: () => _go(context, const SettingsScreen()),
+                  ),
+                ),
                 const _Wordmark(),
                 const SizedBox(height: 8),
                 Text(

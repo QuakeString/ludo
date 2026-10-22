@@ -1,5 +1,7 @@
 import 'package:audioplayers/audioplayers.dart';
 
+import '../settings.dart';
+
 /// The game's sounds, and the one place that knows how to fail quietly.
 ///
 /// A browser that has not had a gesture yet, a machine with no audio device, a
@@ -42,7 +44,7 @@ class Sfx {
       watcher(name);
       return;
     }
-    if (muted) return;
+    if (muted || !AppSettings.sound.value) return;
     try {
       // The first sound of a game loads all the others alongside it, so a
       // chip's first step is not also the moment its sound is read from

@@ -17,6 +17,7 @@ import '../board/turning_ring.dart';
 import '../fresh_seed.dart';
 import '../match_history.dart';
 import '../saved_game.dart';
+import '../settings.dart';
 import 'game_over.dart';
 import 'avatars.dart';
 import 'house_rules.dart';
@@ -1255,6 +1256,17 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
               : 'Room ${session.room?.code ?? ''}',
         ),
         actions: [
+          ValueListenableBuilder<bool>(
+            valueListenable: AppSettings.sound,
+            builder: (context, on, _) => IconButton(
+              key: const ValueKey('game-sound'),
+              tooltip: on ? 'Mute' : 'Sound on',
+              onPressed: () => AppSettings.setSound(!on),
+              icon: Icon(
+                on ? Icons.volume_up_rounded : Icons.volume_off_rounded,
+              ),
+            ),
+          ),
           IconButton(
             key: const ValueKey('game-rules'),
             tooltip: 'Rules',
