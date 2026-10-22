@@ -824,6 +824,21 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     return nameOfArm(_state.armOf(seat), _state.board.arms);
   }
 
+  /// The names written on the houses: online only, and each player's own
+  /// name — yours too, not "You".
+  List<String>? _houseNames() {
+    final seats = _session?.room?.seats;
+    if (seats == null) return null;
+    return [
+      for (var s = 0; s < _state.rules.players; s++)
+        s < seats.length && (seats[s].displayName ?? '').isNotEmpty
+            ? seats[s].displayName!
+            : s == _session?.yourSeat
+            ? _session!.myName
+            : '',
+    ];
+  }
+
   /// The picture over a seat. Online it is whatever that player chose; against
   /// the computer the person is this phone's player; in pass & play, where
   /// one phone has several people, each seat gets an animal of its own.
@@ -905,7 +920,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final rules = _state.rules;
     final session = _session;
     final limit = rules.turnSeconds;
-    final left = session?.secondsLeft;
 
     return SeatPanel(
       arm: _state.armOf(seat),
@@ -924,13 +938,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       // Only the seat on turn holds the die, and only once it has been
       // rolled — an unrolled die shows an empty face, not a stale one.
       dice: seat == _state.turn ? _state.dice : null,
-      timerDots: rules.turnTimerDots,
-      dotsLit: (left == null || limit <= 0)
-          ? rules.turnTimerDots
-          : (left * rules.turnTimerDots / limit).ceil().clamp(
-              0,
-              rules.turnTimerDots,
-            ),
+      turnLength: limit > 0 ? Duration(seconds: limit) : null,
+      turnEndsAt: session?.turnEndsAt,
       connected: session == null
           ? true
           : (session.room?.seats.length ?? 0) > seat
@@ -1183,7 +1192,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           MediaQuery.paddingOf(context).bottom,
     );
 
-    return Scaffold(
+    final scaffold = Scaffold(
       resizeToAvoidBottomInset: false,
       backgroundColor: palette.felt,
       appBar: AppBar(
@@ -1262,6 +1271,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                         glowSeat: glowSeat,
                                         motions: _motions(),
                                         layer: which,
+                                        names: _houseNames(),
                                       );
 
                                   // Four layers, and only two of them ever repaint. The
@@ -1375,38 +1385,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                 ),
               ),
             ),
-            if (_bubbles.isNotEmpty)
-              Positioned(
-                top: 4,
-                left: 0,
-                right: 0,
-                child: IgnorePointer(
-                  child: Column(
-                    children: [
-                      for (final b in _bubbles)
-                        b.text != null
-                            ? ChatLine(
-                                key: ValueKey(b.id),
-                                who: b.who,
-                                avatar: _avatarOf(b.seat),
-                                text: b.text!,
-                                colour: colourOfArm(
-                                  _state.armOf(b.seat),
-                                  _state.board.arms,
-                                ),
-                              )
-                            : _ReactionBubble(
-                                key: ValueKey(b.id),
-                                bubble: b,
-                                colour: colourOfArm(
-                                  _state.armOf(b.seat),
-                                  _state.board.arms,
-                                ),
-                              ),
-                    ],
-                  ),
-                ),
-              ),
             // Over the top of the board, like the notes, so asking does not
             // resize the board under everyone's fingers.
             if (session != null &&
@@ -1475,6 +1453,90 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         ),
       ),
     );
+    // Reactions and chat lines float over the top bar rather than the
+    // board's own space, so they never cover the player cards.
+    final stage = Stack(
+      children: [
+        scaffold,
+        if (_bubbles.isNotEmpty)
+          Positioned(
+            // Up over the top bar, clear of the player cards under it.
+            top: MediaQuery.paddingOf(context).top + 4,
+            left: 0,
+            right: 0,
+            child: Material(
+              type: MaterialType.transparency,
+              child: IgnorePointer(
+                child: Column(
+                  children: [
+                    for (final b in _bubbles)
+                      b.text != null
+                          ? ChatLine(
+                              key: ValueKey(b.id),
+                              who: b.who,
+                              avatar: _avatarOf(b.seat),
+                              text: b.text!,
+                              colour: colourOfArm(
+                                _state.armOf(b.seat),
+                                _state.board.arms,
+                              ),
+                            )
+                          : _ReactionBubble(
+                              key: ValueKey(b.id),
+                              bubble: b,
+                              colour: colourOfArm(
+                                _state.armOf(b.seat),
+                                _state.board.arms,
+                              ),
+                            ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
+    // Back asks first while a game is on: one slip of the thumb should not
+    // walk you out of it.
+    return PopScope<Object?>(
+      canPop: _state.isOver,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop || !await _confirmLeave() || !mounted) return;
+        _session?.leaveRoom();
+        if (mounted) Navigator.of(this.context).pop();
+      },
+      child: stage,
+    );
+  }
+
+  Future<bool> _confirmLeave() async {
+    final online = _online;
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Leave the game?'),
+        content: Text(
+          online
+              ? 'The computer will play your seat while you are away. You '
+                    'can rejoin from the online screen while the game is on.'
+              : 'This game is saved, so you can carry on from where you '
+                    'left off.',
+        ),
+        actions: [
+          TextButton(
+            key: const ValueKey('leave-stay'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Stay'),
+          ),
+          FilledButton(
+            key: const ValueKey('leave-go'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('Leave'),
+          ),
+        ],
+      ),
+    );
+    return sure ?? false;
   }
 }
 
@@ -1627,7 +1689,8 @@ class _Controls extends StatelessWidget {
                 style: TextStyle(fontWeight: FontWeight.w700),
               )
             else if (busy || isComputerTurn)
-              const Text('Thinking…', style: TextStyle(fontSize: 12.5))
+              // Nothing to do while the others play; the moving die says so.
+              const SizedBox.shrink()
             else if (state.awaitingRoll)
               // No button: the die in the seat's own place is what you tap.
               Text(

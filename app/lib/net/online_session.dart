@@ -31,6 +31,10 @@ class OnlineSession extends ChangeNotifier {
   /// having chips appear somewhere new.
   Move? lastMove;
   int? secondsLeft;
+
+  /// When the current turn's clock runs out, by this device's clock: the
+  /// server says how many seconds are left, and this counts them down.
+  DateTime? turnEndsAt;
   bool lastWasAutoPlay = false;
 
   /// The most recent complaint from the server, for showing to the player.
@@ -116,7 +120,13 @@ class OnlineSession extends ChangeNotifier {
     connection.send(JoinRoom(code.trim()));
   }
 
+  /// Leaves the room. Walking out of a match still being played keeps the
+  /// seat (the computer covers it), so the room is remembered for [rejoinCode].
   void leaveRoom() {
+    final code = room?.code;
+    if (code != null && inMatch && !(state?.isOver ?? true)) {
+      connection.rejoin = code;
+    }
     connection.send(const LeaveRoom());
     room = null;
     state = null;
@@ -254,6 +264,9 @@ class OnlineSession extends ChangeNotifier {
         yourSeat = message.yourSeat;
         lastMove = message.lastMove;
         secondsLeft = message.secondsLeft;
+        turnEndsAt = message.secondsLeft == null
+            ? null
+            : DateTime.now().add(Duration(seconds: message.secondsLeft!));
         lastWasAutoPlay = message.autoPlayed;
         _matches.add(message);
         notifyListeners();

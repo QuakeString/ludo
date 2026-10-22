@@ -49,7 +49,13 @@ class BoardPainter extends CustomPainter {
     this.motions = const {},
     this.glowSeat,
     this.layer = BoardLayer.furniture,
+    this.names,
   });
+
+  /// Each seat's name, written on the outer band of its house, or null to
+  /// write none — offline the seats are only colours, and a house saying
+  /// "Red" in red tells nobody anything.
+  final List<String>? names;
 
   final GameState state;
   final BoardGeometry geometry;
@@ -102,6 +108,7 @@ class BoardPainter extends CustomPainter {
         // its turn, which is exactly when you look. Under the chips, though:
         // this is the seat's own corner and the chips have first claim on it.
         _paintTeamMarks(canvas, px, cell);
+        _paintNames(canvas, px, cell);
         _paintChips(canvas, px, cell);
       case BoardLayer.motions:
         _paintMotions(canvas, px, cell);
@@ -420,6 +427,75 @@ class BoardPainter extends CustomPainter {
     }
   }
 
+  /// Each player's name on the band of their house farthest from the middle,
+  /// next to the card that holds their picture and die.
+  void _paintNames(Canvas canvas, Offset Function(Pt) px, double cell) {
+    final names = this.names;
+    if (names == null) return;
+    for (var seat = 0; seat < names.length; seat++) {
+      final name = names[seat];
+      if (name.isEmpty) continue;
+      final arm = state.armOf(seat);
+      final Offset from, to;
+      final double size;
+      if (geometry is CrossGeometry) {
+        final (tl, br) = (geometry as CrossGeometry).yardSquare(arm);
+        final rect = Rect.fromPoints(px(tl), px(br));
+        final middle = px(const Pt(0.5, 0.5));
+        final y = (rect.top - middle.dy).abs() > (rect.bottom - middle.dy).abs()
+            ? rect.top + cell * 0.5
+            : rect.bottom - cell * 0.5;
+        // Clear of the corners, where the team letter goes.
+        from = Offset(rect.left + cell, y);
+        to = Offset(rect.right - cell, y);
+        size = cell * 0.6;
+      } else {
+        // A triangle with its point to the middle: the name runs along the
+        // outer edge, a little inside it.
+        final tri = geometry.yardShape(arm);
+        final a = px(tri.a), b = px(tri.b), c = px(tri.c);
+        final centroid = (a + b + c) / 3;
+        final mid = (b + c) / 2;
+        final inward = (centroid - mid) / (centroid - mid).distance;
+        final along = (c - b) / (c - b).distance;
+        final lift = inward * cell * 0.4;
+        from = b + along * cell * 1.2 + lift;
+        to = c - along * cell * 1.2 + lift;
+        size = cell * 0.48;
+      }
+      _label(canvas, from, to, name, size);
+    }
+  }
+
+  /// [text] centred on the line from [from] to [to], kept upright, and cut
+  /// short with an ellipsis when it would run past either end.
+  void _label(Canvas canvas, Offset from, Offset to, String text, double size) {
+    var angle = (to - from).direction;
+    if (angle > math.pi / 2 || angle < -math.pi / 2) angle += math.pi;
+    final painter = TextPainter(
+      text: TextSpan(
+        text: text,
+        style: TextStyle(
+          fontSize: size,
+          height: 1,
+          fontWeight: FontWeight.w800,
+          // The same ink as the team letters, for the same reason.
+          color: Colors.black.withValues(alpha: 0.62),
+        ),
+      ),
+      textDirection: TextDirection.ltr,
+      maxLines: 1,
+      ellipsis: '…',
+    )..layout(maxWidth: (to - from).distance);
+    final centre = (from + to) / 2;
+    canvas
+      ..save()
+      ..translate(centre.dx, centre.dy)
+      ..rotate(angle);
+    painter.paint(canvas, Offset(-painter.width / 2, -painter.height / 2));
+    canvas.restore();
+  }
+
   /// One letter, centred on [at] — centred on the letter, not on its box.
   ///
   /// The distinction is the whole of this function. A line of text is taller
@@ -678,9 +754,19 @@ class BoardPainter extends CustomPainter {
     // whole point of splitting them out.
     return switch (layer) {
       BoardLayer.furniture => false,
-      BoardLayer.chips => old.motions.length != motions.length,
+      BoardLayer.chips =>
+        old.motions.length != motions.length || !_sameNames(old.names, names),
       BoardLayer.glow => old.glowSeat != glowSeat,
       BoardLayer.motions => true,
     };
   }
+}
+
+bool _sameNames(List<String>? a, List<String>? b) {
+  if (identical(a, b)) return true;
+  if (a == null || b == null || a.length != b.length) return false;
+  for (var i = 0; i < a.length; i++) {
+    if (a[i] != b[i]) return false;
+  }
+  return true;
 }

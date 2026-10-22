@@ -113,8 +113,8 @@ void main() {
     }
 
     expect(
-      find.text('Thinking…'),
-      findsNothing,
+      find.text('Tap the die to roll'),
+      findsOneWidget,
       reason: 'the board is still waiting on a turn nobody will play',
     );
   });
