@@ -83,9 +83,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// They differ because the two waits are doing different jobs. When a move
   /// follows, the chip setting off is itself the answer, so the pause only has
   /// to be long enough to read the number and no longer. When nothing follows,
-  /// the number is the entire event and deserves a beat more.
+  /// the number is the entire event — but players asked for the game to keep
+  /// moving, so it only stays up for a glance before the die moves on.
   static const _autoMoveMillis = dieRollMillis + 380;
-  static const _deadRollMillis = dieRollMillis + 650;
+  static const _deadRollMillis = dieRollMillis + 200;
 
   /// A tap on the die that arrived before the die was ready.
   ///
@@ -1493,67 +1494,81 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                   // the moving chip are drawn over the top. Painting the
                                   // whole board every frame to turn a ring was costing a
                                   // full CPU core.
-                                  return GestureDetector(
-                                    onTapDown: (d) =>
-                                        _tapBoard(d.localPosition, size),
-                                    child: SizedBox(
-                                      width: side,
-                                      height: side,
-                                      child: Stack(
-                                        // A chip is taller than the square it
-                                        // stands on — it is a piece, not a
-                                        // counter — so one on the outside row
-                                        // has its head over the board's edge.
-                                        // Stack clips to its bounds by default,
-                                        // which sliced that head flat.
-                                        clipBehavior: Clip.none,
-                                        children: [
-                                          RepaintBoundary(
-                                            child: CustomPaint(
-                                              size: size,
-                                              painter: layer(
-                                                BoardLayer.furniture,
-                                              ),
-                                            ),
-                                          ),
-                                          RepaintBoundary(
-                                            child: CustomPaint(
-                                              size: size,
-                                              painter: layer(BoardLayer.glow),
-                                            ),
-                                          ),
-                                          if (glowSeat != null)
-                                            HouseFlush(
-                                              geometry: _geometry,
-                                              arm: _state.armOf(glowSeat),
-                                              colour: colourOfArm(
-                                                _state.armOf(glowSeat),
-                                                _state.board.arms,
-                                              ),
-                                              side: side,
-                                              beat: _spin,
-                                            ),
-                                          ..._rings(size),
-                                          RepaintBoundary(
-                                            child: CustomPaint(
-                                              size: size,
-                                              painter: layer(BoardLayer.chips),
-                                            ),
-                                          ),
-                                          AnimatedBuilder(
-                                            animation: _mover,
-                                            builder: (context, _) =>
-                                                CustomPaint(
+                                  // The pair choice sits beside the board's
+                                  // tap handler, not inside it. Inside, a press
+                                  // held a moment fired the board's tap-down
+                                  // first, which closed the choice under the
+                                  // finger before the button could take it.
+                                  return Stack(
+                                    clipBehavior: Clip.none,
+                                    children: [
+                                      GestureDetector(
+                                        onTapDown: (d) =>
+                                            _tapBoard(d.localPosition, size),
+                                        child: SizedBox(
+                                          width: side,
+                                          height: side,
+                                          child: Stack(
+                                            // A chip is taller than the square it
+                                            // stands on — it is a piece, not a
+                                            // counter — so one on the outside row
+                                            // has its head over the board's edge.
+                                            // Stack clips to its bounds by default,
+                                            // which sliced that head flat.
+                                            clipBehavior: Clip.none,
+                                            children: [
+                                              RepaintBoundary(
+                                                child: CustomPaint(
                                                   size: size,
                                                   painter: layer(
-                                                    BoardLayer.motions,
+                                                    BoardLayer.furniture,
                                                   ),
                                                 ),
+                                              ),
+                                              RepaintBoundary(
+                                                child: CustomPaint(
+                                                  size: size,
+                                                  painter: layer(
+                                                    BoardLayer.glow,
+                                                  ),
+                                                ),
+                                              ),
+                                              if (glowSeat != null)
+                                                HouseFlush(
+                                                  geometry: _geometry,
+                                                  arm: _state.armOf(glowSeat),
+                                                  colour: colourOfArm(
+                                                    _state.armOf(glowSeat),
+                                                    _state.board.arms,
+                                                  ),
+                                                  side: side,
+                                                  beat: _spin,
+                                                ),
+                                              ..._rings(size),
+                                              RepaintBoundary(
+                                                child: CustomPaint(
+                                                  size: size,
+                                                  painter: layer(
+                                                    BoardLayer.chips,
+                                                  ),
+                                                ),
+                                              ),
+                                              AnimatedBuilder(
+                                                animation: _mover,
+                                                builder: (context, _) =>
+                                                    CustomPaint(
+                                                      size: size,
+                                                      painter: layer(
+                                                        BoardLayer.motions,
+                                                      ),
+                                                    ),
+                                              ),
+                                            ],
                                           ),
-                                          ..._pairChoice(size),
-                                        ],
+                                        ),
                                       ),
-                                    ),
+                                      ..._pairChoice(size),
+                                    ],
                                   );
                                 },
                               ),

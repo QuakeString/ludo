@@ -107,6 +107,24 @@ void main() {
     await close(tester);
   });
 
+  testWidgets('a press held a moment still picks Move 1', (tester) async {
+    // A finger rests on the button longer than a quick tap; the board
+    // underneath must not close the choice first.
+    final s = twoOnASafeSquare(4);
+    await open(tester, s);
+    await tapChip(tester, s, 0);
+    final button = find.byKey(const ValueKey('pair-one'));
+    final press = await tester.startGesture(tester.getCenter(button));
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(button, findsOneWidget);
+    await press.up();
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(shown(tester).tokens[0].progress, isNot(s.tokens[0].progress));
+    await close(tester);
+  });
+
   testWidgets('a tap elsewhere closes the choice', (tester) async {
     final s = twoOnASafeSquare(4);
     await open(tester, s);

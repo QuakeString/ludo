@@ -68,18 +68,18 @@ void main() {
     expect(found, isTrue, reason: 'twelve rolls without a non-six');
 
     // The die is still tumbling here, and for a while after. The number has
-    // to survive all of it — and then be legible for a good moment more.
+    // to survive all of it, and then stay up for a glance (0.2 s) more.
     await tester.pump(Duration(milliseconds: dieRollMillis) - elapsed);
     expect(
       find.textContaining('no legal move'),
       findsOneWidget,
       reason: 'the turn passed before the die had even settled',
     );
-    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pump(const Duration(milliseconds: 100));
     expect(
       find.textContaining('no legal move'),
       findsOneWidget,
-      reason: 'a settled die must stay readable, not blink past',
+      reason: 'a settled die must show its number before the turn moves on',
     );
 
     // And then it does go. It must not sit there for ever.
