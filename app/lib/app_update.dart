@@ -47,6 +47,26 @@ class AppUpdate {
     }
   }
 
+  /// Asked for by hand, from Settings: the newest published build number.
+  /// Throws when the check cannot be made, so the player hears about it
+  /// rather than being told they are up to date.
+  static Future<int> latest({http.Client? client}) async {
+    final c = client ?? http.Client();
+    try {
+      final res = await c
+          .get(Uri.parse(versionUrl))
+          .timeout(const Duration(seconds: 10));
+      if (res.statusCode != 200) {
+        throw Exception('the server answered ${res.statusCode}');
+      }
+      final latest = (jsonDecode(res.body) as Map)['build'];
+      if (latest is! int) throw const FormatException('no build number');
+      return latest;
+    } finally {
+      if (client == null) c.close();
+    }
+  }
+
   /// The build number in [versionJson], if it is ahead of [current].
   static int? newerThan(int current, String versionJson) {
     try {

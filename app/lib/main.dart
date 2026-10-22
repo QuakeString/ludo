@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import 'screens/avatars.dart';
 import 'screens/home_screen.dart';
 import 'screens/online_screen.dart';
+import 'settings.dart';
 import 'theme/seat_colors.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await FavouriteColour.load();
   await MyAvatar.load();
+  await AppSettings.load();
   runApp(const LudoApp());
 }
 
@@ -72,6 +74,13 @@ class _LudoAppState extends State<LudoApp> with WidgetsBindingObserver {
 
   @override
   Widget build(BuildContext context) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: AppSettings.theme,
+      builder: (context, themeMode, _) => _app(themeMode),
+    );
+  }
+
+  Widget _app(ThemeMode themeMode) {
     return MaterialApp(
       navigatorKey: _navigator,
       title: 'LUDO Time',
@@ -80,7 +89,7 @@ class _LudoAppState extends State<LudoApp> with WidgetsBindingObserver {
       // player overrides it in settings.
       theme: buildTheme(Brightness.light),
       darkTheme: buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
+      themeMode: themeMode,
       // Whatever route the platform asked for, the app opens on the front
       // page; an invite link is acted on above, not looked up as a page.
       onGenerateInitialRoutes: (_) => [
