@@ -439,6 +439,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
             ? 'Time ran out — played automatically'
             : null;
       });
+      if (_moveAfterLink != null) {
+        _moveLinkedPair();
+        return;
+      }
       _autoAdvance();
       return;
     }
@@ -774,6 +778,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   /// Picks the legal move whose chip is nearest the tap.
   void _tapBoard(Offset local, Size size) {
+    if (_choice != null) {
+      setState(() => _choice = null);
+      return;
+    }
     if (!_myMove) return;
     final moves = _legalMoves;
     if (moves.isEmpty) return;
@@ -795,7 +803,104 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         best = move;
       }
     }
-    if (best != null && bestDistance < side * 0.12) _play(best);
+    if (best == null || bestDistance >= side * 0.12) return;
+
+    // A chip that could link with another on its square asks first, right
+    // where it stands: one chip, or both together. Nothing to hit by
+    // accident sits on the board while the player is only aiming at a chip.
+    final pick = best;
+    final pairing = _pairings
+        .where((p) => p.tokenA == pick.tokenId || p.tokenB == pick.tokenId)
+        .firstOrNull;
+    if (pairing == null) {
+      _play(pick);
+      return;
+    }
+    setState(
+      () => _choice = (
+        state: _state,
+        single: pick,
+        pairing: pairing,
+        both: _pairMoveAfter(_state, pairing),
+      ),
+    );
+  }
+
+  /// The move a pair would make if these two linked now, or null when the
+  /// roll does not let a pair move (an odd roll, under the even-only rule).
+  Move? _pairMoveAfter(GameState state, FormPair pairing) {
+    try {
+      final linked = engine.apply(state, pairing);
+      return engine
+          .legalMoves(linked)
+          .where(
+            (m) =>
+                m.kind == MoveKind.advancePair &&
+                m.tokenIds.contains(pairing.tokenA) &&
+                m.tokenIds.contains(pairing.tokenB),
+          )
+          .firstOrNull;
+    } on IllegalActionError {
+      return null;
+    }
+  }
+
+  /// The choice open over a chip that could move alone or as a pair, and
+  /// the position it was asked about: a choice for an older position is
+  /// stale and closes by itself.
+  ({GameState state, Move single, FormPair pairing, Move? both})? _choice;
+
+  /// Online, the pair move waiting for the server to confirm the link.
+  FormPair? _moveAfterLink;
+
+  void _chooseOne() {
+    final choice = _choice;
+    if (choice == null) return;
+    setState(() => _choice = null);
+    _play(choice.single);
+  }
+
+  void _chooseBoth() {
+    final choice = _choice;
+    if (choice == null) return;
+    setState(() => _choice = null);
+    final session = _session;
+    if (session != null) {
+      session.formPair(choice.pairing.tokenA, choice.pairing.tokenB);
+      // Moved once the server has linked them; asking for both at once
+      // would race the link.
+      if (choice.both != null) _moveAfterLink = choice.pairing;
+      return;
+    }
+    _apply(choice.pairing);
+    if (choice.both != null) {
+      _moveAfterLink = choice.pairing;
+      _moveLinkedPair();
+    } else {
+      _autoAdvance();
+    }
+  }
+
+  /// After the server links a pair this device asked to move, move it.
+  void _moveLinkedPair() {
+    final pairing = _moveAfterLink;
+    if (pairing == null) return;
+    final move = _legalMoves
+        .where(
+          (m) =>
+              m.kind == MoveKind.advancePair &&
+              m.tokenIds.contains(pairing.tokenA) &&
+              m.tokenIds.contains(pairing.tokenB),
+        )
+        .firstOrNull;
+    if (move == null) {
+      // Not linked yet, or the turn moved on: wait for the next word, or
+      // give up once it is no longer this device's move.
+      if (!_myMove) _moveAfterLink = null;
+      return;
+    }
+    _moveAfterLink = null;
+    _play(move);
   }
 
   /// Chips in flight this frame.
@@ -1149,67 +1254,91 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       ? engine.pairActions(_state).whereType<FormPair>().toList()
       : const <FormPair>[];
 
-  void _link(FormPair pairing) {
-    final session = _session;
-    if (session != null) {
-      session.formPair(pairing.tokenA, pairing.tokenB);
-      return;
-    }
-    _apply(pairing);
-    _autoAdvance();
-  }
-
-  /// A small 🔗 over a square where two chips may be linked into a pair.
-  List<Widget> _pairButtons(Size size) {
-    final pairings = _pairings;
-    if (pairings.isEmpty) return const [];
+  /// Move 1 / Move pair, opened under the chip that was tapped.
+  List<Widget> _pairChoice(Size size) {
+    final choice = _choice;
+    if (choice == null) return const [];
     final side = math.min(size.width, size.height);
     final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
+    final at = chipLayout(_state, _geometry)[choice.single.tokenId];
+    if (at == null) return const [];
     final cell = _geometry.cellSize * side;
-    final button = math.max(26.0, cell * 0.95);
-    final layout = chipLayout(_state, _geometry);
-
-    final out = <Widget>[];
-    final placed = <String>{};
-    for (final pairing in pairings) {
-      final token = pairing.tokenA;
-      final at = layout[token];
-      if (at == null) continue;
-      // One button to a square: three chips on one square offer three ways
-      // to pair, and the first is as good as the others.
-      final spot =
-          '${_state.tokens[token].progress}:'
-          '${_state.armOf(_state.tokens[token].owner)}';
-      if (!placed.add(spot)) continue;
-      out.add(
-        Positioned(
-          left: origin.dx + at.x * side - button / 2,
-          top: origin.dy + at.y * side - button * 1.55,
-          width: button,
-          height: button,
-          child: Material(
-            key: ValueKey('pair-${pairing.tokenA}-${pairing.tokenB}'),
-            shape: const CircleBorder(),
-            color: Colors.white,
-            elevation: 3,
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () => _link(pairing),
-              child: Center(
-                child: Text('🔗', style: TextStyle(fontSize: button * 0.55)),
-              ),
+    const width = 232.0, height = 64.0;
+    final chip = origin + Offset(at.x * side, at.y * side);
+    // Under the chip, or over it near the bottom edge; never off the board.
+    final below = chip.dy + cell + height < origin.dy + side;
+    final left = (chip.dx - width / 2).clamp(
+      origin.dx,
+      origin.dx + side - width,
+    );
+    final top = below ? chip.dy + cell * 0.7 : chip.dy - cell * 0.7 - height;
+    final colour = colourOfArm(
+      _state.armOf(_state.tokens[choice.single.tokenId].owner),
+      _state.board.arms,
+    );
+    final scheme = Theme.of(context).colorScheme;
+    return [
+      Positioned(
+        left: left,
+        top: top,
+        width: width,
+        height: height,
+        child: Material(
+          color: scheme.surfaceContainerHigh,
+          elevation: 6,
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(8),
+            child: Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton(
+                    key: const ValueKey('pair-one'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _chooseOne,
+                    child: const Text('Move 1'),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: FilledButton.icon(
+                    key: const ValueKey('pair-both'),
+                    style: FilledButton.styleFrom(
+                      backgroundColor: colour,
+                      foregroundColor: Colors.white,
+                      minimumSize: const Size.fromHeight(48),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                    onPressed: _chooseBoth,
+                    icon: const Icon(Icons.link, size: 18),
+                    // A pair that cannot move on this roll can still be
+                    // linked, and then waits as a pair.
+                    label: Text(choice.both != null ? 'Move pair' : 'Link'),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
-      );
-    }
-    return out;
+      ),
+    ];
   }
 
   @override
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
     final rules = _state.rules;
+    // A choice asked about an older position — the clock ran out, the
+    // server moved on — no longer means anything.
+    if (_choice != null && !identical(_choice!.state, _state)) _choice = null;
     // Only offer moves the player is actually allowed to make. Online that
     // matters twice over: the rings around movable chips must not light up on
     // somebody else's turn.
@@ -1421,7 +1550,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                                                   ),
                                                 ),
                                           ),
-                                          ..._pairButtons(size),
+                                          ..._pairChoice(size),
                                         ],
                                       ),
                                     ),

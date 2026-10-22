@@ -1,16 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:ludo_app/board/board_painter.dart';
+import 'package:ludo_app/board/chip_layout.dart';
 import 'package:ludo_app/saved_game.dart';
 import 'package:ludo_app/screens/game_screen.dart';
 import 'package:ludo_engine/ludo_engine.dart';
+import 'package:ludo_geometry/ludo_geometry.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// With pair move on, two chips on a safe square get a 🔗 to link them, and
-/// the turn waits for the player rather than playing itself.
+/// With pair move on, nothing sits on the board waiting to be hit. Tapping a
+/// chip that could link opens a choice under it: move one, or move the pair.
 void main() {
   setUp(() => SharedPreferences.setMockInitialValues({}));
 
-  testWidgets('a 🔗 on a safe square links the two chips', (tester) async {
+  GameState twoOnASafeSquare(int dice) {
     const rules = RuleConfig(players: 2, tokensPerPlayer: 2, pairMove: true);
     var s = GameState.newGame(rules, seed: 5);
     // A safe square some way round, past the start.
@@ -21,27 +24,111 @@ void main() {
     final tokens = [...s.tokens];
     tokens[0] = tokens[0].copyWith(progress: safe);
     tokens[1] = tokens[1].copyWith(progress: safe);
-    s = s.copyWith(tokens: tokens, turn: 0, dice: 4);
+    return s.copyWith(tokens: tokens, turn: 0, dice: dice);
+  }
 
+  GameState shown(WidgetTester tester) {
+    final finder = find.byWidgetPredicate(
+      (w) => w is CustomPaint && w.painter is BoardPainter,
+    );
+    return (tester.widget<CustomPaint>(finder.first).painter as BoardPainter)
+        .state;
+  }
+
+  Future<void> tapChip(WidgetTester tester, GameState s, int token) async {
+    final finder = find.byWidgetPredicate(
+      (w) => w is CustomPaint && w.painter is BoardPainter,
+    );
+    final rect = tester.getRect(finder.first);
+    final side = rect.shortestSide;
+    final origin = Offset(
+      rect.left + (rect.width - side) / 2,
+      rect.top + (rect.height - side) / 2,
+    );
+    final at = chipLayout(s, BoardGeometry.forSpec(s.board))[token]!;
+    await tester.tapAt(origin + Offset(at.x * side, at.y * side));
+    await tester.pump();
+  }
+
+  Future<void> open(WidgetTester tester, GameState s) async {
     await tester.binding.setSurfaceSize(const Size(420, 860));
     addTearDown(() => tester.binding.setSurfaceSize(null));
     await tester.pumpWidget(
       MaterialApp(home: GameScreen.resumed(SavedGame(state: s))),
     );
     await tester.pump();
+  }
 
-    final link = find.byKey(const ValueKey('pair-0-1'));
-    expect(link, findsOneWidget);
-
-    // Two chips on one square with one roll is "nothing to choose" for a
-    // plain move, but the pairing is a choice, so the turn waits.
-    await tester.pump(const Duration(seconds: 3));
-    expect(link, findsOneWidget);
-
-    await tester.tap(link);
-    await tester.pump();
-    expect(link, findsNothing);
+  Future<void> close(WidgetTester tester) async {
     await tester.pumpWidget(const SizedBox());
     await tester.pump(const Duration(seconds: 5));
+  }
+
+  testWidgets('no link button waits on the board', (tester) async {
+    await open(tester, twoOnASafeSquare(4));
+    expect(find.byKey(const ValueKey('pair-0-1')), findsNothing);
+    expect(find.byKey(const ValueKey('pair-both')), findsNothing);
+
+    // The pairing is still a choice, so the turn waits for a tap.
+    await tester.pump(const Duration(seconds: 3));
+    expect(shown(tester).dice, 4);
+    await close(tester);
+  });
+
+  testWidgets('Move pair links the two and moves them together', (
+    tester,
+  ) async {
+    final s = twoOnASafeSquare(4);
+    await open(tester, s);
+    await tapChip(tester, s, 0);
+    expect(find.text('Move pair'), findsOneWidget);
+
+    await tester.tap(find.byKey(const ValueKey('pair-both')));
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final after = shown(tester);
+    expect(after.tokens[0].progress, after.tokens[1].progress);
+    expect(after.tokens[0].progress, isNot(s.tokens[0].progress));
+    await close(tester);
+  });
+
+  testWidgets('Move 1 moves only the tapped chip', (tester) async {
+    final s = twoOnASafeSquare(4);
+    await open(tester, s);
+    await tapChip(tester, s, 0);
+    await tester.tap(find.byKey(const ValueKey('pair-one')));
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final after = shown(tester);
+    expect(after.tokens[0].progress, isNot(after.tokens[1].progress));
+    expect(after.tokens.where((t) => t.isPaired), isEmpty);
+    await close(tester);
+  });
+
+  testWidgets('a tap elsewhere closes the choice', (tester) async {
+    final s = twoOnASafeSquare(4);
+    await open(tester, s);
+    await tapChip(tester, s, 0);
+    expect(find.byKey(const ValueKey('pair-both')), findsOneWidget);
+    await tester.tapAt(const Offset(210, 400));
+    await tester.pump();
+    // Either the tap missed every chip or it landed on one; both close it.
+    expect(find.byKey(const ValueKey('pair-both')), findsNothing);
+    expect(shown(tester).tokens[0].progress, s.tokens[0].progress);
+    await close(tester);
+  });
+
+  test('a pair waits out an odd roll under the even-only rule', () {
+    // So the choice offers Link rather than Move pair on a 3.
+    final s = twoOnASafeSquare(3);
+    const engine = LudoEngine();
+    if (!s.rules.pairMoveEvenOnly) return;
+    final linked = engine.apply(s, const FormPair(0, 1));
+    expect(
+      engine.legalMoves(linked).where((m) => m.kind == MoveKind.advancePair),
+      isEmpty,
+    );
   });
 }
