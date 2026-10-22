@@ -198,11 +198,10 @@ void main() {
   });
 
   group('crowded squares', () {
-    test('a crowd can be passed, but one chip cannot land on it', () {
+    test('one chip may pass a crowd or stand beside it, not take it', () {
       // Two of one side on a square stand together. Walking past them is
-      // fine; a single chip landing on them is not, because only a pair can
-      // knock a pair off — and with one chip there is nothing to knock off
-      // with.
+      // fine, and so is stopping on their square — but one chip alone cannot
+      // knock two off, so it just stands there beside them.
       var s = GameState.newGame(classic);
       final crowd = progressForRing(s, 1, 5);
       final me = progressForRing(s, 0, 3);
@@ -215,11 +214,21 @@ void main() {
       );
 
       final onto = situation(classic, at: {0: me, 4: crowd, 5: crowd}, dice: 2);
-      expect(
-        engine.legalMoves(onto),
-        isEmpty,
-        reason: 'one chip landed on two and sent both home',
-      );
+      final move = engine.legalMoves(onto).single;
+      expect(move.isCapture, isFalse,
+          reason: 'one chip landed on two and sent both home');
+    });
+
+    test('a second chip joining the first takes the crowd', () {
+      var s = GameState.newGame(classic);
+      final crowd = progressForRing(s, 1, 5);
+      final me = progressForRing(s, 0, 3);
+      // Chip 1 already stands beside the two; chip 0 arrives to make two.
+      s = situation(classic,
+          at: {0: me, 1: me + 2, 4: crowd, 5: crowd}, dice: 2);
+      final move =
+          engine.legalMoves(s).firstWhere((m) => m.tokenId == 0);
+      expect(move.capturedTokenIds, unorderedEquals([4, 5]));
     });
 
     test('a chip left alone when its neighbour walks off can be taken', () {

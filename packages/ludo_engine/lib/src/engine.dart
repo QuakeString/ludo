@@ -271,12 +271,19 @@ class LudoEngine {
     // victims, and a single opponent landing there sent both home at once. As
     // soon as one of them walks away the other is alone again, and alone it can
     // be taken like any other chip.
+    //
+    // Strength counts on arrival, not only what moves. A lone chip may land on
+    // a pair and simply stand beside it; a second chip of its side arriving
+    // there (linked or not) makes two, and two take the pair.
     final sides = <int, List<Token>>{};
+    var strength = moverIsPair ? 2 : 1;
     for (final t in s.tokensOnRing(ring)) {
       if (ignore.contains(t.id)) continue;
-      if (rules.sameSide(t.owner, owner)) {
-        if (t.owner != owner && !rules.partnersCanCapture) continue;
-        if (t.owner == owner) continue;
+      if (rules.sameSide(t.owner, owner) &&
+          (t.owner == owner || !rules.partnersCanCapture)) {
+        // Your own chips, and a partner's, stand with you.
+        strength++;
+        continue;
       }
       final side = rules.isTeamGame ? rules.teamOf(t.owner) : t.owner;
       sides.putIfAbsent(side, () => []).add(t);
@@ -286,14 +293,13 @@ class LudoEngine {
     for (final group in sides.values) {
       final stack = group.length >= 2 || group.any((t) => t.isPaired);
       if (stack) {
-        switch (rules.pairCapture) {
-          case PairCapture.never:
-            return null; // cannot land here at all
-          case PairCapture.pairOnly:
-            if (!moverIsPair) return null;
-          case PairCapture.anyone:
-            break;
-        }
+        final takes = switch (rules.pairCapture) {
+          PairCapture.never => false,
+          PairCapture.pairOnly => strength >= 2,
+          PairCapture.anyone => true,
+        };
+        // Too weak to take them: land beside them, take nobody from them.
+        if (!takes) continue;
       }
       victims.addAll(group.map((t) => t.id));
     }

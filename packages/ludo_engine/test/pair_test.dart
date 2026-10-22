@@ -178,13 +178,31 @@ void main() {
   });
 
   group('capturing a pair', () {
-    test('a single token may not land on a pair', () {
+    test('a single token may land on a pair but cannot take it', () {
       var s = GameState.newGame(paired);
       final theirs = progressForRing(s, 1, 6);
       final mine = progressForRing(s, 0, 4);
       s = situation(paired,
           at: {0: mine, 4: theirs, 5: theirs}, pairs: {4: 0, 5: 0}, dice: 2);
-      expect(engine.legalMoves(s).where((m) => m.tokenId == 0), isEmpty);
+      final move = engine.legalMoves(s).singleWhere((m) => m.tokenId == 0);
+      expect(move.toProgress, mine + 2);
+      expect(move.isCapture, isFalse);
+    });
+
+    test('a second single token arriving takes the pair', () {
+      var s = GameState.newGame(paired);
+      final theirs = progressForRing(s, 1, 6);
+      final mine = progressForRing(s, 0, 4);
+      // Token 1 already sits beside their pair; token 0 joins it.
+      s = situation(paired,
+          at: {0: mine, 1: mine + 2, 4: theirs, 5: theirs},
+          pairs: {4: 0, 5: 0},
+          dice: 2);
+      final move = engine.legalMoves(s).singleWhere((m) => m.tokenId == 0);
+      expect(move.capturedTokenIds, unorderedEquals([4, 5]));
+      final next = engine.apply(s, PlayMove(move));
+      expect(next.tokens[4].progress, -1);
+      expect(next.tokens[5].progress, -1);
     });
 
     test('an opposing pair captures both members', () {
@@ -216,7 +234,8 @@ void main() {
           at: {0: mine, 1: mine, 4: theirs, 5: theirs},
           pairs: {0: 0, 1: 0, 4: 1, 5: 1},
           dice: 4);
-      expect(engine.legalMoves(s), isEmpty);
+      final move = engine.legalMoves(s).single;
+      expect(move.isCapture, isFalse, reason: 'pairs are never taken');
     });
 
     test('with pairCapture anyone, a single token takes both', () {
@@ -243,13 +262,13 @@ void main() {
 
     test('two unlinked opposing tokens still stand together', () {
       // Two chips sharing a square look the same on the board whether they
-      // are linked or not, so they are treated the same: one chip cannot
-      // land on them. Sending both home with one used to be the rule.
+      // are linked or not, so they are treated the same: one chip landing
+      // there stands beside them and takes nobody.
       var s = GameState.newGame(paired);
       final theirs = progressForRing(s, 1, 10);
       final mine = progressForRing(s, 0, 8);
       s = situation(paired, at: {0: mine, 4: theirs, 5: theirs}, dice: 2);
-      expect(engine.legalMoves(s), isEmpty);
+      expect(engine.legalMoves(s).single.isCapture, isFalse);
     });
 
     test('a pair can take two unlinked chips standing together', () {
@@ -277,7 +296,7 @@ void main() {
       final p0 = progressForRing(s, 0, 10);
       final p2 = progressForRing(s, 2, 10);
       s = situation(teams, at: {0: p0, 8: p2, 4: square - 2}, turn: 1, dice: 2);
-      expect(engine.legalMoves(s), isEmpty,
+      expect(engine.legalMoves(s).single.isCapture, isFalse,
           reason: 'one chip sent a player and their partner home together');
 
       // Once one of them has walked on, the other is alone and fair game.
