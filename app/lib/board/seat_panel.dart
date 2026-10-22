@@ -22,8 +22,9 @@ class SeatPanel extends StatelessWidget {
     required this.onTurn,
     this.isComputer = false,
     this.dice,
-    this.timerDots = 0,
-    this.dotsLit = 0,
+    this.turnLength,
+    this.turnEndsAt,
+    this.rolling = false,
     this.connected = true,
     this.awaitingRoll = false,
     this.onRoll,
@@ -65,8 +66,13 @@ class SeatPanel extends StatelessWidget {
   /// The face showing, or null when this seat has not rolled.
   final int? dice;
 
-  final int timerDots;
-  final int dotsLit;
+  /// The whole of a turn, when turns are timed, and when this one runs out.
+  /// The border of the seat on turn drains away as the time does.
+  final Duration? turnLength;
+  final DateTime? turnEndsAt;
+
+  /// The roll has been asked for and the number is not back yet.
+  final bool rolling;
   final bool connected;
 
   /// This seat still has to roll. Drives the pointer at the die — and stops
@@ -101,6 +107,7 @@ class SeatPanel extends StatelessWidget {
         arms: arms,
         size: compact ? 44 : 54,
         live: onTurn,
+        rolling: rolling,
         // The die is the roll button. There is no second one anywhere else.
         onTap: onRoll,
       ),
@@ -115,9 +122,11 @@ class SeatPanel extends StatelessWidget {
       decoration: BoxDecoration(
         color: onTurn ? colour.withValues(alpha: 0.13) : palette.panel,
         borderRadius: BorderRadius.circular(12),
+        // The seat on turn gets a thick border, drawn over the edge by
+        // [_TurnRing] so it can drain away with the clock.
         border: Border.all(
-          color: onTurn ? colour : palette.panelEdge,
-          width: onTurn ? 1.6 : 1,
+          color: onTurn ? Colors.transparent : palette.panelEdge,
+          width: 1,
         ),
       ),
       child: Row(
@@ -128,91 +137,59 @@ class SeatPanel extends StatelessWidget {
           // panels share a phone at six seats; taking the slack is what holds
           // the die against the panel's right-hand edge, which is where the
           // arrow pointing at it is placed from.
+          // No name here: it is written on the house itself, which leaves
+          // the card room for a picture big enough to recognise.
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // The name sits over the picture, so the two read as one
-                // person rather than a face beside a label.
-                Text(
-                  name,
-                  overflow: TextOverflow.ellipsis,
-                  maxLines: 1,
-                  style: TextStyle(
-                    fontSize: compact ? 10.5 : 12,
-                    height: 1.15,
-                    fontWeight: onTurn ? FontWeight.w700 : FontWeight.w600,
+            child: Semantics(
+              label: name,
+              child: Row(
+                children: [
+                  GestureDetector(
+                    key: avatarKey,
+                    onTap: onAvatarTap,
+                    child: AvatarBubble(
+                      avatar: avatar,
+                      colour: colour,
+                      radius: _avatarRadius(compact),
+                      robot: isComputer,
+                    ),
                   ),
-                ),
-                SizedBox(height: compact ? 2 : 3),
-                Row(
-                  children: [
-                    GestureDetector(
-                      key: avatarKey,
-                      onTap: onAvatarTap,
-                      child: AvatarBubble(
-                        avatar: avatar,
-                        colour: colour,
-                        radius: compact ? 11 : 13,
-                        robot: isComputer,
-                      ),
-                    ),
-                    if (teamLetter != null) ...[
-                      SizedBox(width: compact ? 3 : 4),
-                      // The panel is where you look during a turn; the board
-                      // is where you look between them. The pairing has to be
-                      // legible in both, or it is legible in neither.
-                      _TeamBadge(
-                        letter: teamLetter!,
-                        colour: colour,
-                        compact: compact,
-                      ),
-                    ],
-                    SizedBox(width: compact ? 5 : 7),
-                    // Shrunk rather than overflowed. The chips-home count and
-                    // the turn clock are a fixed width, so a bigger die or a
-                    // narrower panel pushed them off the end — and an overflow
-                    // stripe is the one thing on screen worse than small text.
-                    Flexible(
-                      child: FittedBox(
-                        fit: BoxFit.scaleDown,
-                        alignment: Alignment.centerLeft,
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              '$home/$total',
-                              style: TextStyle(
-                                fontSize: compact ? 10 : 11,
-                                color: palette.faint,
-                                fontFeatures: const [
-                                  FontFeature.tabularFigures(),
-                                ],
-                              ),
+                  SizedBox(width: compact ? 4 : 6),
+                  // Shrunk rather than overflowed, so a narrow card never
+                  // shows an overflow stripe.
+                  Flexible(
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      alignment: Alignment.centerLeft,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (teamLetter != null) ...[
+                            _TeamBadge(
+                              letter: teamLetter!,
+                              colour: colour,
+                              compact: compact,
                             ),
-                            if (onTurn && timerDots > 0) ...[
-                              const SizedBox(width: 6),
-                              for (var i = 0; i < timerDots; i++)
-                                Container(
-                                  margin: const EdgeInsets.only(right: 2.5),
-                                  width: 5,
-                                  height: 5,
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: i < dotsLit
-                                        ? colour
-                                        : colour.withValues(alpha: 0.2),
-                                  ),
-                                ),
-                            ],
+                            const SizedBox(height: 3),
                           ],
-                        ),
+                          Text(
+                            '$home/$total',
+                            style: TextStyle(
+                              fontSize: compact ? 11 : 13,
+                              fontWeight: FontWeight.w600,
+                              color: palette.faint,
+                              fontFeatures: const [
+                                FontFeature.tabularFigures(),
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ],
-                ),
-              ],
+                  ),
+                ],
+              ),
             ),
           ),
           SizedBox(width: compact ? 6 : 9),
@@ -239,7 +216,23 @@ class SeatPanel extends StatelessWidget {
         // belong to.
         fit: StackFit.passthrough,
         children: [
-          panel,
+          // The whole card rolls, not just the die: a tap that lands a
+          // little off the die still counts.
+          GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: onRoll,
+            // Always in the tree, so a turn starting or ending never rebuilds
+            // the die from scratch.
+            child: RepaintBoundary(
+              child: _TurnRing(
+                on: onTurn,
+                colour: colour,
+                length: turnLength,
+                endsAt: turnEndsAt,
+                child: panel,
+              ),
+            ),
+          ),
           if (awaitingRoll)
             Positioned(
               // Under the die, or over it — never off the panel's right-hand
@@ -292,14 +285,156 @@ class SeatPanel extends StatelessWidget {
 /// beside the numbers it is made of, because the layout that sizes panels to
 /// the house they sit over has to know when a house has become too small to
 /// hold one — on a short screen it does.
+double _avatarRadius(bool compact) => compact ? 19 : 24;
+
+// Padding, picture, gap, gap before the die, die, a little count.
 double minPanelWidth(bool compact) => compact
-    ? 12 +
-          25 +
-          5 +
-          6 +
-          44 +
-          10 // padding, avatar, gaps, die, a little count
-    : 18 + 30 + 7 + 9 + 54 + 10;
+    ? 12 + _avatarRadius(true) * 2 + 4 + 6 + 44 + 10
+    : 18 + _avatarRadius(false) * 2 + 6 + 9 + 54 + 10;
+
+/// The thick border round the seat on turn. With a turn clock it drains
+/// away, clockwise from the top, as the time runs out; without one it stays
+/// whole.
+class _TurnRing extends StatefulWidget {
+  const _TurnRing({
+    required this.on,
+    required this.colour,
+    required this.length,
+    required this.endsAt,
+    required this.child,
+  });
+
+  /// Drawn only for the seat on turn.
+  final bool on;
+  final Color colour;
+  final Duration? length;
+  final DateTime? endsAt;
+  final Widget child;
+
+  static const width = 4.0;
+
+  @override
+  State<_TurnRing> createState() => _TurnRingState();
+}
+
+class _TurnRingState extends State<_TurnRing>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _left = AnimationController(
+    vsync: this,
+    value: 1,
+  );
+
+  @override
+  void initState() {
+    super.initState();
+    _start();
+  }
+
+  @override
+  void didUpdateWidget(_TurnRing old) {
+    super.didUpdateWidget(old);
+    if (old.on != widget.on ||
+        old.endsAt != widget.endsAt ||
+        old.length != widget.length) {
+      _start();
+    }
+  }
+
+  void _start() {
+    final length = widget.length, endsAt = widget.endsAt;
+    if (!widget.on ||
+        length == null ||
+        endsAt == null ||
+        length <= Duration.zero) {
+      _left.stop();
+      _left.value = 1;
+      return;
+    }
+    final remaining = endsAt.difference(DateTime.now());
+    if (remaining <= Duration.zero) {
+      _left.value = 0;
+      return;
+    }
+    _left.value = (remaining.inMilliseconds / length.inMilliseconds).clamp(
+      0,
+      1,
+    );
+    _left.animateTo(0, duration: remaining, curve: Curves.linear);
+  }
+
+  @override
+  void dispose() {
+    _left.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return CustomPaint(
+      foregroundPainter: widget.on
+          ? _RingPainter(colour: widget.colour, left: _left)
+          : null,
+      child: widget.child,
+    );
+  }
+}
+
+class _RingPainter extends CustomPainter {
+  _RingPainter({required this.colour, required this.left})
+    : super(repaint: left);
+
+  final Color colour;
+  final Animation<double> left;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const w = _TurnRing.width;
+    final r = Rect.fromLTWH(w / 2, w / 2, size.width - w, size.height - w);
+    const radius = 12.0 - w / 2;
+    // Traced by hand from the top centre, so the drained part opens there.
+    final path = Path()
+      ..moveTo(r.center.dx, r.top)
+      ..lineTo(r.right - radius, r.top)
+      ..arcToPoint(
+        Offset(r.right, r.top + radius),
+        radius: const Radius.circular(radius),
+      )
+      ..lineTo(r.right, r.bottom - radius)
+      ..arcToPoint(
+        Offset(r.right - radius, r.bottom),
+        radius: const Radius.circular(radius),
+      )
+      ..lineTo(r.left + radius, r.bottom)
+      ..arcToPoint(
+        Offset(r.left, r.bottom - radius),
+        radius: const Radius.circular(radius),
+      )
+      ..lineTo(r.left, r.top + radius)
+      ..arcToPoint(
+        Offset(r.left + radius, r.top),
+        radius: const Radius.circular(radius),
+      )
+      ..close();
+    final paint = Paint()
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = w
+      ..strokeCap = StrokeCap.round;
+    // The track the border drains from.
+    canvas.drawPath(path, paint..color = colour.withValues(alpha: 0.18));
+    final f = left.value;
+    if (f <= 0) return;
+    final metric = path.computeMetrics().first;
+    final len = metric.length;
+    canvas.drawPath(
+      metric.extractPath(len * (1 - f), len),
+      paint..color = colour,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_RingPainter old) =>
+      old.colour != colour || old.left != left;
+}
 
 double _pointerWidth(bool compact) => compact ? 22.0 : 28.0;
 double _pointerHeight(bool compact) => compact ? 15.0 : 19.0;

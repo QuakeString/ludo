@@ -398,6 +398,42 @@ void main() {
     await guest.connection.dispose();
   });
 
+  test('walking out of a match leaves a way back to the seat', () async {
+    final host = await sitDown();
+    final guest = await sitDown();
+    host.createRoom(const RuleConfig(players: 2, tokensPerPlayer: 2));
+    await until(host, () => host.room != null, what: 'the room');
+    final code = host.room!.code;
+    guest.joinRoom(code);
+    await until(guest, () => guest.room != null, what: 'a seat');
+    host.start();
+    await until(host, () => host.state != null, what: 'the match');
+
+    host.leaveRoom();
+    expect(host.room, isNull);
+    expect(host.rejoinCode, code, reason: 'the game is still being played');
+    await until(
+      guest,
+      () => !guest.room!.seats[0].connected,
+      what: 'the guest to see the host go',
+    );
+
+    host.joinRoom(host.rejoinCode!);
+    expect(host.rejoinCode, isNull);
+    await until(host, () => host.state != null, what: 'the board again');
+    expect(host.yourSeat, 0);
+    await until(
+      guest,
+      () => guest.room!.seats[0].connected,
+      what: 'the host to be back',
+    );
+
+    host.dispose();
+    guest.dispose();
+    await host.connection.dispose();
+    await guest.connection.dispose();
+  });
+
   test('two strangers looking for a game are matched', () async {
     final a = await sitDown();
     final b = await sitDown();

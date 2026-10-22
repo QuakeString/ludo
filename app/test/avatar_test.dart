@@ -46,7 +46,7 @@ void main() {
     expect(myAvatar, Avatar.animal(3), reason: 'kept between launches');
   });
 
-  testWidgets('the board shows the name over the picture', (tester) async {
+  testWidgets('the card leaves the name to the house and shows a big picture', (tester) async {
     await tester.pumpWidget(
       MaterialApp(
         home: Scaffold(
@@ -68,9 +68,9 @@ void main() {
         ),
       ),
     );
-    final name = tester.getRect(find.text('Ammu'));
-    final face = tester.getRect(find.text(animals[0].$1));
-    expect(name.bottom, lessThanOrEqualTo(face.top + 1));
+    expect(find.text('Ammu'), findsNothing);
+    final bubble = tester.getRect(find.byType(AvatarBubble));
+    expect(bubble.height, greaterThanOrEqualTo(44));
     expect(tester.takeException(), isNull);
   });
 
