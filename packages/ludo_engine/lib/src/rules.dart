@@ -61,6 +61,7 @@ class RuleConfig {
     this.teams,
     this.partnersCanCapture = false,
     this.finishedPlayerMovesPartner = true,
+    this.partnersShareChips = false,
     this.pairMove = false,
     this.pairMoveEvenOnly = true,
     this.pairAcrossPartners = true,
@@ -120,6 +121,10 @@ class RuleConfig {
 
   /// A player whose tokens are all home keeps rolling, moving a partner's.
   final bool finishedPlayerMovesPartner;
+
+  /// In a team game, a player may move a partner's chips on their own turn,
+  /// not only once their own are all home.
+  final bool partnersShareChips;
 
   // --- pair move -----------------------------------------------------------
 
@@ -192,6 +197,7 @@ class RuleConfig {
     Object? teams = _unset,
     bool? partnersCanCapture,
     bool? finishedPlayerMovesPartner,
+    bool? partnersShareChips,
     bool? pairMove,
     bool? pairMoveEvenOnly,
     bool? pairAcrossPartners,
@@ -221,6 +227,7 @@ class RuleConfig {
       partnersCanCapture: partnersCanCapture ?? this.partnersCanCapture,
       finishedPlayerMovesPartner:
           finishedPlayerMovesPartner ?? this.finishedPlayerMovesPartner,
+      partnersShareChips: partnersShareChips ?? this.partnersShareChips,
       pairMove: pairMove ?? this.pairMove,
       pairMoveEvenOnly: pairMoveEvenOnly ?? this.pairMoveEvenOnly,
       pairAcrossPartners: pairAcrossPartners ?? this.pairAcrossPartners,
@@ -296,6 +303,7 @@ class RuleConfig {
         if (teams != null) 'teams': teams,
         'partnersCanCapture': partnersCanCapture,
         'finishedPlayerMovesPartner': finishedPlayerMovesPartner,
+        'partnersShareChips': partnersShareChips,
         'pairMove': pairMove,
         'pairMoveEvenOnly': pairMoveEvenOnly,
         'pairAcrossPartners': pairAcrossPartners,
@@ -353,6 +361,8 @@ class RuleConfig {
           pick('partnersCanCapture', defaults.partnersCanCapture),
       finishedPlayerMovesPartner: pick(
           'finishedPlayerMovesPartner', defaults.finishedPlayerMovesPartner),
+      partnersShareChips:
+          pick('partnersShareChips', defaults.partnersShareChips),
       pairMove: pick('pairMove', defaults.pairMove),
       pairMoveEvenOnly: pick('pairMoveEvenOnly', defaults.pairMoveEvenOnly),
       pairAcrossPartners:
@@ -389,6 +399,7 @@ class RuleConfig {
     'teams': 'T',
     'partnersCanCapture': 'P',
     'finishedPlayerMovesPartner': 'F',
+    'partnersShareChips': 'B',
     'pairMove': 'M',
     'pairMoveEvenOnly': 'E',
     'pairAcrossPartners': 'A',

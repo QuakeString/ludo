@@ -499,5 +499,38 @@ void main() {
       final next = engine.apply(s, PlayMove(engine.legalMoves(s).first));
       expect(next.turn, 1, reason: 'the turn skips seat 0 entirely');
     });
+
+    test('with shared chips, partners move each other\'s chips', () {
+      const teamed = RuleConfig(
+        players: 4,
+        tokensPerPlayer: 2,
+        partnersShareChips: true,
+        teams: [
+          [0, 2],
+          [1, 3]
+        ],
+      );
+      // Seat 0 has one chip out, its partner seat 2 has one too.
+      final s = situation(teamed, at: {0: 10, 4: 20}, turn: 0, dice: 3);
+      expect(s.movableOwners(0), [0, 2]);
+      final moves = engine.legalMoves(s);
+      expect({for (final m in moves) m.tokenId}, {0, 4});
+
+      final next =
+          engine.apply(s, PlayMove(moves.firstWhere((m) => m.tokenId == 4)));
+      expect(next.tokens[4].progress, 23);
+
+      // Off by default: only your own.
+      final plain = situation(teamed.copyWith(partnersShareChips: false),
+          at: {0: 10, 4: 20}, turn: 0, dice: 3);
+      expect(engine.legalMoves(plain).map((m) => m.tokenId), [0]);
+    });
+
+    test('shared chips survive the rule code', () {
+      const r = RuleConfig(partnersShareChips: true);
+      expect(
+          RuleConfig.fromRuleCode(r.toRuleCode()).partnersShareChips, isTrue);
+      expect(RuleConfig.fromJson(r.toJson()).partnersShareChips, isTrue);
+    });
   });
 }
