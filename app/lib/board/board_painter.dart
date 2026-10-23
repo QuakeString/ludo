@@ -675,6 +675,27 @@ class BoardPainter extends CustomPainter {
       return;
     }
 
+    final pair = _linkedPair(group);
+    if (pair != null) {
+      final others = [
+        for (final t in group)
+          if (!pair.contains(t)) t,
+      ];
+      // Anyone else on the square stands just behind the pair.
+      for (final t in others) {
+        _chip(
+          canvas,
+          at + Offset(0, -width * 0.18),
+          width * 0.8,
+          t,
+          movable,
+          cell,
+        );
+      }
+      _paintPair(canvas, at, width, pair, movable, cell);
+      return;
+    }
+
     // One of each colour first: whose chips are standing there matters more
     // than how many, so a player's second chip never crowds out another
     // player's first.
@@ -712,6 +733,46 @@ class BoardPainter extends CustomPainter {
         badge: (hidden > 0 && i == shown - 1) ? order.length : null,
       );
     }
+  }
+
+  /// The two chips of a linked pair in [group], if there is one.
+  List<Token>? _linkedPair(List<Token> group) {
+    for (final t in group) {
+      if (!t.isPaired) continue;
+      final mates = group.where((o) => o.pairId == t.pairId).toList();
+      if (mates.length == 2) return mates;
+    }
+    return null;
+  }
+
+  /// How far each chip of a pair stands off the square's centre, as a share
+  /// of a chip's width: close enough that they overlap well over half.
+  static const pairApart = 0.11;
+
+  /// A linked pair stands side by side, overlapping, with one border round
+  /// both, so it never reads as two chips that merely share a square.
+  void _paintPair(
+    Canvas canvas,
+    Offset at,
+    double width,
+    List<Token> pair,
+    Set<int> movable,
+    double cell,
+  ) {
+    final w = width * 0.9;
+    final apart = w * pairApart;
+    final left = at - Offset(apart, 0);
+    final right = at + Offset(apart, 0);
+    // Each chip's outline, grown and painted under both: where the chips
+    // overlap the outlines merge into one border round the pair.
+    for (final p in [left, right]) {
+      ChipArt.paintOutline(canvas, p, w, palette.chipEdge, 6.5);
+    }
+    for (final p in [left, right]) {
+      ChipArt.paintOutline(canvas, p, w, Colors.white, 5);
+    }
+    _chip(canvas, left, w, pair[0], movable, cell);
+    _chip(canvas, right, w, pair[1], movable, cell);
   }
 
   void _chip(

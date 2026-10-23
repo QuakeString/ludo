@@ -155,6 +155,36 @@ class ChipArt {
     canvas.restore();
   }
 
+  /// The chip's outline grown by [thickness] screen pixels, in [color].
+  ///
+  /// Painted under two chips standing side by side, the two outlines merge
+  /// into one border around both, which is how a linked pair shows.
+  static void paintOutline(
+    Canvas canvas,
+    Offset ground,
+    double width,
+    Color color,
+    double thickness,
+  ) {
+    final s = width / 100;
+    canvas.save();
+    canvas.translate(ground.dx, ground.dy);
+    canvas.scale(s);
+    canvas.translate(-groundPoint.dx, -groundPoint.dy);
+    final paint = Paint()
+      ..color = color
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = thickness * 2 / s
+      ..strokeJoin = StrokeJoin.round;
+    final fill = Paint()..color = color;
+    for (final draw in [paint, fill]) {
+      canvas.drawPath(_body, draw);
+      canvas.drawOval(_collar, draw);
+      canvas.drawCircle(_head, _headR, draw);
+    }
+    canvas.restore();
+  }
+
   /// Left-to-right light-to-dark wash, so every part is lit consistently.
   static void _shade(Canvas canvas, Rect bounds, void Function(Paint) draw) {
     draw(

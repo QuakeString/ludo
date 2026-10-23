@@ -185,8 +185,11 @@ class BoardPalette {
       paintStrength >= 1 ? seat : Color.lerp(plate, seat, paintStrength)!;
 
   static const light = BoardPalette(
-    // A softer board in daylight too; the chips keep their full colour.
-    paintStrength: 0.72,
+    // A little softer than the chips in daylight, but not much: at 0.72 the
+    // seats in play looked washed out.
+    paintStrength: 0.88,
+    // Empty corners stay pale, so the seats in play stand out from them.
+    unseatedFade: 0.62,
     plate: Color(0xFFFDFBF7),
     cell: Color(0xFFFFFFFF),
     line: Color(0xFFC9C1B2),

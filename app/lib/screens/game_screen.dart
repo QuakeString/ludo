@@ -15,6 +15,7 @@ import '../board/sounds.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
 import '../fresh_seed.dart';
+import '../keep_awake.dart';
 import '../match_history.dart';
 import '../saved_game.dart';
 import '../settings.dart';
@@ -169,6 +170,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    KeepAwake.set(true);
     final session = _session;
     final saved = session == null ? widget.resumeFrom : null;
     final online = session?.state;
@@ -212,6 +214,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    // The others may play on after you are home, and nobody waits for that
+    // before leaving. A game you finished still goes into recent matches.
+    if (!_celebrated && _youFinished) _recordResult();
+    KeepAwake.set(false);
     _scheduled?.cancel();
     _thinking?.cancel();
     _silence();
@@ -281,6 +287,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         SavedGame(state: _state, aiSeats: widget.aiSeats, elapsed: _elapsed),
       );
     }
+  }
+
+  /// Whether a player at this device has brought every chip home.
+  bool get _youFinished {
+    final session = _session;
+    if (session != null) {
+      final me = session.yourSeat;
+      return me != null && me >= 0 && _state.hasFinished(me);
+    }
+    return [
+      for (var s = 0; s < _state.rules.players; s++)
+        if (!_isComputer(s)) s,
+    ].any(_state.hasFinished);
   }
 
   /// Puts the finished game into this device's recent matches, so its stats
@@ -706,8 +725,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _scheduleMoveSounds(MoveAnimation animation) {
     _silence();
     final move = animation.move;
+    final safeEnd =
+        !move.isCapture &&
+        !_state.board.isFinished(move.toProgress) &&
+        _landsSomewhereSafe(move);
     for (var hop = 0; hop < animation.hops; hop++) {
       final last = hop == animation.hops - 1;
+      // The chime starts as the chip leaves the square before the safe one,
+      // so that square gets no step of its own.
+      if (safeEnd && hop == animation.hops - 2) continue;
       final (name, volume) = !last
           ? (Sound.step, 0.6)
           : move.isCapture
@@ -717,8 +743,15 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           : _landsSomewhereSafe(move)
           ? (Sound.safe, 0.8)
           : (Sound.step, 0.85);
+      // The safe-square chime covers the whole last hop, from the square
+      // before it, rather than following the step sounds once the chip is
+      // already down.
+      final at = name == Sound.safe
+          ? animation.landingAt(hop) -
+                Duration(milliseconds: animation.flightMillis)
+          : animation.landingAt(hop);
       _footsteps.add(
-        Timer(animation.landingAt(hop), () {
+        Timer(at, () {
           if (mounted) Sfx.instance.play(name, volume: volume);
         }),
       );

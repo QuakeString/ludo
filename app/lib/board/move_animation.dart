@@ -50,8 +50,8 @@ class MoveAnimation {
   final List<Pt> _waypoints;
 
   /// A hop's flight time, and the little squash as it lands.
-  static const hopMillis = 150;
-  static const landMillis = 90;
+  static const hopMillis = 125;
+  static const landMillis = 75;
 
   /// Coming out of the yard is one hop, but it crosses a corner of the board
   /// rather than stepping to the next square. At the ordinary 150ms it read as
@@ -70,13 +70,12 @@ class MoveAnimation {
 
   /// How long a captured chip takes per square of its walk home.
   ///
-  /// Slow enough to follow with your eyes: the whole point of walking it back
-  /// rather than snapping it to its yard is that you can see how much ground
-  /// was taken off you, and a blur does not show that. It has been too fast
-  /// twice; this is a deliberate trudge, about eight squares a second.
-  static const captureStepMillis = 105;
-  static const captureMinMillis = 800;
-  static const captureMaxMillis = 4200;
+  /// Still a walk you can follow, so you see how much ground was taken off
+  /// you, but brisk: about twenty squares a second. At eight a second
+  /// (105ms) players found the wait for a knocked-out chip too long.
+  static const captureStepMillis = 50;
+  static const captureMinMillis = 450;
+  static const captureMaxMillis = 2000;
 
   /// The whole retreat, sized to how far the chip has to come back.
   int get captureMillis {
