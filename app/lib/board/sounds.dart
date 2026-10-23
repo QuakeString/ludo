@@ -120,6 +120,9 @@ abstract final class Sound {
   static const home = 'chip_home';
   static const capture = 'capture';
   static const safe = 'safe';
+
+  /// Two of one side's chips linking into a pair.
+  static const pair = 'pair';
   static const victory = 'victory';
 
   /// Fireworks under the fanfare on the game-over screen. A second sound
@@ -128,5 +131,5 @@ abstract final class Sound {
   /// about it. Kept separate they can also be levelled against each other.
   static const crackers = 'crackers';
 
-  static const all = [die, step, home, capture, safe, victory, crackers];
+  static const all = [die, step, home, capture, safe, pair, victory, crackers];
 }

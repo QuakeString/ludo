@@ -741,15 +741,33 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       );
     }
     // A safe square answers once the chip is down: the ordinary landing
-    // step first, then the chime.
-    if (!move.isCapture &&
-        !_state.board.isFinished(move.toProgress) &&
-        _landsSomewhereSafe(move)) {
+    // step first, then the chime. Two chips linking into a pair do the same
+    // with the snap of a magnet.
+    final after = move.isCapture || _state.board.isFinished(move.toProgress)
+        ? null
+        : _landsSomewhereSafe(move)
+        ? Sound.safe
+        : _formsPair(move)
+        ? Sound.pair
+        : null;
+    if (after != null) {
       _footsteps.add(
         Timer(animation.landingAt(animation.hops - 1) + _safeChimeDelay, () {
-          if (mounted) Sfx.instance.play(Sound.safe, volume: 1.0);
+          if (mounted) Sfx.instance.play(after, volume: 1.0);
         }),
       );
+    }
+  }
+
+  /// Whether [move] leaves the moving chip linked to one it was not linked
+  /// to before: a chip set down on one of its own, off a safe square.
+  bool _formsPair(Move move) {
+    if (move.kind == MoveKind.advancePair) return false;
+    try {
+      final next = engine.apply(_state, PlayMove(move));
+      return next.tokens[move.tokenId].isPaired;
+    } on IllegalActionError {
+      return false;
     }
   }
 
