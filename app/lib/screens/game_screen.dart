@@ -842,17 +842,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final pairing = _pairings
         .where((p) => p.tokenA == pick.tokenId || p.tokenB == pick.tokenId)
         .firstOrNull;
-    if (pairing == null) {
+    // A pair only forms to move: on a roll a pair cannot use (an odd one),
+    // the tapped chip simply goes alone.
+    final both = pairing == null ? null : _pairMoveAfter(_state, pairing);
+    if (pairing == null || both == null) {
       _play(pick);
       return;
     }
     setState(
-      () => _choice = (
-        state: _state,
-        single: pick,
-        pairing: pairing,
-        both: _pairMoveAfter(_state, pairing),
-      ),
+      () =>
+          _choice = (state: _state, single: pick, pairing: pairing, both: both),
     );
   }
 
@@ -1298,7 +1297,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final at = chipLayout(_state, _geometry)[choice.single.tokenId];
     if (at == null) return const [];
     final cell = _geometry.cellSize * side;
-    const width = 232.0, height = 64.0;
+    const width = 270.0, height = 66.0;
     final chip = origin + Offset(at.x * side, at.y * side);
     // Under the chip, or over it near the bottom edge; never off the board.
     final below = chip.dy + cell + height < origin.dy + side;
@@ -1311,7 +1310,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _state.armOf(_state.tokens[choice.single.tokenId].owner),
       _state.board.arms,
     );
-    final scheme = Theme.of(context).colorScheme;
+    // Dark, with white lettering, so it stands off the light board rather
+    // than blending into it.
+    const bubble = Color(0xFF26272B);
+    final label = Theme.of(context).textTheme.labelLarge!
+        .copyWith(fontSize: 16, fontWeight: FontWeight.w700);
+    // A notch on the edge facing the chip, pointing at it, so it is plain
+    // which chip the choice is about.
+    const notch = 11.0;
     return [
       Positioned(
         left: left,
@@ -1319,8 +1325,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         width: width,
         height: height,
         child: Material(
-          color: scheme.surfaceContainerHigh,
-          elevation: 6,
+          color: bubble,
+          elevation: 10,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(8),
@@ -1330,7 +1336,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   child: OutlinedButton(
                     key: const ValueKey('pair-one'),
                     style: OutlinedButton.styleFrom(
-                      minimumSize: const Size.fromHeight(48),
+                      foregroundColor: Colors.white,
+                      side: const BorderSide(color: Colors.white70, width: 1.5),
+                      textStyle: label,
+                      minimumSize: const Size.fromHeight(50),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1346,22 +1355,31 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     style: FilledButton.styleFrom(
                       backgroundColor: colour,
                       foregroundColor: Colors.white,
-                      minimumSize: const Size.fromHeight(48),
+                      textStyle: label,
+                      minimumSize: const Size.fromHeight(50),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: _chooseBoth,
-                    icon: const Icon(Icons.link, size: 18),
-                    // A pair that cannot move on this roll can still be
-                    // linked, and then waits as a pair.
-                    label: Text(choice.both != null ? 'Move pair' : 'Link'),
+                    icon: const Icon(Icons.link, size: 20),
+                    label: const Text('Move pair'),
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+      // Over the bubble's edge, so its shadow does not cut across the notch.
+      Positioned(
+        left: chip.dx - notch,
+        top: below ? top - notch + 1 : top + height - 1,
+        width: notch * 2,
+        height: notch,
+        child: CustomPaint(
+          painter: _Notch(color: bubble, up: below),
         ),
       ),
     ];
@@ -2088,4 +2106,34 @@ class _ReactionBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The little triangle on the Move 1 / Move pair choice that points at the
+/// chip it is about.
+class _Notch extends CustomPainter {
+  const _Notch({required this.color, required this.up});
+
+  final Color color;
+
+  /// Pointing up, at a chip above the choice; otherwise down.
+  final bool up;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = up
+        ? (Path()
+            ..moveTo(0, size.height)
+            ..lineTo(size.width / 2, 0)
+            ..lineTo(size.width, size.height)
+            ..close())
+        : (Path()
+            ..moveTo(0, 0)
+            ..lineTo(size.width / 2, size.height)
+            ..lineTo(size.width, 0)
+            ..close());
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_Notch old) => old.color != color || old.up != up;
 }
