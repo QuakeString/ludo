@@ -681,18 +681,31 @@ class BoardPainter extends CustomPainter {
         for (final t in group)
           if (!pair.contains(t)) t,
       ];
-      // Anyone else on the square stands just behind the pair.
-      for (final t in others) {
+      if (others.isEmpty) {
+        _paintPair(canvas, at, width, pair, movable, cell);
+        return;
+      }
+      // Anyone else on the square stands beside the pair, in front of it,
+      // so a chip sharing the square is never hidden behind the two.
+      _paintPair(
+        canvas,
+        at - Offset(width * 0.17, 0),
+        width * 0.82,
+        pair,
+        movable,
+        cell,
+      );
+      for (var i = 0; i < others.length && i < 2; i++) {
         _chip(
           canvas,
-          at + Offset(0, -width * 0.18),
-          width * 0.8,
-          t,
+          at + Offset(width * (0.3 - 0.08 * i), width * 0.06 * i),
+          width * 0.74,
+          others[i],
           movable,
           cell,
+          badge: (others.length > 2 && i == 1) ? others.length : null,
         );
       }
-      _paintPair(canvas, at, width, pair, movable, cell);
       return;
     }
 
@@ -766,10 +779,10 @@ class BoardPainter extends CustomPainter {
     // Each chip's outline, grown and painted under both: where the chips
     // overlap the outlines merge into one border round the pair.
     for (final p in [left, right]) {
-      ChipArt.paintOutline(canvas, p, w, palette.chipEdge, 6.5);
+      ChipArt.paintOutline(canvas, p, w, palette.chipEdge, 3.5);
     }
     for (final p in [left, right]) {
-      ChipArt.paintOutline(canvas, p, w, Colors.white, 5);
+      ChipArt.paintOutline(canvas, p, w, Colors.white, 2.5);
     }
     _chip(canvas, left, w, pair[0], movable, cell);
     _chip(canvas, right, w, pair[1], movable, cell);

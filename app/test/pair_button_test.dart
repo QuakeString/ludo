@@ -138,15 +138,22 @@ void main() {
     await close(tester);
   });
 
-  test('a pair waits out an odd roll under the even-only rule', () {
-    // So the choice offers Link rather than Move pair on a 3.
-    final s = twoOnASafeSquare(3);
-    const engine = LudoEngine();
-    if (!s.rules.pairMoveEvenOnly) return;
-    final linked = engine.apply(s, const FormPair(0, 1));
-    expect(
-      engine.legalMoves(linked).where((m) => m.kind == MoveKind.advancePair),
-      isEmpty,
-    );
+  testWidgets('on a roll a pair cannot use, the tapped chip just moves', (
+    tester,
+  ) async {
+    // Two chips on a safe square and a 1: no pair can move on it, so there is
+    // nothing to choose and nothing to link. The tapped chip goes on alone.
+    final s = twoOnASafeSquare(1);
+    await open(tester, s);
+    await tapChip(tester, s, 0);
+    expect(find.byKey(const ValueKey('pair-both')), findsNothing);
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final after = shown(tester);
+    expect(after.tokens[0].progress, s.tokens[0].progress + 1);
+    expect(after.tokens[1].progress, s.tokens[1].progress);
+    expect(after.tokens.where((t) => t.isPaired), isEmpty);
+    await close(tester);
   });
 }

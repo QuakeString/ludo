@@ -731,8 +731,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _landsSomewhereSafe(move);
     for (var hop = 0; hop < animation.hops; hop++) {
       final last = hop == animation.hops - 1;
-      // The chime starts as the chip leaves the square before the safe one,
-      // so that square gets no step of its own.
+      // The square before a safe one gets no step of its own, so the chime is
+      // the next thing heard rather than one more step and then the chime.
       if (safeEnd && hop == animation.hops - 2) continue;
       final (name, volume) = !last
           ? (Sound.step, 0.6)
@@ -741,17 +741,12 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           : _state.board.isFinished(move.toProgress)
           ? (Sound.home, 0.9)
           : _landsSomewhereSafe(move)
-          ? (Sound.safe, 0.8)
+          ? (Sound.safe, 1.0)
           : (Sound.step, 0.85);
-      // The safe-square chime covers the whole last hop, from the square
-      // before it, rather than following the step sounds once the chip is
-      // already down.
-      final at = name == Sound.safe
-          ? animation.landingAt(hop) -
-                Duration(milliseconds: animation.flightMillis)
-          : animation.landingAt(hop);
+      // The chime rings as the chip touches down. Started a hop early it was
+      // a short ting that had faded by the time the chip sat on the square.
       _footsteps.add(
-        Timer(at, () {
+        Timer(animation.landingAt(hop), () {
           if (mounted) Sfx.instance.play(name, volume: volume);
         }),
       );
@@ -847,17 +842,16 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final pairing = _pairings
         .where((p) => p.tokenA == pick.tokenId || p.tokenB == pick.tokenId)
         .firstOrNull;
-    if (pairing == null) {
+    // A pair only forms to move: on a roll a pair cannot use (an odd one),
+    // the tapped chip simply goes alone.
+    final both = pairing == null ? null : _pairMoveAfter(_state, pairing);
+    if (pairing == null || both == null) {
       _play(pick);
       return;
     }
     setState(
-      () => _choice = (
-        state: _state,
-        single: pick,
-        pairing: pairing,
-        both: _pairMoveAfter(_state, pairing),
-      ),
+      () =>
+          _choice = (state: _state, single: pick, pairing: pairing, both: both),
     );
   }
 
@@ -1317,6 +1311,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _state.board.arms,
     );
     final scheme = Theme.of(context).colorScheme;
+    final bubble = scheme.surfaceContainerHigh;
+    // A notch on the edge facing the chip, pointing at it, so it is plain
+    // which chip the choice is about.
+    const notch = 11.0;
     return [
       Positioned(
         left: left,
@@ -1324,7 +1322,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         width: width,
         height: height,
         child: Material(
-          color: scheme.surfaceContainerHigh,
+          color: bubble,
           elevation: 6,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
@@ -1359,14 +1357,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     ),
                     onPressed: _chooseBoth,
                     icon: const Icon(Icons.link, size: 18),
-                    // A pair that cannot move on this roll can still be
-                    // linked, and then waits as a pair.
-                    label: Text(choice.both != null ? 'Move pair' : 'Link'),
+                    label: const Text('Move pair'),
                   ),
                 ),
               ],
             ),
           ),
+        ),
+      ),
+      // Over the choice's edge, so its shadow does not cut across the notch.
+      Positioned(
+        left: chip.dx - notch,
+        top: below ? top - notch + 1 : top + height - 1,
+        width: notch * 2,
+        height: notch,
+        child: CustomPaint(
+          painter: _Notch(color: bubble, up: below),
         ),
       ),
     ];
@@ -2093,4 +2099,34 @@ class _ReactionBubble extends StatelessWidget {
       ),
     );
   }
+}
+
+/// The little triangle on the Move 1 / Move pair choice that points at the
+/// chip it is about.
+class _Notch extends CustomPainter {
+  const _Notch({required this.color, required this.up});
+
+  final Color color;
+
+  /// Pointing up, at a chip above the choice; otherwise down.
+  final bool up;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final path = up
+        ? (Path()
+            ..moveTo(0, size.height)
+            ..lineTo(size.width / 2, 0)
+            ..lineTo(size.width, size.height)
+            ..close())
+        : (Path()
+            ..moveTo(0, 0)
+            ..lineTo(size.width / 2, size.height)
+            ..lineTo(size.width, 0)
+            ..close());
+    canvas.drawPath(path, Paint()..color = color);
+  }
+
+  @override
+  bool shouldRepaint(_Notch old) => old.color != color || old.up != up;
 }
