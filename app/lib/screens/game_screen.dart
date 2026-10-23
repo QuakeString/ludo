@@ -85,7 +85,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// to be long enough to read the number and no longer. When nothing follows,
   /// the number is the entire event — but players asked for the game to keep
   /// moving, so it only stays up for a glance before the die moves on.
-  static const _autoMoveMillis = dieRollMillis + 380;
+  static const _autoMoveMillis = dieRollMillis + 100;
   static const _deadRollMillis = dieRollMillis + 200;
 
   /// A tap on the die that arrived before the die was ready.
