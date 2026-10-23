@@ -47,6 +47,23 @@ class MoveAnimation {
   final GameState before;
   final BoardGeometry geometry;
 
+  /// Every chip this move sends back to its yard: the ones it lands on, and
+  /// a partner's chip it leaves alone beside an opponent, which that
+  /// opponent then takes. The engine says which; both walk home the same way.
+  late final List<int> sentHome = _sentHome();
+
+  List<int> _sentHome() {
+    try {
+      final after = const LudoEngine().apply(before, PlayMove(move));
+      return [
+        for (final t in before.tokens)
+          if (!t.inYard && after.tokens[t.id].inYard) t.id,
+      ];
+    } on IllegalActionError {
+      return move.capturedTokenIds;
+    }
+  }
+
   final List<Pt> _waypoints;
 
   /// A hop's flight time, and the little squash as it lands.
@@ -79,9 +96,9 @@ class MoveAnimation {
 
   /// The whole retreat, sized to how far the chip has to come back.
   int get captureMillis {
-    if (!move.isCapture) return 0;
+    if (sentHome.isEmpty) return 0;
     var longest = 0;
-    for (final id in move.capturedTokenIds) {
+    for (final id in sentHome) {
       final steps = _retreatPath(id).length;
       if (steps > longest) longest = steps;
     }
@@ -95,9 +112,7 @@ class MoveAnimation {
 
   /// Total run time, including the captured chip's flight home.
   Duration get duration => Duration(
-    milliseconds:
-        hops * (flightMillis + landMillis) +
-        (move.isCapture ? captureMillis : 0),
+    milliseconds: hops * (flightMillis + landMillis) + captureMillis,
   );
 
   /// Every square the chip passes through, start to finish.
@@ -241,7 +256,7 @@ class MoveAnimation {
 
   /// A captured chip's walk back to its yard.
   ChipMotion? capturedAt(double t, int tokenId) {
-    if (!move.isCapture || !move.capturedTokenIds.contains(tokenId)) {
+    if (!sentHome.contains(tokenId)) {
       return null;
     }
     final travelMillis = hops * (flightMillis + landMillis);

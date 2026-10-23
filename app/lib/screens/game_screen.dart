@@ -729,7 +729,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final last = hop == animation.hops - 1;
       final (name, volume) = !last
           ? (Sound.step, 0.6)
-          : move.isCapture
+          : animation.sentHome.isNotEmpty
           ? (Sound.capture, 1.0)
           : _state.board.isFinished(move.toProgress)
           ? (Sound.home, 0.9)
@@ -743,7 +743,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // A safe square answers once the chip is down: the ordinary landing
     // step first, then the chime. Two chips linking into a pair do the same
     // with the snap of a magnet.
-    final after = move.isCapture || _state.board.isFinished(move.toProgress)
+    final after =
+        animation.sentHome.isNotEmpty ||
+            _state.board.isFinished(move.toProgress)
         ? null
         : _landsSomewhereSafe(move)
         ? Sound.safe
@@ -961,8 +963,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final t = _mover.value;
     return {
       for (final id in animation.move.tokenIds) id: animation.moverAt(t),
-      for (final id in animation.move.capturedTokenIds)
-        id: ?animation.capturedAt(t, id),
+      for (final id in animation.sentHome) id: ?animation.capturedAt(t, id),
     };
   }
 
