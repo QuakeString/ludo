@@ -725,33 +725,37 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   void _scheduleMoveSounds(MoveAnimation animation) {
     _silence();
     final move = animation.move;
-    final safeEnd =
-        !move.isCapture &&
-        !_state.board.isFinished(move.toProgress) &&
-        _landsSomewhereSafe(move);
     for (var hop = 0; hop < animation.hops; hop++) {
       final last = hop == animation.hops - 1;
-      // The square before a safe one gets no step of its own, so the chime is
-      // the next thing heard rather than one more step and then the chime.
-      if (safeEnd && hop == animation.hops - 2) continue;
       final (name, volume) = !last
           ? (Sound.step, 0.6)
           : move.isCapture
           ? (Sound.capture, 1.0)
           : _state.board.isFinished(move.toProgress)
           ? (Sound.home, 0.9)
-          : _landsSomewhereSafe(move)
-          ? (Sound.safe, 1.0)
           : (Sound.step, 0.85);
-      // The chime rings as the chip touches down. Started a hop early it was
-      // a short ting that had faded by the time the chip sat on the square.
       _footsteps.add(
         Timer(animation.landingAt(hop), () {
           if (mounted) Sfx.instance.play(name, volume: volume);
         }),
       );
     }
+    // A safe square answers once the chip is down: the ordinary landing
+    // step first, then the chime.
+    if (!move.isCapture &&
+        !_state.board.isFinished(move.toProgress) &&
+        _landsSomewhereSafe(move)) {
+      _footsteps.add(
+        Timer(animation.landingAt(animation.hops - 1) + _safeChimeDelay, () {
+          if (mounted) Sfx.instance.play(Sound.safe, volume: 1.0);
+        }),
+      );
+    }
   }
+
+  /// How long after the landing step the safe chime follows: about the
+  /// length of the step sound, so the two are heard one after the other.
+  static const _safeChimeDelay = Duration(milliseconds: 130);
 
   /// If a computer sits at the seat on turn, play it — with a beat first, so a
   /// person can see what happened rather than watching chips teleport.
