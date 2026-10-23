@@ -50,8 +50,8 @@ class MoveAnimation {
   final List<Pt> _waypoints;
 
   /// A hop's flight time, and the little squash as it lands.
-  static const hopMillis = 150;
-  static const landMillis = 90;
+  static const hopMillis = 125;
+  static const landMillis = 75;
 
   /// Coming out of the yard is one hop, but it crosses a corner of the board
   /// rather than stepping to the next square. At the ordinary 150ms it read as
