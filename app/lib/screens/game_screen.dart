@@ -431,11 +431,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       return;
     }
     _ahead = null;
-    if (_busy) {
-      _queued.add(update); // finish the current move first
-      return;
-    }
+    // In the order they came, and only once the move on the board has
+    // finished: a position taken out of turn sends the board back in time.
+    _queued.add(update);
+    _drain();
+  }
 
+  /// Takes queued positions until one starts a move playing.
+  void _drain() {
+    while (mounted && !_busy && _queued.isNotEmpty) {
+      _take(_queued.removeAt(0));
+    }
+  }
+
+  void _take(MatchUpdate update) {
     final move = update.lastMove;
     final playable =
         move != null &&
@@ -650,8 +659,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _pendingState = null;
       });
       if (_queued.isNotEmpty) {
-        final next = _queued.removeAt(0);
-        _serverSaid(next);
+        _drain();
       } else {
         _autoAdvance();
       }
