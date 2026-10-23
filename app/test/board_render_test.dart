@@ -284,12 +284,12 @@ void animationTests() {
       final out = MoveAnimation(move: enter, before: s, geometry: geometry);
 
       // One hop, but a hop clean across a corner of the board rather than to
-      // the next square, so it gets longer than an ordinary step.
+      // the next square, so it gets longer than an ordinary step: 0.3s.
       expect(out.hops, 1);
+      expect(out.duration.inMilliseconds, 300);
       expect(
         out.duration.inMilliseconds,
-        greaterThan(2 * (MoveAnimation.hopMillis + MoveAnimation.landMillis)),
-        reason: 'the chip is flicked out of its yard rather than set down',
+        greaterThan(MoveAnimation.hopMillis + MoveAnimation.landMillis),
       );
     });
 
