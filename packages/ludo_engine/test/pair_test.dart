@@ -321,6 +321,20 @@ void main() {
       expect(next.captures[0], 2);
     });
 
+    test('a pair lands beside a single chip without taking it', () {
+      var s = GameState.newGame(paired);
+      final theirs = progressForRing(s, 1, 10);
+      final mine = progressForRing(s, 0, 8);
+      s = situation(paired,
+          at: {0: mine, 1: mine, 4: theirs}, pairs: {0: 0, 1: 0}, dice: 4);
+      final move = engine.legalMoves(s).single;
+      expect(move.kind, MoveKind.advancePair);
+      expect(move.isCapture, isFalse);
+      final next = engine.apply(s, PlayMove(move));
+      expect(next.tokens[4].progress, theirs);
+      expect(next.tokens[0].progress, mine + 2);
+    });
+
     test('with pairCapture never, even a pair cannot take a pair', () {
       final rules = paired.copyWith(pairCapture: PairCapture.never);
       var s = GameState.newGame(rules);

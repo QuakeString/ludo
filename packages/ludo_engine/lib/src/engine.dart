@@ -322,6 +322,9 @@ class LudoEngine {
     final victims = <int>[];
     for (final group in sides.values) {
       final stack = group.length >= 2 || group.any((t) => t.isPaired);
+      // A pair takes pairs, not lone chips: it lands beside a single chip and
+      // leaves it standing.
+      if (moverIsPair && !stack) continue;
       if (stack) {
         final takes = switch (rules.pairCapture) {
           PairCapture.never => false,
