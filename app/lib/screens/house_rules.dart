@@ -17,6 +17,8 @@ List<String> ruleLines(RuleConfig r) => [
   if (r.isTeamGame)
     'Teams: ${[for (final t in r.teams!) t.map((s) => 'seat ${s + 1}').join(' & ')].join(' against ')}. '
         'A side wins when all its chips are home.',
+  if (r.isTeamGame && r.partnersShareChips)
+    'Partners can move each other\'s chips on their turn.',
   r.entryRoll == 0
       ? 'Any number brings a chip out of the base.'
       : 'Only a ${r.entryRoll} brings a chip out of the base.',
@@ -113,6 +115,7 @@ int changesFromClassic(RuleConfig r, {bool online = false}) {
     r.exactHomeEntry != c.exactHomeEntry,
     r.mustCaptureToWin != c.mustCaptureToWin,
     r.pairMove != c.pairMove,
+    r.isTeamGame && r.partnersShareChips != c.partnersShareChips,
     if (online) r.turnTimerDots * r.secondsPerDot != 30,
   ].where((changed) => changed).length;
 }
@@ -276,6 +279,14 @@ class RulesEditor extends StatelessWidget {
             r.pairMove,
             (v) => r.copyWith(pairMove: v),
           ),
+          if (r.isTeamGame)
+            toggle(
+              'share',
+              'Move partner\'s chips',
+              'On your turn, move your own chips or your partner\'s',
+              r.partnersShareChips,
+              (v) => r.copyWith(partnersShareChips: v),
+            ),
           if (online)
             choice<int>(
               'timer',

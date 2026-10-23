@@ -42,6 +42,39 @@ void main() {
     expect(house.join(' '), contains('60 seconds'));
   });
 
+  testWidgets('sharing chips with a partner is offered only to teams', (
+    tester,
+  ) async {
+    Future<void> show(RuleConfig r) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SingleChildScrollView(
+              child: RulesEditor(rules: r, onChanged: (_) {}),
+            ),
+          ),
+        ),
+      );
+      await tester.tap(find.byKey(const ValueKey('custom-rules')));
+      await tester.pumpAndSettle();
+    }
+
+    await show(const RuleConfig());
+    expect(find.byKey(const ValueKey('rule-share')), findsNothing);
+
+    const teams = RuleConfig(
+      teams: [
+        [0, 2],
+        [1, 3],
+      ],
+      partnersShareChips: true,
+    );
+    await show(teams);
+    expect(find.byKey(const ValueKey('rule-share')), findsOneWidget);
+    expect(changesFromClassic(teams), 1);
+    expect(ruleLines(teams).join(' '), contains("each other's chips"));
+  });
+
   testWidgets('pass & play starts with the rules that were picked', (
     tester,
   ) async {

@@ -200,8 +200,15 @@ class GameState {
   }
 
   /// Seats whose tokens this player may move on their turn. Normally just
-  /// themselves; a player who is home keeps rolling for a partner.
+  /// themselves; a player who is home keeps rolling for a partner, and with
+  /// [RuleConfig.partnersShareChips] partners move each other's chips always.
   List<int> movableOwners(int player) {
+    if (rules.isTeamGame && rules.partnersShareChips) {
+      return [
+        for (final p in [player, ...rules.partnersOf(player)])
+          if (!hasFinished(p)) p
+      ];
+    }
     if (!hasFinished(player)) return [player];
     if (!rules.isTeamGame || !rules.finishedPlayerMovesPartner) return const [];
     return [
