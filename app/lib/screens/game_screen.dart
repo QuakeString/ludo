@@ -15,6 +15,7 @@ import '../board/sounds.dart';
 import '../board/seat_panel.dart';
 import '../board/turning_ring.dart';
 import '../fresh_seed.dart';
+import '../keep_awake.dart';
 import '../match_history.dart';
 import '../saved_game.dart';
 import '../settings.dart';
@@ -169,6 +170,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
+    KeepAwake.set(true);
     final session = _session;
     final saved = session == null ? widget.resumeFrom : null;
     final online = session?.state;
@@ -215,6 +217,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // The others may play on after you are home, and nobody waits for that
     // before leaving. A game you finished still goes into recent matches.
     if (!_celebrated && _youFinished) _recordResult();
+    KeepAwake.set(false);
     _scheduled?.cancel();
     _thinking?.cancel();
     _silence();
