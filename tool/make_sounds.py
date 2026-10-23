@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Synthesises the game's sound effects.
 
-Five of the seven. The dice roll and the chip landing both come out of a
+Six of the eight. The dice roll and the chip landing both come out of a
 recording — see prepare_dice.py — because they have to sound like the same die
 on the same table, and a synthesised tap beside a recorded throw was audibly a
 different material in a different room.
 
-Committed as a script rather than five opaque .wav files: a sound you cannot
+Committed as a script rather than six opaque .wav files: a sound you cannot
 regenerate is a sound nobody can adjust. Run it from the repository root.
 
     python3 tool/make_sounds.py
@@ -204,6 +204,50 @@ def safe():
         for i in range(n - 1, d - 1, -1):
             buf[i] += tail[i - d] * gain
     return buf
+
+
+# --- two chips becoming a pair -----------------------------------------------
+def pair():
+    """A magnet: a quick slide up that snaps shut on a warm, low thunk.
+
+    Played just after the landing step when a chip joins one of its own and
+    the two link. The snap carries the chip's own tap, taken from
+    chip_step.wav, so the pair closes on the same plastic as every other move.
+    """
+    step = read_wav(OUT / "chip_step.wav")
+    n = int(0.45 * SR)
+    buf = [0.0] * n
+
+    # The pull: a sine sliding up, quicker towards the end, fading as it goes.
+    slide, phase = int(0.16 * SR), 0.0
+    for i in range(slide):
+        f = 300 + 900 * (i / slide) ** 1.6
+        phase += 2 * math.pi * f / SR
+        buf[i] += (
+            0.22 * math.sin(phase) * min(1, i / (0.01 * SR)) * (1 - i / slide) ** 0.3
+        )
+
+    # The snap: the chip's tap over a low body.
+    at = int(0.15 * SR)
+    for ratio, level in ((1, 1.0), (2, 0.25)):
+        w = 2 * math.pi * 160 * ratio / SR
+        for i in range(n - at):
+            env = min(1, i / (0.002 * SR)) * math.exp(-i / SR * 14 * ratio**0.5)
+            buf[at + i] += 0.5 * level * math.sin(w * i) * env
+    mix(buf, step, 0.15, 0.8)
+
+    tail = one_pole_lp(buf, 3000)
+    for delay, gain in ((0.041, 0.12), (0.077, 0.084), (0.127, 0.054)):
+        d = int(delay * SR)
+        for i in range(n - 1, d - 1, -1):
+            buf[i] += tail[i - d] * gain
+    return buf
+
+
+def read_wav(path):
+    with wave.open(str(path)) as w:
+        data = w.readframes(w.getnframes())
+    return [v / 32768 for v in struct.unpack(f"<{len(data) // 2}h", data)]
 
 
 # --- a capture ---------------------------------------------------------------
@@ -436,3 +480,4 @@ if __name__ == "__main__":
     write("crackers.wav", crackers())
     write("capture.wav", capture())
     write("safe.wav", safe(), peak=0.8, fade=0.06)
+    write("pair.wav", pair(), peak=0.85, fade=0.05)

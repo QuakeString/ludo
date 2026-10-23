@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ludo_app/board/board_painter.dart';
 import 'package:ludo_app/board/chip_layout.dart';
+import 'package:ludo_app/board/sounds.dart';
 import 'package:ludo_app/saved_game.dart';
 import 'package:ludo_app/screens/game_screen.dart';
 import 'package:ludo_engine/ludo_engine.dart';
@@ -154,6 +155,37 @@ void main() {
     expect(after.tokens[0].progress, s.tokens[0].progress + 1);
     expect(after.tokens[1].progress, s.tokens[1].progress);
     expect(after.tokens.where((t) => t.isPaired), isEmpty);
+    await close(tester);
+  });
+
+  testWidgets('a chip joining one of its own snaps into a pair, with a sound', (
+    tester,
+  ) async {
+    const rules = RuleConfig(players: 2, tokensPerPlayer: 2, pairMove: true);
+    var s = GameState.newGame(rules, seed: 5);
+    bool safeAt(int p) =>
+        s.safeRingSquares.contains(s.board.ringIndex(s.armOf(0), p));
+    // Two chips two squares apart, the farther one off any safe square.
+    final from = [
+      for (var p = 2; p < 40; p++)
+        if (!safeAt(p) && !safeAt(p + 2)) p,
+    ].first;
+    final tokens = [...s.tokens];
+    tokens[0] = tokens[0].copyWith(progress: from);
+    tokens[1] = tokens[1].copyWith(progress: from + 2);
+    s = s.copyWith(tokens: tokens, turn: 0, dice: 2);
+
+    final heard = <String>[];
+    Sfx.spy = heard.add;
+    addTearDown(() => Sfx.spy = null);
+
+    await open(tester, s);
+    await tapChip(tester, s, 0);
+    for (var i = 0; i < 20; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    expect(shown(tester).tokens[0].isPaired, isTrue);
+    expect(heard, contains(Sound.pair));
     await close(tester);
   });
 }
