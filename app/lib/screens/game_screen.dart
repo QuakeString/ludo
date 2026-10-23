@@ -431,11 +431,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       return;
     }
     _ahead = null;
-    if (_busy) {
-      _queued.add(update); // finish the current move first
-      return;
-    }
+    // In the order they came, and only once the move on the board has
+    // finished: a position taken out of turn sends the board back in time.
+    _queued.add(update);
+    _drain();
+  }
 
+  /// Takes queued positions until one starts a move playing.
+  void _drain() {
+    while (mounted && !_busy && _queued.isNotEmpty) {
+      _take(_queued.removeAt(0));
+    }
+  }
+
+  void _take(MatchUpdate update) {
     final move = update.lastMove;
     final playable =
         move != null &&
@@ -650,8 +659,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         _pendingState = null;
       });
       if (_queued.isNotEmpty) {
-        final next = _queued.removeAt(0);
-        _serverSaid(next);
+        _drain();
       } else {
         _autoAdvance();
       }
@@ -729,7 +737,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       final last = hop == animation.hops - 1;
       final (name, volume) = !last
           ? (Sound.step, 0.6)
-          : move.isCapture
+          : animation.sentHome.isNotEmpty
           ? (Sound.capture, 1.0)
           : _state.board.isFinished(move.toProgress)
           ? (Sound.home, 0.9)
@@ -743,7 +751,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // A safe square answers once the chip is down: the ordinary landing
     // step first, then the chime. Two chips linking into a pair do the same
     // with the snap of a magnet.
-    final after = move.isCapture || _state.board.isFinished(move.toProgress)
+    final after =
+        animation.sentHome.isNotEmpty ||
+            _state.board.isFinished(move.toProgress)
         ? null
         : _landsSomewhereSafe(move)
         ? Sound.safe
@@ -961,8 +971,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final t = _mover.value;
     return {
       for (final id in animation.move.tokenIds) id: animation.moverAt(t),
-      for (final id in animation.move.capturedTokenIds)
-        id: ?animation.capturedAt(t, id),
+      for (final id in animation.sentHome) id: ?animation.capturedAt(t, id),
     };
   }
 
