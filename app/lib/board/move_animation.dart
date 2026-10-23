@@ -71,9 +71,9 @@ class MoveAnimation {
   static const landMillis = 75;
 
   /// Coming out of the yard is one hop, but it crosses a corner of the board
-  /// rather than stepping to the next square. At the ordinary 150ms it read as
-  /// the chip being flicked out rather than set down.
-  static const enterHopMillis = 430;
+  /// rather than stepping to the next square, so it gets a little longer than
+  /// an ordinary hop. With the landing it comes to 0.3s.
+  static const enterHopMillis = 225;
 
   /// How long this move's hops take. Every hop within a move is the same
   /// length; only leaving the yard differs, and that move is a single hop.
