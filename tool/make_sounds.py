@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Synthesises the game's sound effects.
 
-Four of the six. The dice roll and the chip landing both come out of a
+Five of the seven. The dice roll and the chip landing both come out of a
 recording — see prepare_dice.py — because they have to sound like the same die
 on the same table, and a synthesised tap beside a recorded throw was audibly a
 different material in a different room.
 
-Committed as a script rather than four opaque .wav files: a sound you cannot
+Committed as a script rather than five opaque .wav files: a sound you cannot
 regenerate is a sound nobody can adjust. Run it from the repository root.
 
     python3 tool/make_sounds.py
@@ -169,6 +169,40 @@ def chip_home():
         tremolo = 0.5 + 0.5 * math.sin(2 * math.pi * 17 * t)
         buf[i] += spark[i] * tremolo * 0.16 * math.exp(-t * 5.5)
 
+    return buf
+
+
+# --- landing somewhere safe --------------------------------------------------
+def safe():
+    """Two soft notes rising a major third, G5 then B5, with a short room.
+
+    It plays just after the chip's ordinary landing step, so it carries no tap
+    of its own: the chip is set down like on any square, then the square
+    answers that it is safe. Soft attacks and a slight detune keep it warm
+    rather than an alert.
+    """
+    n = int(0.62 * SR)
+    buf = [0.0] * n
+
+    def note(freq, amp, decay, at):
+        start = int(at * SR)
+        for ratio, level in ((1, 1.0), (2, 0.35), (3, 0.12)):
+            for sharp in (0.002, -0.002):
+                w = 2 * math.pi * freq * ratio * (1 + sharp) / SR
+                for i in range(n - start):
+                    env = min(1, i / (0.004 * SR)) * math.exp(
+                        -i / SR * decay * ratio**0.5
+                    )
+                    buf[start + i] += amp * level / 2 * math.sin(w * i) * env
+
+    note(783.99, 0.32, 7.0, 0.0)
+    note(987.77, 0.30, 6.0, 0.09)
+
+    tail = one_pole_lp(buf, 3000)
+    for delay, gain in ((0.043, 0.18), (0.079, 0.13), (0.131, 0.08)):
+        d = int(delay * SR)
+        for i in range(n - 1, d - 1, -1):
+            buf[i] += tail[i - d] * gain
     return buf
 
 
@@ -401,3 +435,4 @@ if __name__ == "__main__":
     write("victory.wav", victory())
     write("crackers.wav", crackers())
     write("capture.wav", capture())
+    write("safe.wav", safe(), peak=0.8, fade=0.06)
