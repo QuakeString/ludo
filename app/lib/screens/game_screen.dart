@@ -1297,7 +1297,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final at = chipLayout(_state, _geometry)[choice.single.tokenId];
     if (at == null) return const [];
     final cell = _geometry.cellSize * side;
-    const width = 270.0, height = 66.0;
+    const width = 232.0, height = 64.0;
     final chip = origin + Offset(at.x * side, at.y * side);
     // Under the chip, or over it near the bottom edge; never off the board.
     final below = chip.dy + cell + height < origin.dy + side;
@@ -1310,11 +1310,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       _state.armOf(_state.tokens[choice.single.tokenId].owner),
       _state.board.arms,
     );
-    // Dark, with white lettering, so it stands off the light board rather
-    // than blending into it.
-    const bubble = Color(0xFF26272B);
-    final label = Theme.of(context).textTheme.labelLarge!
-        .copyWith(fontSize: 16, fontWeight: FontWeight.w700);
+    final scheme = Theme.of(context).colorScheme;
+    final bubble = scheme.surfaceContainerHigh;
     // A notch on the edge facing the chip, pointing at it, so it is plain
     // which chip the choice is about.
     const notch = 11.0;
@@ -1326,7 +1323,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         height: height,
         child: Material(
           color: bubble,
-          elevation: 10,
+          elevation: 6,
           borderRadius: BorderRadius.circular(16),
           child: Padding(
             padding: const EdgeInsets.all(8),
@@ -1336,10 +1333,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   child: OutlinedButton(
                     key: const ValueKey('pair-one'),
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.white,
-                      side: const BorderSide(color: Colors.white70, width: 1.5),
-                      textStyle: label,
-                      minimumSize: const Size.fromHeight(50),
+                      minimumSize: const Size.fromHeight(48),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
@@ -1355,15 +1349,14 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                     style: FilledButton.styleFrom(
                       backgroundColor: colour,
                       foregroundColor: Colors.white,
-                      textStyle: label,
-                      minimumSize: const Size.fromHeight(50),
+                      minimumSize: const Size.fromHeight(48),
                       padding: const EdgeInsets.symmetric(horizontal: 8),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
                     onPressed: _chooseBoth,
-                    icon: const Icon(Icons.link, size: 20),
+                    icon: const Icon(Icons.link, size: 18),
                     label: const Text('Move pair'),
                   ),
                 ),
@@ -1372,7 +1365,7 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ),
         ),
       ),
-      // Over the bubble's edge, so its shadow does not cut across the notch.
+      // Over the choice's edge, so its shadow does not cut across the notch.
       Positioned(
         left: chip.dx - notch,
         top: below ? top - notch + 1 : top + height - 1,
