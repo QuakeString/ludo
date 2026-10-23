@@ -69,6 +69,15 @@ void main() {
       expect(next.tokens[0].pairId, next.tokens[8].pairId);
     });
 
+    test('two of a partner\'s chips are not yours to link', () {
+      const teamed = RuleConfig(players: 4, pairMove: true, teams: [
+        [0, 2],
+        [1, 3]
+      ]);
+      final s = situation(teamed, at: {8: 10, 9: 10}, dice: 3);
+      expect(engine.pairActions(s), isEmpty);
+    });
+
     test('an opponent\'s token can never join your pair', () {
       var s = GameState.newGame(paired);
       final mine = progressForRing(s, 0, 8);

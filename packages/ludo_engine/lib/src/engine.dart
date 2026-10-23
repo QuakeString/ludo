@@ -122,6 +122,9 @@ class LudoEngine {
           final a = group[i], b = group[j];
           if (a.owner != b.owner && !rules.pairAcrossPartners) continue;
           if (a.owner != b.owner && !rules.sameSide(a.owner, b.owner)) continue;
+          // One of the two must be yours: two of your partner's chips are
+          // theirs to link, not yours.
+          if (!owners.contains(a.owner) && !owners.contains(b.owner)) continue;
           out.add(FormPair(a.id, b.id));
         }
       }

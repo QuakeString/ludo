@@ -512,8 +512,10 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     if (!_myMove || _state.awaitingRoll) return false;
     final moves = _legalMoves;
     if (!_nothingToChoose(moves)) return false;
-    // Linking a pair is a choice too, so the turn waits.
-    if (_pairings.isNotEmpty) return false;
+    // Linking a pair is a choice too, so the turn waits, but only when the
+    // linked pair could then move on this roll. A link that leaves nothing to
+    // play (an odd roll) is no choice, and waiting on it stalls the turn.
+    if (_pairings.any((p) => _linkMoves(p))) return false;
 
     // A single move needs no caption: the chip walking says it.
     if (moves.isEmpty) {
@@ -1250,6 +1252,11 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// Pairs this device may link right now. Only on a safe square: anywhere
   /// else chips link by themselves, and a pair comes apart by itself when it
   /// reaches safety, so there is never anything to split by hand.
+  /// Whether linking [p] would give the pair a move with the current roll.
+  bool _linkMoves(FormPair p) => engine
+      .legalMoves(engine.apply(_state, p))
+      .any((m) => m.kind == MoveKind.advancePair);
+
   List<FormPair> get _pairings => _myMove && !_busy
       ? engine.pairActions(_state).whereType<FormPair>().toList()
       : const <FormPair>[];
