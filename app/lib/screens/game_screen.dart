@@ -871,6 +871,20 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // where it stands: one chip, or both together. Nothing to hit by
     // accident sits on the board while the player is only aiming at a chip.
     final pick = best;
+    // A linked pair with a lone chip beside it, and both able to go: which
+    // one is the player's call, not whichever chip the tap landed nearest.
+    final shared = _pairAndSingle(moves, pick);
+    if (shared != null) {
+      setState(
+        () => _choice = (
+          state: _state,
+          single: shared.single,
+          pairing: null,
+          both: shared.pair,
+        ),
+      );
+      return;
+    }
     final pairing = _pairings
         .where((p) => p.tokenA == pick.tokenId || p.tokenB == pick.tokenId)
         .firstOrNull;
@@ -885,6 +899,39 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       () =>
           _choice = (state: _state, single: pick, pairing: pairing, both: both),
     );
+  }
+
+  /// A pair's move and a lone chip's move from the square [pick] stands on,
+  /// when both are legal; null when only one of them can go.
+  ({Move pair, Move single})? _pairAndSingle(List<Move> moves, Move pick) {
+    final at = _state.tokens[pick.tokenId];
+    if (at.inYard) return null;
+    final pair = moves
+        .where(
+          (m) =>
+              m.kind == MoveKind.advancePair &&
+              _sameSquare(_state.tokens[m.tokenId], at),
+        )
+        .firstOrNull;
+    if (pair == null) return null;
+    final singles = moves.where(
+      (m) =>
+          m.kind == MoveKind.advance &&
+          !pair.tokenIds.contains(m.tokenId) &&
+          _sameSquare(_state.tokens[m.tokenId], at),
+    );
+    final single = singles.contains(pick) ? pick : singles.firstOrNull;
+    return single == null ? null : (pair: pair, single: single);
+  }
+
+  /// Whether two chips stand on one square. A partner's chip there has a
+  /// different progress, counted from its own start.
+  bool _sameSquare(Token a, Token b) {
+    if (a.owner == b.owner) return a.progress == b.progress;
+    final board = _state.board;
+    final ra = board.ringIndex(_state.armOf(a.owner), a.progress);
+    return ra != null &&
+        ra == board.ringIndex(_state.armOf(b.owner), b.progress);
   }
 
   /// The move a pair would make if these two linked now, or null when the
@@ -909,7 +956,8 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
   /// The choice open over a chip that could move alone or as a pair, and
   /// the position it was asked about: a choice for an older position is
   /// stale and closes by itself.
-  ({GameState state, Move single, FormPair pairing, Move? both})? _choice;
+  /// [pairing] is null when the pair is already linked.
+  ({GameState state, Move single, FormPair? pairing, Move? both})? _choice;
 
   /// Online, the pair move waiting for the server to confirm the link.
   FormPair? _moveAfterLink;
@@ -925,17 +973,22 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     final choice = _choice;
     if (choice == null) return;
     setState(() => _choice = null);
-    final session = _session;
-    if (session != null) {
-      session.formPair(choice.pairing.tokenA, choice.pairing.tokenB);
-      // Moved once the server has linked them; asking for both at once
-      // would race the link.
-      if (choice.both != null) _moveAfterLink = choice.pairing;
+    final pairing = choice.pairing;
+    if (pairing == null) {
+      _play(choice.both!);
       return;
     }
-    _apply(choice.pairing);
+    final session = _session;
+    if (session != null) {
+      session.formPair(pairing.tokenA, pairing.tokenB);
+      // Moved once the server has linked them; asking for both at once
+      // would race the link.
+      if (choice.both != null) _moveAfterLink = pairing;
+      return;
+    }
+    _apply(pairing);
     if (choice.both != null) {
-      _moveAfterLink = choice.pairing;
+      _moveAfterLink = pairing;
       _moveLinkedPair();
     } else {
       _autoAdvance();
@@ -1665,7 +1718,6 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
                   // player's seat, and a seat being covered for — all of them mean
                   // the same thing to these buttons: wait.
                   isComputerTurn: !_myMove && !_state.isOver,
-                  onPass: () => session == null ? _passLocal() : session.pass(),
                 ),
                 // Room kept for the chat bar, which itself is laid over
                 // the screen below so the keyboard can lift it without the
@@ -1987,23 +2039,20 @@ class _Controls extends StatelessWidget {
     required this.moves,
     required this.busy,
     required this.isComputerTurn,
-    required this.onPass,
   });
 
   final GameState state;
   final List<Move> moves;
   final bool busy;
   final bool isComputerTurn;
-  final VoidCallback onPass;
 
   @override
   Widget build(BuildContext context) {
     final palette = BoardPalette.of(context);
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 4, 16, 14),
-      // Fixed, for the same reason as the seat rows: this bar swaps a line of
-      // text for a Pass button as the turn goes on, and a button is taller
-      // than a line of text.
+      // Fixed, for the same reason as the seat rows: the line of text comes
+      // and goes as the turn goes on, and the board must not shift with it.
       child: SizedBox(
         height: 40,
         child: Row(
@@ -2026,9 +2075,8 @@ class _Controls extends StatelessWidget {
                 'Tap the die to roll',
                 style: TextStyle(fontSize: 12.5, color: palette.faint),
               )
-            else if (moves.isEmpty)
-              OutlinedButton(onPressed: onPass, child: const Text('Pass')),
-            // With moves to make, the spinning rings already say "tap a chip".
+            // A dead roll passes by itself, and with moves to make the
+            // spinning rings already say "tap a chip".
           ],
         ),
       ),

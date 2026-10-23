@@ -188,4 +188,54 @@ void main() {
     expect(heard, contains(Sound.pair));
     await close(tester);
   });
+
+  GameState pairWithOneBeside(int dice) {
+    const rules = RuleConfig(players: 2, tokensPerPlayer: 3, pairMove: true);
+    var s = GameState.newGame(rules, seed: 5);
+    // A plain square, where a pair stays linked.
+    final plain = [
+      for (var p = 2; p < 40; p++)
+        if (!s.safeRingSquares.contains(s.board.ringIndex(s.armOf(0), p))) p,
+    ].first;
+    final tokens = [...s.tokens];
+    tokens[0] = tokens[0].copyWith(progress: plain, pairId: 0);
+    tokens[1] = tokens[1].copyWith(progress: plain, pairId: 0);
+    tokens[2] = tokens[2].copyWith(progress: plain);
+    return s.copyWith(tokens: tokens, turn: 0, dice: dice);
+  }
+
+  for (final tapped in [0, 2]) {
+    testWidgets('a pair and a lone chip on one square ask which goes '
+        '(tapping $tapped)', (tester) async {
+      final s = pairWithOneBeside(4);
+      await open(tester, s);
+      await tapChip(tester, s, tapped);
+      expect(find.byKey(const ValueKey('pair-both')), findsOneWidget);
+      await tester.tap(find.byKey(const ValueKey('pair-one')));
+      for (var i = 0; i < 30; i++) {
+        await tester.pump(const Duration(milliseconds: 100));
+      }
+      final after = shown(tester);
+      expect(after.tokens[2].progress, s.tokens[2].progress + 4);
+      expect(after.tokens[0].progress, s.tokens[0].progress);
+      await close(tester);
+    });
+  }
+
+  testWidgets('Move pair moves the linked pair, not the lone chip', (
+    tester,
+  ) async {
+    final s = pairWithOneBeside(4);
+    await open(tester, s);
+    await tapChip(tester, s, 2);
+    await tester.tap(find.byKey(const ValueKey('pair-both')));
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final after = shown(tester);
+    expect(after.tokens[0].progress, s.tokens[0].progress + 2);
+    expect(after.tokens[1].progress, s.tokens[1].progress + 2);
+    expect(after.tokens[2].progress, s.tokens[2].progress);
+    await close(tester);
+  });
 }
