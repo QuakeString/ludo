@@ -1501,8 +1501,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
           ),
           if (session == null)
             IconButton(
+              key: const ValueKey('game-reset'),
               tooltip: 'New game',
-              onPressed: _startFreshGame,
+              onPressed: _confirmFreshGame,
               icon: const Icon(Icons.refresh),
             ),
         ],
@@ -1811,6 +1812,30 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
       },
       child: stage,
     );
+  }
+
+  /// Asks before throwing away the game on the board.
+  Future<void> _confirmFreshGame() async {
+    final sure = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Start a new game?'),
+        content: const Text('This game will be lost.'),
+        actions: [
+          TextButton(
+            key: const ValueKey('reset-cancel'),
+            onPressed: () => Navigator.of(context).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            key: const ValueKey('reset-go'),
+            onPressed: () => Navigator.of(context).pop(true),
+            child: const Text('New game'),
+          ),
+        ],
+      ),
+    );
+    if ((sure ?? false) && mounted) _startFreshGame();
   }
 
   Future<bool> _confirmLeave() async {
