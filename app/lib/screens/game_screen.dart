@@ -212,6 +212,9 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    // The others may play on after you are home, and nobody waits for that
+    // before leaving. A game you finished still goes into recent matches.
+    if (!_celebrated && _youFinished) _recordResult();
     _scheduled?.cancel();
     _thinking?.cancel();
     _silence();
@@ -281,6 +284,19 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
         SavedGame(state: _state, aiSeats: widget.aiSeats, elapsed: _elapsed),
       );
     }
+  }
+
+  /// Whether a player at this device has brought every chip home.
+  bool get _youFinished {
+    final session = _session;
+    if (session != null) {
+      final me = session.yourSeat;
+      return me != null && me >= 0 && _state.hasFinished(me);
+    }
+    return [
+      for (var s = 0; s < _state.rules.players; s++)
+        if (!_isComputer(s)) s,
+    ].any(_state.hasFinished);
   }
 
   /// Puts the finished game into this device's recent matches, so its stats

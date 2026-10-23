@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ludo_app/match_history.dart';
+import 'package:ludo_app/saved_game.dart';
 import 'package:ludo_app/screens/game_over.dart';
 import 'package:ludo_app/screens/game_screen.dart';
 import 'package:ludo_app/screens/history_screen.dart';
@@ -103,6 +104,38 @@ void main() {
     await closeGame(tester);
   });
 
+  testWidgets('leaving after you finished still lands in recent matches', (
+    tester,
+  ) async {
+    // Three seats: you are home, the computers play on, and you leave.
+    const three = RuleConfig(players: 3, tokensPerPlayer: 1);
+    final start = GameState.newGame(three, seed: 2);
+    final tokens = [...start.tokens];
+    tokens[0] = tokens[0].copyWith(progress: start.board.finalProgress);
+    tokens[1] = tokens[1].copyWith(progress: 5);
+    tokens[2] = tokens[2].copyWith(progress: 7);
+    final s = start.copyWith(tokens: tokens, turn: 1);
+    expect(s.isOver, isFalse);
+
+    await tester.pumpWidget(
+      MaterialApp(
+        home: GameScreen.resumed(
+          SavedGame(
+            state: s,
+            aiSeats: const {1: AiLevel.normal, 2: AiLevel.normal},
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await closeGame(tester);
+    await tester.runAsync(() => Future<void>.delayed(Duration.zero));
+
+    final kept = await tester.runAsync(MatchHistoryStore.load);
+    expect(kept, hasLength(1));
+    expect(kept!.single.state.hasFinished(0), isTrue);
+  });
+
   testWidgets('recent matches lists them and opens their stats', (
     tester,
   ) async {
@@ -141,6 +174,9 @@ void main() {
     expect(whenPlayed(DateTime(2026, 10, 21, 14, 5), now), 'Today, 14:05');
     expect(whenPlayed(DateTime(2026, 10, 20, 9, 30), now), 'Yesterday, 09:30');
     expect(whenPlayed(DateTime(2026, 10, 3, 18, 12), now), '3 Oct, 18:12');
-    expect(whenPlayed(DateTime(2025, 12, 31, 23, 59), now), '31 Dec 2025, 23:59');
+    expect(
+      whenPlayed(DateTime(2025, 12, 31, 23, 59), now),
+      '31 Dec 2025, 23:59',
+    );
   });
 }
