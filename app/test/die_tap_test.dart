@@ -123,6 +123,57 @@ void main() {
     await closeGame(tester);
   });
 
+  testWidgets('a double tap on a six does not throw the bonus die', (
+    tester,
+  ) async {
+    // A six with a full yard needs no choice: a chip hops out by itself and
+    // the same player throws again. The second tap of a double tap used to be
+    // kept and spent on that bonus throw, so the die rolled again with nobody
+    // touching it.
+    const rules = RuleConfig(players: 2, tokensPerPlayer: 4);
+    var seed = 1;
+    while (const LudoEngine()
+            .apply(GameState.newGame(rules, seed: seed), const RollDice())
+            .dice !=
+        6) {
+      seed++;
+    }
+    await tester.pumpWidget(
+      MaterialApp(home: GameScreen(rules: rules, seed: seed)),
+    );
+    await tester.pump();
+
+    await tester.tap(find.byKey(rollDieKey).first);
+    await tester.pump(const Duration(milliseconds: 60));
+    final first = boardState(tester);
+    expect(first.dice, 6);
+
+    // Again, straight away, while the six is still tumbling.
+    await tester.tap(find.byKey(rollDieKey).first);
+
+    // Let the chip hop out and the bonus throw come round.
+    var next = first;
+    for (var i = 0; i < 60 && !next.awaitingRoll; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+      next = boardState(tester);
+    }
+    expect(next.awaitingRoll, isTrue);
+    expect(next.turn, first.turn);
+
+    // Long past any window the second tap could have had.
+    for (var i = 0; i < 40; i++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+    final later = boardState(tester);
+    expect(
+      later.awaitingRoll,
+      isTrue,
+      reason: 'the bonus die rolled without anyone touching it',
+    );
+    expect(later.turn, first.turn);
+    await closeGame(tester);
+  });
+
   testWidgets('a press that drifts a little still rolls', (tester) async {
     await open(tester);
 
