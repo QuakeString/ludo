@@ -496,7 +496,13 @@ class _GameScreenState extends State<GameScreen> with TickerProviderStateMixin {
     // Not ready is not the same as not wanted. Remember it and spend it the
     // moment the board is free.
     if (_busy || !_state.awaitingRoll || _state.isOver) {
-      if (!_state.isOver) {
+      // Only a tap made while a chip is walking is kept. A tap while the die
+      // is still tumbling, or while its number waits for a chip to be picked,
+      // is a second tap on the throw already made, not a wish for the next
+      // one. Kept, it threw the bonus die after a six all by itself: a double
+      // tap on a six with a full yard, the chip hops out, and the die rolls
+      // again with nobody touching it.
+      if (_busy && !_state.isOver) {
         _wantsRoll = (at: DateTime.now(), seat: _state.turn);
       }
       return;
